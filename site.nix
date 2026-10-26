@@ -696,6 +696,9 @@ in {
         };
       };
       multi-scrobbler = mkAppOption {
+        # the Koito client alone: the full check fails whenever any upstream
+        # scrobbling service is down
+        health.path = "/api/health?type=koito";
         name = "Multi-Scrobbler";
         homepage = "https://foxxmd.github.io/multi-scrobbler";
         description = "scrobble collector";
