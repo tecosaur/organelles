@@ -2,9 +2,12 @@
 
 {
   nixpkgs.hostPlatform = "x86_64-linux";
+  imports = [ ./postgresql-upgrade.nix ];
+
   system.stateVersion = "26.05";
   # Postgres state is per major version; move it with upgrade-pg-cluster
   services.postgresql.package = pkgs.postgresql_16;
+  services.postgresql.upgradeTo = pkgs.postgresql_18;
 
   boot = {
     initrd = {
