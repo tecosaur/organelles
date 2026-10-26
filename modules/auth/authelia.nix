@@ -117,7 +117,7 @@ in {
         user = "uid=${config.services.lldap.settings.ldap_user_dn},ou=people,${config.services.lldap.settings.ldap_base_dn}";
       };
       storage.postgres = {
-        address = "unix:///run/postgresql";
+        address = with config; "unix://${services.postgresql-ha.socket-dir}/.s.PGSQL.${toString site.postgresql-ha.port}";
         database = authelia-user;
         username = authelia-user;
       };
@@ -153,15 +153,7 @@ in {
     };
   };
 
-  services.postgresql = {
-    enable = true;
-    ensureDatabases = [ authelia-user ];
-    ensureUsers = [
-      { name = authelia-user;
-        ensureDBOwnership = true;
-      }
-    ];
-  };
+  services.postgresql-ha.databases = [ authelia-user ];
 
   services.redis.servers.authelia-main = {
     enable = true;
@@ -173,7 +165,7 @@ in {
 
   systemd.services."authelia-main" = let
     dependencies = [
-      "postgresql.service"
+      "postgresql-ha-setup.service"
       "lldap.service"
     ];
   in {

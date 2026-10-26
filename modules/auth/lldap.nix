@@ -34,26 +34,18 @@ in {
       ldap_user_pass_file = config.age.secrets.lldap-admin-password.path;
       jwt_secret_file = config.age.secrets.lldap-jwt.path;
       force_ldap_user_pass_reset = "always";
-      database_url = "postgresql://${lldap-user}@localhost/${lldap-user}?host=/run/postgresql";
+      database_url = with config; "postgresql://${lldap-user}@localhost:${toString site.postgresql-ha.port}/${lldap-user}?host=${services.postgresql-ha.socket-dir}";
     };
     environment = {
       LLDAP_KEY_SEED_FILE = config.age.secrets.lldap-key-seed.path;
     };
   };
 
-  services.postgresql = {
-    enable = true;
-    ensureDatabases = [ lldap-user ];
-    ensureUsers = [
-      { name = lldap-user;
-        ensureDBOwnership = true;
-      }
-    ];
-  };
+  services.postgresql-ha.databases = [ lldap-user ];
 
   systemd.services.lldap = let
     dependencies = [
-      "postgresql.service"
+      "postgresql-ha-setup.service"
     ];
   in {
     after = dependencies;
