@@ -1,39 +1,10 @@
-{ config, lib, pkgs, modulesPath, ... }:
+{ config, pkgs, modulesPath, ... }:
 
 {
   nixpkgs.hostPlatform = "x86_64-linux";
   system.stateVersion = "26.05";
   # Postgres state is per major version; move it with upgrade-pg-cluster
-  services.postgresql.package = pkgs.postgresql_14;
-  # The NixOS manual's upgrade-pg-cluster, run once as root to move the
-  # cluster to Postgres 18 before the pin follows. The new cluster takes the
-  # old one's locale, encoding and checksum setting, which pg_upgrade
-  # requires to match; Postgres 18 would otherwise enable checksums.
-  environment.systemPackages = [
-    (let
-      cfg = config.services.postgresql;
-      newPostgres = pkgs.postgresql_18;
-    in pkgs.writeShellScriptBin "upgrade-pg-cluster" ''
-      set -eux
-      OLDDATA="${cfg.dataDir}" OLDBIN="${cfg.finalPackage}/bin"
-      NEWDATA="/var/lib/postgresql/${newPostgres.psqlSchema}" NEWBIN="${newPostgres}/bin"
-      template=$(runuser -u postgres -- "$OLDBIN/psql" -tA -F ' ' -c \
-        "select datcollate, datctype, pg_encoding_to_char(encoding) from pg_database where datname = 'template1'")
-      read -r collate ctype encoding <<< "$template"
-      systemctl stop postgresql
-      checksums=--data-checksums
-      if runuser -u postgres -- "$OLDBIN/pg_controldata" "$OLDDATA" | grep -q 'checksum version: *0$'; then
-        checksums=--no-data-checksums
-      fi
-      install -d -m 0700 -o postgres -g postgres "$NEWDATA"
-      cd "$NEWDATA"
-      runuser -u postgres -- "$NEWBIN/initdb" -D "$NEWDATA" --encoding="$encoding" \
-        --lc-collate="$collate" --lc-ctype="$ctype" "$checksums" ${lib.escapeShellArgs cfg.initdbArgs}
-      runuser -u postgres -- "$NEWBIN/pg_upgrade" \
-        --old-datadir "$OLDDATA" --new-datadir "$NEWDATA" \
-        --old-bindir "$OLDBIN" --new-bindir "$NEWBIN" "$@"
-    '')
-  ];
+  services.postgresql.package = pkgs.postgresql_18;
 
   boot = {
     initrd = {
