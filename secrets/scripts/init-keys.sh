@@ -28,6 +28,7 @@ readonly service_keys=(
     "trek-encryption:rand"
     "multi-scrobbler-jellyfin:rand"
     "multi-scrobbler-koito:rand"
+    "postgresql-ha-replication:rand"
 )
 
 function usage() {

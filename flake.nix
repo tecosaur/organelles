@@ -26,6 +26,7 @@
         beszel-agent
         caddy
         dns-pooler
+        postgresql-ha
         site-config
         system
         tailscale
@@ -134,6 +135,7 @@
       };
       site-setup = {
         domain = "tecosaur.net";
+        postgresql-ha.primary = "golgi";
         dns = {
           records = let
             mail = name: [

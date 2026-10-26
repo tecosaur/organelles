@@ -60,6 +60,7 @@ in
   "keys/lldap-key-seed.age".publicKeys = all;
   "keys/multi-scrobbler-jellyfin.age".publicKeys = all;
   "keys/multi-scrobbler-koito.age".publicKeys = all;
+  "keys/postgresql-ha-replication.age".publicKeys = all;
   "keys/wg-golgi.age".publicKeys = gbase;
   "keys/wg-nucleus.age".publicKeys = nbase;
 }
