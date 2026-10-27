@@ -1,93 +1,30 @@
 { config, lib, pkgs, ... }:
 
-# A second Postgres instance holding the state that must outlive any one
-# host, replicated over the mesh beside each host's local cluster. One host,
-# site.ha.primary, takes writes; every other member streams from
-# it as a hot standby through its own replication slot, cloning itself from
-# the primary when its data directory is empty. Failover is manual: promote
-# a standby, then name it primary.
+# A replicated Postgres beside each host's local cluster (HA.md §8)
 
 let
   cfg = config.services.ha.postgres;
-  inherit (config.site.ha) primary members;
+  inherit (config.site.ha) primary members preference voters ports;
   this-host = config.site.server.host;
-  is-primary = this-host == primary;
-  standbys = lib.remove primary members;
   package = pkgs.postgresql_18;
-  port = config.site.ha.ports.postgres;
   data-dir = "/var/lib/postgresql-ha/${package.psqlSchema}";
-  socket-dir = cfg.socket-dir;
-  # a slot name allows only lower-case letters, digits and underscores
-  slot = host: lib.replaceStrings [ "-" ] [ "_" ] host;
-  # replication connects with the agenix password; a wildcard pgpass entry
-  # spares escaping the colons of an IPv6 host
-  pgpass = "${socket-dir}/pgpass";
-  write-pgpass = ''
-    install -m 0600 /dev/null ${pgpass}
-    printf '*:*:*:replicator:%s\n' "$(cat "$CREDENTIALS_DIRECTORY/replication")" > ${pgpass}
-  '';
-  conf = pkgs.writeText "postgresql-ha.conf" ''
-    listen_addresses = '*'
-    port = ${toString port}
-    unix_socket_directories = '${socket-dir}'
-    shared_buffers = '32MB'
-    wal_level = replica
-    max_wal_senders = 10
-    max_replication_slots = 10
-    # a standby gone for good may hold back this much WAL, no more
-    max_slot_wal_keep_size = '2GB'
-    hot_standby = on
-    primary_conninfo = 'host=${primary}.internal port=${toString port} user=replicator passfile=${pgpass} application_name=${slot this-host}'
-    primary_slot_name = '${slot this-host}'
-    log_destination = 'stderr'
-    log_line_prefix = '%m [%p] '
-  '';
-  hba = pkgs.writeText "pg_hba.conf" ''
-    local all all peer
-    host replication replicator ${config.site.mesh.subnet}/64 scram-sha-256
-  '';
+  address = host: "[${config.site.mesh.addresses.${host}}]";
   setup-sql = pkgs.writeText "postgresql-ha-setup.sql" (''
     \set ON_ERROR_STOP on
     SELECT 'CREATE ROLE replicator WITH REPLICATION LOGIN'
       WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'replicator') \gexec
     \set password `cat "$CREDENTIALS_DIRECTORY/replication"`
     ALTER ROLE replicator PASSWORD :'password';
-  '' + lib.concatMapStrings (host: ''
-    DO $$ BEGIN
-      IF NOT EXISTS (SELECT FROM pg_replication_slots WHERE slot_name = '${slot host}') THEN
-        PERFORM pg_create_physical_replication_slot('${slot host}');
-      END IF;
-    END $$;
-  '') standbys + lib.concatMapStrings (db: ''
+  '' + lib.concatMapStrings (db: ''
     SELECT 'CREATE ROLE "${db}" LOGIN'
       WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '${db}') \gexec
     SELECT 'CREATE DATABASE "${db}" OWNER "${db}"'
       WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '${db}') \gexec
-  '') cfg.databases);
-  primary-prepare = ''
-    if [ ! -e ${data-dir}/PG_VERSION ]; then
-      initdb -D ${data-dir} --encoding=UTF8 --locale=C.UTF-8
-    fi
+  '') (lib.attrNames cfg.databases));
+  psql = "${package}/bin/psql -h ${cfg.socket-dir} -p ${toString ports.postgres} -d postgres";
+  leads = pkgs.writeShellScript "postgresql-ha-leads" ''
+    ${pkgs.curl}/bin/curl -sf -o /dev/null --max-time 3 http://${address this-host}:${toString ports.patroni}/primary
   '';
-  # An empty standby clones the primary, beside its data directory until
-  # complete, so an interrupted clone never looks like data. Data without
-  # standby.signal was a primary's: starting it could make a second
-  # primary, so the standby refuses until it is moved aside.
-  standby-prepare = ''
-    if [ ! -e ${data-dir}/PG_VERSION ]; then
-      rm -rf ${data-dir}.clone
-      PGPASSFILE=${pgpass} pg_basebackup -h ${primary}.internal -p ${toString port} \
-        -U replicator -D ${data-dir}.clone -X stream -S ${slot this-host}
-      touch ${data-dir}.clone/standby.signal
-      rmdir ${data-dir}
-      mv ${data-dir}.clone ${data-dir}
-    elif [ ! -e ${data-dir}/standby.signal ]; then
-      echo "${data-dir} holds a primary's data, and ${primary} is primary;" \
-        "move it aside to clone afresh once ${primary} is confirmed" >&2
-      exit ${toString refused}
-    fi
-  '';
-  refused = 3;
 in {
   options.services.ha.postgres = {
     socket-dir = lib.mkOption {
@@ -97,22 +34,24 @@ in {
       description = "Directory of the replicated Postgres's socket, through which services connect by peer authentication";
     };
     databases = lib.mkOption {
-      type = lib.types.listOf lib.types.str;
-      default = [ ];
+      type = lib.types.attrsOf lib.types.str;
+      default = { };
+      example = { lldap = "lldap"; };
       description = ''
-        Databases the primary ensures, each owned by a login role of the same
-        name that connects over the socket by peer authentication, so the
-        service using it runs as a system user of that name.
+        Databases, each mapped to the service using it. A database is owned
+        by a role of its name that connects over the socket by peer
+        authentication, so its service runs as a system user of that name,
+        and only while this host's instance leads.
       '';
     };
   };
 
-  config = lib.mkIf (primary != null && lib.elem this-host members) {
+  config = lib.mkIf (primary != null && lib.elem this-host members) (lib.mkMerge [ {
     site.status.units = [ {
       id = "postgresql-ha";
-      name = if is-primary then "Postgres primary" else "Postgres replica";
-      unit = "postgresql-ha.service";
-      command = [ "${package}/bin/pg_isready" "--quiet" "--host=${socket-dir}" "--port=${toString port}" ];
+      name = "Replicated Postgres";
+      unit = "patroni.service";
+      command = [ "${package}/bin/pg_isready" "--quiet" "--host=${cfg.socket-dir}" "--port=${toString ports.postgres}" ];
     } ];
 
     age.secrets.postgresql-ha-replication = {
@@ -130,52 +69,144 @@ in {
       groups.postgres.gid = config.ids.gids.postgres;
     };
 
-    networking.firewall.interfaces.wg0.allowedTCPPorts = [ port ];
+    networking.firewall.interfaces.wg0.allowedTCPPorts = [ ports.postgres ports.patroni ];
 
-    systemd.services.postgresql-ha = {
-      description = "Replicated PostgreSQL (${if is-primary then "primary" else "standby of ${primary}"})";
-      wantedBy = [ "multi-user.target" ];
-      wants = [ "network-online.target" ];
-      after = [ "network-online.target" "systemd-networkd.service" ];
-      # a standby whose primary is unreachable keeps retrying its clone
-      unitConfig.StartLimitIntervalSec = 0;
-      path = [ package ];
-      preStart = write-pgpass + (if is-primary then primary-prepare else standby-prepare);
-      serviceConfig = {
-        Type = "notify";
-        User = "postgres";
-        Group = "postgres";
-        RuntimeDirectory = "postgresql-ha";
-        RuntimeDirectoryMode = "0755";
-        StateDirectory = "postgresql-ha postgresql-ha/${package.psqlSchema}";
-        StateDirectoryMode = "0700";
-        LoadCredential = [ "replication:${config.age.secrets.postgresql-ha-replication.path}" ];
-        ExecStart = "${package}/bin/postgres -D ${data-dir} -c config_file=${conf} -c hba_file=${hba}";
-        ExecReload = "${pkgs.coreutils}/bin/kill -HUP $MAINPID";
-        KillSignal = "SIGINT";
-        KillMode = "mixed";
-        TimeoutSec = 120;
-        # a clone runs before the server starts, and grows with the data
-        TimeoutStartSec = "30min";
-        Restart = "on-failure";
-        RestartSec = "30s";
-        RestartPreventExitStatus = [ refused ];
+    systemd.tmpfiles.settings."10-postgresql-ha" = {
+      "/var/lib/patroni".d = { user = "postgres"; group = "postgres"; mode = "0700"; };
+      "/var/lib/postgresql-ha".d = { user = "postgres"; group = "postgres"; mode = "0700"; };
+    } // lib.optionalAttrs config.services.patroni.softwareWatchdog {
+      # the module's udev rule misses a watchdog that already exists
+      "/dev/watchdog".z = { user = "postgres"; group = "postgres"; mode = "0600"; };
+    };
+
+    services.patroni = {
+      enable = true;
+      user = "postgres";
+      group = "postgres";
+      scope = "ha";
+      name = this-host;
+      nodeIp = address this-host;
+      postgresqlPackage = package;
+      postgresqlDataDir = data-dir;
+      postgresqlPort = ports.postgres;
+      restApiPort = ports.patroni;
+      softwareWatchdog = lib.elem this-host preference;
+      settings = {
+        etcd3.hosts = map (host: "${address host}:${toString ports.etcd}") voters;
+        # only read once; later changes go through `patronictl edit-config`
+        bootstrap.dcs = {
+          ttl = 60;
+          loop_wait = 10;
+          retry_timeout = 20;
+          synchronous_mode = "quorum";
+          synchronous_node_count = 1;
+          synchronous_mode_strict = false;
+          failsafe_mode = true;
+          postgresql = {
+            use_pg_rewind = false;
+            use_slots = true;
+            parameters = {
+              wal_level = "replica";
+              hot_standby = "on";
+              max_wal_senders = 10;
+              max_replication_slots = 10;
+              max_slot_wal_keep_size = "2GB";
+            };
+          };
+        };
+        postgresql = {
+          listen = lib.mkForce "*:${toString ports.postgres}";
+          use_unix_socket = true;
+          remove_data_directory_on_diverged_timelines = true;
+          remove_data_directory_on_rewind_failure = true;
+          authentication = {
+            superuser.username = "postgres";
+            replication.username = "replicator";
+            rewind.username = "replicator";
+          };
+          pg_hba = [
+            "local all all peer"
+            "host replication replicator ${config.site.mesh.subnet}/64 scram-sha-256"
+            "host postgres replicator ${config.site.mesh.subnet}/64 scram-sha-256"
+          ];
+          parameters = {
+            unix_socket_directories = cfg.socket-dir;
+            shared_buffers = "32MB";
+          };
+        };
+        tags = if lib.elem this-host preference
+          then { failover_priority = lib.length preference - lib.lists.findFirstIndex (h: h == this-host) 0 preference; }
+          else { nofailover = true; };
       };
     };
 
-    systemd.services.postgresql-ha-setup = lib.mkIf is-primary {
-      description = "Roles, slots and databases of the replicated PostgreSQL";
-      wantedBy = [ "postgresql-ha.service" ];
-      after = [ "postgresql-ha.service" ];
-      requires = [ "postgresql-ha.service" ];
+    systemd.services.patroni = let
+      config-file = config.environment.sessionVariables.PATRONICTL_CONFIG_FILE;
+      secret = config.age.secrets.postgresql-ha-replication.path;
+    in {
+      wants = [ "network-online.target" ];
+      after = [ "network-online.target" "systemd-networkd.service" ];
+      # restarting the leader would fail over; a reload rereads the path
+      # Patroni started with, so that is the stable /etc one
+      reloadIfChanged = true;
+      restartTriggers = [ config.environment.etc.${lib.removePrefix "/etc/" config-file}.source ];
+      script = lib.mkForce ''
+        export PATRONI_REPLICATION_PASSWORD="$(< ${secret})" PATRONI_REWIND_PASSWORD="$(< ${secret})"
+        exec ${lib.getExe pkgs.patroni} ${config-file}
+      '';
+      serviceConfig = {
+        RuntimeDirectory = "postgresql-ha";
+        RuntimeDirectoryMode = "0755";
+        RuntimeDirectoryPreserve = true;
+        MemorySwapMax = 0;
+      };
+    };
+
+    systemd.targets.postgresql-ha-primary.description = "This host's replicated Postgres leads";
+
+    systemd.services.postgresql-ha-role = {
+      description = "Start or stop what needs the replicated PostgreSQL to lead here";
+      wantedBy = [ "multi-user.target" ];
+      after = [ "patroni.service" ];
+      path = [ config.systemd.package ];
+      # stops only after 30 s of misses, outlasting blips and adoption
+      script = ''
+        misses=0
+        while :; do
+          if ${leads}; then
+            misses=0
+            systemctl start --no-block postgresql-ha-primary.target
+          elif [ $((++misses)) -ge 6 ]; then
+            systemctl stop --no-block postgresql-ha-primary.target
+          fi
+          sleep 5
+        done
+      '';
+      serviceConfig.Restart = "always";
+    };
+
+    systemd.services.postgresql-ha-setup = {
+      description = "Roles and databases of the replicated PostgreSQL";
+      wantedBy = [ "postgresql-ha-primary.target" ];
+      partOf = [ "postgresql-ha-primary.target" ];
+      after = [ "patroni.service" ];
+      script = "${psql} -f ${setup-sql}";
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;
         User = "postgres";
         Group = "postgres";
         LoadCredential = [ "replication:${config.age.secrets.postgresql-ha-replication.path}" ];
-        ExecStart = "${package}/bin/psql -h ${socket-dir} -p ${toString port} -d postgres -f ${setup-sql}";
+        # skipped, not failed, where a deploy restarts it off the leader
+        ExecCondition = leads;
       };
     };
-  };
+  } {
+    systemd.services = lib.mapAttrs' (_: service: lib.nameValuePair service {
+      wantedBy = lib.mkForce [ "postgresql-ha-primary.target" ];
+      partOf = [ "postgresql-ha-primary.target" ];
+      requires = [ "postgresql-ha-setup.service" ];
+      after = [ "postgresql-ha-setup.service" ];
+    }) cfg.databases;
+  } ]);
 }

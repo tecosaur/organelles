@@ -41,16 +41,7 @@ in {
     };
   };
 
-  services.ha.postgres.databases = [ lldap-user ];
-
-  systemd.services.lldap = let
-    dependencies = [
-      "postgresql-ha-setup.service"
-    ];
-  in {
-    after = dependencies;
-    requires = dependencies;
-  };
+  services.ha.postgres.databases.${lldap-user} = "lldap";
 
   users.users.${lldap-user} = {
     group = lldap-user;

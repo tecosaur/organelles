@@ -153,7 +153,7 @@ in {
     };
   };
 
-  services.ha.postgres.databases = [ authelia-user ];
+  services.ha.postgres.databases.${authelia-user} = "authelia-main";
 
   services.redis.servers.authelia-main = {
     enable = true;
@@ -163,14 +163,9 @@ in {
     unixSocketPerm = 600;
   };
 
-  systemd.services."authelia-main" = let
-    dependencies = [
-      "postgresql-ha-setup.service"
-      "lldap.service"
-    ];
-  in {
-    after = dependencies;
-    requires = dependencies;
+  systemd.services."authelia-main" = {
+    after = [ "lldap.service" ];
+    requires = [ "lldap.service" ];
   };
 
   users.users.${authelia-user} = {

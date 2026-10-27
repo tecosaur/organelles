@@ -59,6 +59,11 @@ in {
         default = 2380;
         description = "Port etcd's voters reach each other on";
       };
+      patroni = lib.mkOption {
+        type = lib.types.port;
+        default = 8008;
+        description = "Port of Patroni's REST API, whose /primary answers 200 only on the leader";
+      };
     };
   };
 }

@@ -21,7 +21,7 @@ in {
   config = lib.mkIf is-primary {
     site.apps.gatus.enabled = true;
 
-    services.ha.postgres.databases = [ "gatus" ];
+    services.ha.postgres.databases.gatus = "gatus";
 
     services.gatus = {
       enable = true;
@@ -84,8 +84,6 @@ in {
     };
 
     systemd.services.gatus = {
-      requires = [ "postgresql-ha-setup.service" ];
-      after = [ "postgresql-ha-setup.service" ];
       # the configuration is read through a link that never moves
       environment.GATUS_CONFIG_PATH = lib.mkForce status.config-dir;
       restartTriggers = [ config.services.gatus.configFile ];
