@@ -4,6 +4,12 @@ let
   auth-domain = "${config.site.apps.authelia.subdomain}.${config.site.domain}";
   authelia-port = config.site.apps.authelia.port;
   authelia-user = "authelia";
+  # for the status page's anonymous probes; a path of / is the app itself
+  health-rules = lib.concatMap (app: lib.optional (app.health != null && lib.elem app.health.path [ null "/" ] == false) {
+    domain = "${app.subdomain}.${config.site.domain}";
+    resources = [ "^${lib.escapeRegex app.health.path}$" ];
+    policy = "bypass";
+  }) (lib.filter (app: app.enabled) (lib.attrValues config.site.apps));
   assets-no-symlinks = pkgs.runCommand "autheleia-assets" {} ''
     mkdir -p $out
     cp -rL ${config.site.assets}/authelia/* $out
@@ -78,11 +84,14 @@ in {
       };
       access_control = {
         default_policy = "deny";
-        rules = lib.mkAfter [
-          {
-            domain = "*.${config.site.domain}";
-            policy = "one_factor";
-          }
+        rules = lib.mkMerge [
+          (lib.mkBefore health-rules)
+          (lib.mkAfter [
+            {
+              domain = "*.${config.site.domain}";
+              policy = "one_factor";
+            }
+          ])
         ];
       };
       password_policy.standard = {
