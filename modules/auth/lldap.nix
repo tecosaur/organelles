@@ -1,4 +1,4 @@
-{ config, lib, ... }:
+{ config, lib, pkgs, ... }:
 
 let
   lldap-user = "lldap";
@@ -42,6 +42,11 @@ in {
   };
 
   services.ha.postgres.databases.${lldap-user} = "lldap";
+
+  # LLDAP counts as started before it listens, so Authelia's startup check could beat it
+  systemd.services.lldap.serviceConfig.ExecStartPost = pkgs.writeShellScript "lldap-listening" ''
+    until (: </dev/tcp/localhost/${toString config.services.lldap.settings.ldap_port}) 2>/dev/null; do sleep 0.5; done
+  '';
 
   users.users.${lldap-user} = {
     group = lldap-user;
