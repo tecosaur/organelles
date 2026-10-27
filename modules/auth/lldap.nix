@@ -32,11 +32,11 @@ in {
       ldap_user_dn = "admin";
       ldap_user_email = "lldap-admin@${config.site.domain}";
       ldap_user_pass_file = config.age.secrets.lldap-admin-password.path;
-      jwt_secret_file = config.age.secrets.lldap-jwt.path;
       force_ldap_user_pass_reset = "always";
       database_url = with config; "postgresql://${lldap-user}@localhost:${toString site.ha.ports.postgres}/${lldap-user}?host=${services.ha.postgres.socket-dir}";
     };
     environment = {
+      LLDAP_JWT_SECRET_FILE = config.age.secrets.lldap-jwt.path;
       LLDAP_KEY_SEED_FILE = config.age.secrets.lldap-key-seed.path;
     };
   };
