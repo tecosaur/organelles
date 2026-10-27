@@ -66,6 +66,7 @@ in
   "keys/postgresql-ha-replication.age".publicKeys = all;
   "keys/status-alert-topic.age".publicKeys = all;
   "keys/trek-encryption.age".publicKeys = all;
+  "keys/valkey-ha.age".publicKeys = all;
   "keys/wg-centrosome.age".publicKeys = [ base centrosome ];
   "keys/wg-golgi.age".publicKeys = [ base golgi ];
   "keys/wg-nucleus.age".publicKeys = [ base nucleus ];

@@ -4,7 +4,7 @@ let
   inherit (config.site) hosts;
   ha = config.site.ha;
 in {
-  imports = [ ./etcd.nix ./postgres.nix ];
+  imports = [ ./etcd.nix ./postgres.nix ./valkey.nix ];
 
   options.site.ha = {
     voters = lib.mkOption {
@@ -63,6 +63,16 @@ in {
         type = lib.types.port;
         default = 8008;
         description = "Port of Patroni's REST API, whose /primary answers 200 only on the leader";
+      };
+      valkey = lib.mkOption {
+        type = lib.types.port;
+        default = 6380;
+        description = "Port of the replicated Valkey";
+      };
+      sentinel = lib.mkOption {
+        type = lib.types.port;
+        default = 26379;
+        description = "Port Sentinel serves on, to its peers and to clients finding the Valkey master";
       };
     };
   };

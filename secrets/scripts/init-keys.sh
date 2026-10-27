@@ -31,6 +31,7 @@ readonly service_keys=(
     "multi-scrobbler-koito:rand"
     "postgresql-ha-replication:rand"
     "status-alert-topic:rand"
+    "valkey-ha:rand"
 )
 
 function usage() {
