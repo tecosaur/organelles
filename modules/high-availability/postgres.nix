@@ -1,6 +1,6 @@
 { config, lib, pkgs, ... }:
 
-# A replicated Postgres beside each host's local cluster (HA.md §8)
+# A replicated Postgres beside each host's local cluster
 
 let
   cfg = config.services.ha.postgres;
@@ -20,13 +20,22 @@ let
       WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '${db}') \gexec
     SELECT 'CREATE DATABASE "${db}" OWNER "${db}"'
       WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '${db}') \gexec
-  '') (lib.attrNames cfg.databases));
+    ALTER ROLE "${db}" ${if lib.elem db cfg.local-commits then "SET synchronous_commit = local" else "RESET synchronous_commit"};
+  '') cfg.databases);
   psql = "${package}/bin/psql -h ${cfg.socket-dir} -p ${toString ports.postgres} -d postgres";
+  patroni-api = "http://${address this-host}:${toString ports.patroni}";
   leads = pkgs.writeShellScript "postgresql-ha-leads" ''
-    ${pkgs.curl}/bin/curl -sf -o /dev/null --max-time 3 http://${address this-host}:${toString ports.patroni}/primary
+    ${pkgs.curl}/bin/curl -sf -o /dev/null --max-time 3 ${patroni-api}/primary
   '';
+  primary-env = cfg.primary-env;
 in {
   options.services.ha.postgres = {
+    primary-env = lib.mkOption {
+      type = lib.types.str;
+      default = "/run/postgresql-ha-role/primary.env";
+      readOnly = true;
+      description = "Environment file naming the leading host as HA_PRIMARY, kept by each member's watcher";
+    };
     socket-dir = lib.mkOption {
       type = lib.types.str;
       default = "/run/postgresql-ha";
@@ -34,14 +43,32 @@ in {
       description = "Directory of the replicated Postgres's socket, through which services connect by peer authentication";
     };
     databases = lib.mkOption {
-      type = lib.types.attrsOf lib.types.str;
-      default = { };
-      example = { lldap = "lldap"; };
+      type = lib.types.listOf lib.types.str;
+      default = [ ];
       description = ''
-        Databases, each mapped to the service using it. A database is owned
-        by a role of its name that connects over the socket by peer
-        authentication, so its service runs as a system user of that name,
-        and only while this host's instance leads.
+        Databases, each owned by a role of its name, so the service using it
+        runs as a system user of that name.
+      '';
+    };
+    follow-primary = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ ];
+      example = [ "lldap" ];
+      description = "Services run only while this host's instance leads, once its databases exist";
+    };
+    track-primary = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ ];
+      example = [ "authelia-main" ];
+      description = "Services given the leading host's name as $HA_PRIMARY, and restarted when it changes";
+    };
+    local-commits = lib.mkOption {
+      type = lib.types.listOf (lib.types.enum cfg.databases);
+      default = [ ];
+      description = ''
+        Databases whose commits return without waiting for a standby, for
+        writes cheap to lose in a failover but costly to wait on: the nearest
+        standby may be a continent away.
       '';
     };
   };
@@ -69,7 +96,8 @@ in {
       groups.postgres.gid = config.ids.gids.postgres;
     };
 
-    networking.firewall.interfaces.wg0.allowedTCPPorts = [ ports.postgres ports.patroni ];
+    # 113 for ident
+    networking.firewall.interfaces.wg0.allowedTCPPorts = [ ports.postgres ports.patroni 113 ];
 
     systemd.tmpfiles.settings."10-postgresql-ha" = {
       "/var/lib/patroni".d = { user = "postgres"; group = "postgres"; mode = "0700"; };
@@ -128,6 +156,7 @@ in {
             "local all all peer"
             "host replication replicator ${config.site.mesh.subnet}/64 scram-sha-256"
             "host postgres replicator ${config.site.mesh.subnet}/64 scram-sha-256"
+            "host all all ${config.site.mesh.subnet}/64 ident"
           ];
           parameters = {
             unix_socket_directories = cfg.socket-dir;
@@ -165,10 +194,10 @@ in {
     systemd.targets.postgresql-ha-primary.description = "This host's replicated Postgres leads";
 
     systemd.services.postgresql-ha-role = {
-      description = "Start or stop what needs the replicated PostgreSQL to lead here";
+      description = "Follow where the replicated PostgreSQL leads";
       wantedBy = [ "multi-user.target" ];
       after = [ "patroni.service" ];
-      path = [ config.systemd.package ];
+      path = [ config.systemd.package pkgs.curl pkgs.jq ];
       # stops only after 30 s of misses, outlasting blips and adoption
       script = ''
         misses=0
@@ -179,10 +208,29 @@ in {
           elif [ $((++misses)) -ge 6 ]; then
             systemctl stop --no-block postgresql-ha-primary.target
           fi
+          primary=$(curl -sf --max-time 3 ${patroni-api}/cluster | jq -r '.members[] | select(.role == "leader") | .name')
+          if [ -n "$primary" ] && [ "HA_PRIMARY=$primary" != "$(cat ${primary-env} 2>/dev/null)" ]; then
+            echo "HA_PRIMARY=$primary" > ${primary-env}
+            ${lib.optionalString (cfg.track-primary != [ ]) "systemctl try-restart --no-block ${toString cfg.track-primary}"}
+          fi
+          systemd-notify --ready
           sleep 5
         done
       '';
-      serviceConfig.Restart = "always";
+      serviceConfig = {
+        # ready once it has looked, so trackers start knowing the primary
+        Type = "notify";
+        NotifyAccess = "all";
+        Restart = "always";
+        RuntimeDirectory = "postgresql-ha-role";
+        RuntimeDirectoryPreserve = true;
+      };
+    };
+
+    services.oidentd.enable = true;
+    systemd.services.oidentd = {
+      after = [ "systemd-networkd.service" ];
+      script = lib.mkForce "${pkgs.oidentd}/sbin/oidentd -u oidentd -g nogroup -a ${config.site.mesh.addresses.${this-host}}";
     };
 
     systemd.services.postgresql-ha-setup = {
@@ -202,11 +250,18 @@ in {
       };
     };
   } {
-    systemd.services = lib.mapAttrs' (_: service: lib.nameValuePair service {
+    systemd.services = lib.genAttrs cfg.follow-primary (_: {
       wantedBy = lib.mkForce [ "postgresql-ha-primary.target" ];
       partOf = [ "postgresql-ha-primary.target" ];
       requires = [ "postgresql-ha-setup.service" ];
       after = [ "postgresql-ha-setup.service" ];
-    }) cfg.databases;
+      serviceConfig.ExecCondition = leads;
+    });
+  } {
+    systemd.services = lib.genAttrs cfg.track-primary (_: {
+      wants = [ "postgresql-ha-role.service" "oidentd.service" ];
+      after = [ "postgresql-ha-role.service" "oidentd.service" ];
+      serviceConfig.EnvironmentFile = "-${primary-env}";
+    });
   } ]);
 }

@@ -26,12 +26,13 @@ let
     (host: names: lib.genAttrs names (_: host)) dns.served);
   pooled-names = lib.attrNames (lib.filterAttrs (_: hosts: lib.length hosts > 1) servers);
   # A served name's checks come from the app at that subdomain; names no app
-  # accounts for (the apex, short links, served repositories) are Caddy's.
+  # accounts for (the apex, short links, served repositories) are Caddy's,
+  # as are those of apps every Caddy proxies to the primary.
   service-for = name: hosts:
     let app = lib.findFirst (a: lib.elem a.host hosts && a.subdomain == name) null enabled-apps;
     in { inherit name hosts; }
        // (if lib.elem name pooled-names then { pool = name; } else { direct = true; })
-       // (if app == null then { service = "caddy.service"; } else
+       // (if app == null || app.followsPrimary then { service = "caddy.service"; } else
          lib.optionalAttrs (app.service != null) {
            service = "${app.service}.service";
          }

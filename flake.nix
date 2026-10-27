@@ -63,6 +63,7 @@
         nucleus = {
           apps.llm.proxy = [ "tranquillity.lan:5521" ];
           modules = with modules; [
+            auth
             data-mounts
             declarative-jellyfin.nixosModules.default
             hardware-nas

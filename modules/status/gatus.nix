@@ -21,7 +21,10 @@ in {
   config = lib.mkIf is-primary {
     site.apps.gatus.enabled = true;
 
-    services.ha.postgres.databases.gatus = "gatus";
+    services.ha.postgres = {
+      databases = [ "gatus" ];
+      follow-primary = [ "gatus" ];
+    };
 
     services.gatus = {
       enable = true;

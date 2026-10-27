@@ -6,7 +6,7 @@ let
                   usesStateDir ? (service != null),
                   subdomain, port, admin ? "admin", extra-groups ? [],
                   auth ? {}, cacheSubdirs ? [], stateSubdirs ? null, health ? null,
-                  extraOptions ? {} }:
+                  followsPrimary ? false, extraOptions ? {} }:
     {
       name = lib.mkOption {
         type = lib.types.str;
@@ -90,6 +90,14 @@ let
         type = lib.types.int;
         default = port;
         description = "Port that the ${name} app listens on";
+      };
+      followsPrimary = lib.mkOption {
+        type = lib.types.bool;
+        default = followsPrimary;
+        description = ''
+          Whether the ${name} app runs beside the replicated Postgres primary
+          alone, every host's Caddy proxying to it there.
+        '';
       };
       health = lib.mkOption {
         type = lib.types.nullOr (lib.types.submodule {
@@ -799,6 +807,7 @@ in {
         name = "LLDAP";
         homepage = "https://github.com/lldap/lldap";
         description = "user account management";
+        followsPrimary = true;
         subdomain = "users";
         port = 17170;
       };
@@ -807,6 +816,7 @@ in {
         name = "Gatus";
         homepage = "https://gatus.io";
         description = "status page";
+        followsPrimary = true;
         # its history lives in the replicated Postgres instance
         usesStateDir = false;
         subdomain = "status";

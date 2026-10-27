@@ -4,6 +4,10 @@ let
   auth-domain = "${config.site.apps.authelia.subdomain}.${config.site.domain}";
   authelia-port = config.site.apps.authelia.port;
   authelia-user = "authelia";
+  inherit (config.site.ha) preference voters ports;
+  this-host = config.site.server.host;
+  sentinels = map (host: { host = "${host}.internal"; port = ports.sentinel; })
+    (lib.optional (lib.elem this-host voters) this-host ++ lib.remove this-host voters);
   # for the status page's anonymous probes; a path of / is the app itself
   health-rules = lib.concatMap (app: lib.optional (app.health != null && lib.elem app.health.path [ null "/" ] == false) {
     domain = "${app.subdomain}.${config.site.domain}";
@@ -53,6 +57,10 @@ in {
       group = "users";
       file = ../../secrets/passwords/lldap-admin-password.age;
     };
+    authelia-valkey = {
+      owner = authelia-user;
+      file = ../../secrets/keys/valkey-ha.age;
+    };
   };
 
   services.authelia.instances.main = {
@@ -80,7 +88,14 @@ in {
             default_redirection_url = "https://${config.site.domain}/reload";
           })
         ];
-        redis.host = "/run/redis-authelia-main/redis.sock";
+        redis = {
+          inherit (lib.head sentinels) host port;
+          high_availability = {
+            sentinel_name = "ha";
+            nodes = lib.tail sentinels;
+            route_by_latency = true;
+          };
+        };
       };
       access_control = {
         default_policy = "deny";
@@ -119,14 +134,17 @@ in {
         };
       };
       authentication_backend.ldap = {
-        address = "ldap://localhost:${toString config.services.lldap.settings.ldap_port}";
+        address = "ldap://{{ env \"HA_PRIMARY\" }}.internal:${toString config.services.lldap.settings.ldap_port}";
         base_dn = config.services.lldap.settings.ldap_base_dn;
         users_filter = "(&({username_attribute}={input})(objectClass=person))";
         groups_filter = "(member={dn})";
         user = "uid=${config.services.lldap.settings.ldap_user_dn},ou=people,${config.services.lldap.settings.ldap_base_dn}";
       };
+      # PGTARGETSESSIONATTRS passes over hosts that can't take writes
       storage.postgres = {
-        address = with config; "unix://${services.ha.postgres.socket-dir}/.s.PGSQL.${toString site.ha.ports.postgres}";
+        address = "unix://${config.services.ha.postgres.socket-dir}/.s.PGSQL.${toString ports.postgres}";
+        servers = map (host: { address = "tcp://${host}.internal:${toString ports.postgres}"; })
+          (lib.remove this-host preference);
         database = authelia-user;
         username = authelia-user;
       };
@@ -159,23 +177,30 @@ in {
     environmentVariables = {
       AUTHELIA_AUTHENTICATION_BACKEND_LDAP_PASSWORD_FILE = config.age.secrets.authelia-lldap-admin-password.path;
       AUTHELIA_NOTIFIER_SMTP_PASSWORD_FILE = config.age.secrets.authelia-smtp.path;
+      AUTHELIA_SESSION_REDIS_PASSWORD_FILE = config.age.secrets.authelia-valkey.path;
+      AUTHELIA_SESSION_REDIS_HIGH_AVAILABILITY_SENTINEL_PASSWORD_FILE = config.age.secrets.authelia-valkey.path;
+      PGTARGETSESSIONATTRS = "read-write";
+      X_AUTHELIA_CONFIG_FILTERS = "template";
     };
   };
 
-  services.ha.postgres.databases.${authelia-user} = "authelia-main";
-
-  services.redis.servers.authelia-main = {
-    enable = true;
-    user = authelia-user;
-    port = 0;
-    unixSocket = "/run/redis-authelia-main/redis.sock";
-    unixSocketPerm = 600;
+  services.ha.postgres = {
+    databases = [ authelia-user ];
+    local-commits = [ authelia-user ];
+    track-primary = [ "authelia-main" ];
   };
 
-  systemd.services."authelia-main" = {
+  systemd.services.authelia-main = {
     after = [ "lldap.service" ];
-    requires = [ "lldap.service" ];
+    # its LDAP check at startup is fatal, and LLDAP may still be starting
+    serviceConfig.ExecStartPre = lib.mkBefore [
+      (pkgs.writeShellScript "authelia-await-ldap" ''
+        until (: </dev/tcp/"$HA_PRIMARY".internal/${toString config.services.lldap.settings.ldap_port}) 2>/dev/null; do sleep 1; done
+      '')
+    ];
   };
+
+  networking.firewall.interfaces.wg0.allowedTCPPorts = [ authelia-port ];
 
   users.users.${authelia-user} = {
     group = authelia-user;
@@ -183,6 +208,13 @@ in {
   };
   users.groups.${authelia-user} = {};
 
-  services.caddy.virtualHosts."${auth-domain}".extraConfig =
-    ''reverse_proxy localhost:${toString authelia-port}'';
+  # only the API needs the primary; the page is the same from any instance
+  services.caddy.virtualHosts."${auth-domain}".extraConfig = ''
+    handle /api/* {
+      ${config.site.ha.primary-proxy authelia-port}
+    }
+    handle {
+      reverse_proxy localhost:${toString authelia-port}
+    }
+  '';
 }

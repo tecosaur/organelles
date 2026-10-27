@@ -43,6 +43,24 @@ in {
         until something tracks where the primary actually is.
       '';
     };
+    primary-proxy = lib.mkOption {
+      type = lib.types.functionTo lib.types.lines;
+      readOnly = true;
+      default = port: ''
+        reverse_proxy ${toString (map (host: "${host}.internal:${toString port}") ha.preference)} {
+          lb_policy first
+          health_uri /primary
+          health_port ${toString ha.ports.patroni}
+          health_interval 2s
+          lb_try_duration 15s
+        }
+      '';
+      description = ''
+        A Caddy directive proxying to a port on whichever preferred member
+        leads, by Patroni's /primary: for an app that runs beside the primary
+        alone, reachable through every host.
+      '';
+    };
     ports = {
       postgres = lib.mkOption {
         type = lib.types.port;

@@ -9,9 +9,9 @@ let
   package = pkgs.valkey;
   address = host: config.site.mesh.addresses.${host};
   quorum = lib.length voters / 2 + 1;
-  # replica-priority: lower is promoted first, and 0 never
+  # replica-priority: lower is promoted first, 0 never, and 1 marks the Postgres leader
   priority = host: if lib.elem host preference
-    then 1 + lib.lists.findFirstIndex (h: h == host) 0 preference
+    then 100 + lib.lists.findFirstIndex (h: h == host) 0 preference
     else 0;
   # Prints "<address> <port>" of the master: the Sentinels' answer, else a
   # member already acting as one, else the preferred primary
@@ -82,6 +82,41 @@ in {
       };
       networking.firewall.interfaces.wg0.allowedTCPPorts = [ ports.valkey ];
       site.status.units = [ { id = "valkey-ha"; name = "Replicated Valkey"; unit = "valkey-ha.service"; } ];
+    })
+    (lib.mkIf (lib.elem this-host preference) {
+      systemd.services.valkey-ha-follow = lib.recursiveUpdate service {
+        description = "Keep the Valkey master with the Postgres primary";
+        after = [ "valkey-ha.service" "postgresql-ha-role.service" ];
+        path = [ package ];
+        script = ''
+          export VALKEYCLI_AUTH="$(< "$CREDENTIALS_DIRECTORY/password")"
+          cli() { valkey-cli -t 2 --raw "$@" 2>/dev/null; }
+          sentinel() {
+            for host in ${toString (map address voters)}; do
+              cli -h "$host" -p ${toString ports.sentinel} SENTINEL "$@" && return
+            done
+          }
+          stray=0
+          while :; do
+            primary=$(sed -n 's/^HA_PRIMARY=//p' ${config.services.ha.postgres.primary-env} 2>/dev/null)
+            if [ "$primary" = ${this-host} ]; then want=1; else want=${toString (priority this-host)}; fi
+            [ "$(cli -p ${toString ports.valkey} CONFIG GET replica-priority | tail -1)" = "$want" ] ||
+              cli -p ${toString ports.valkey} CONFIG SET replica-priority "$want" >/dev/null || true
+            master=$(sentinel get-master-addr-by-name ha | head -1)
+            if [ "$primary" = ${this-host} ] && [ -n "$master" ] && [ "$master" != ${address this-host} ]; then
+              if [ $((++stray)) -ge 6 ]; then
+                echo "Postgres leads here but the Valkey master is $master; handing it over"
+                sentinel failover ha coordinated || true
+                stray=0
+                sleep 60
+              fi
+            else
+              stray=0
+            fi
+            sleep 5
+          done
+        '';
+      };
     })
     (lib.mkIf (lib.elem this-host voters) {
       # Sentinel rewrites its configuration as it learns, so it is written

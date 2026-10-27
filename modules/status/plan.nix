@@ -23,10 +23,15 @@ let
   alert-url = "https://ntfy.sh";
   # unchanged rows are pushed every minute; three minutes of silence is real
   default-heartbeat = 180;
-  # apps with something to observe, wherever they run
-  apps = lib.sort (a: b: a.name < b.name) (lib.filter
-    (app: app.enabled && app.hosts != [ ] && (app.service != null || app.health != null))
-    (lib.mapAttrsToList (id: app: app // { inherit id; }) config.site.apps));
+  # apps with something to observe, wherever they run; one beside the
+  # primary is watched on the preferred one
+  apps = lib.sort (a: b: a.name < b.name) (map
+    (app: if app.followsPrimary
+      then app // { hosts = lib.filter (host: host == config.site.ha.primary) app.hosts; }
+      else app)
+    (lib.filter
+      (app: app.enabled && app.hosts != [ ] && (app.service != null || app.health != null))
+      (lib.mapAttrsToList (id: app: app // { inherit id; }) config.site.apps)));
   # an app is public where its hosts' Caddy serves its subdomain
   is-public = app: lib.any (host: lib.elem app.subdomain (dns.served.${host} or [ ])) app.hosts;
   grace = app: if app.health == null then null else app.health.startupGrace;
