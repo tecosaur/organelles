@@ -57,6 +57,9 @@
             vikunja
           ];
         };
+        centrosome = {
+          modules = with modules; [ hardware-oracle ];
+        };
         nucleus = {
           apps.llm.proxy = [ "tranquillity.lan:5521" ];
           modules = with modules; [

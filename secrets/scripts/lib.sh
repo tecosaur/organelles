@@ -115,6 +115,8 @@ function local_binding() {
 # Keys belonging to every alias, and so never a meaningful choice alone.
 function ubiquitous_keys() {
     local key name
+    # with one alias every key is in all of them, and none is implied
+    [ ${#alias_members[@]} -ge 2 ] || return 0
     for key in "${keys[@]}"; do
         for name in "${!alias_members[@]}"; do
             [[ " ${alias_members[$name]} " == *" $key "* ]] || continue 2
