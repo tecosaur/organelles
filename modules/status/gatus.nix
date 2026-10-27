@@ -9,7 +9,7 @@ let
   inherit (config.site) domain;
   app = config.site.apps.gatus;
   status = import ./plan.nix { inherit config lib; };
-  is-primary = config.site.server.host == config.site.postgresql-ha.primary;
+  is-primary = config.site.server.host == config.site.ha.primary;
   page-domain = "${app.subdomain}.${domain}";
   start = pkgs.writeShellScript "gatus-start" ''
     GATUS_PUSH_TOKEN="$(< "$CREDENTIALS_DIRECTORY/push")"
@@ -21,7 +21,7 @@ in {
   config = lib.mkIf is-primary {
     site.apps.gatus.enabled = true;
 
-    services.postgresql-ha.databases = [ "gatus" ];
+    services.ha.postgres.databases = [ "gatus" ];
 
     services.gatus = {
       enable = true;
@@ -32,7 +32,7 @@ in {
         # peer authentication over the socket, as the gatus system user
         storage = {
           type = "postgres";
-          path = with config; "host=${services.postgresql-ha.socket-dir} port=${toString site.postgresql-ha.port} user=gatus dbname=gatus";
+          path = with config; "host=${services.ha.postgres.socket-dir} port=${toString site.ha.ports.postgres} user=gatus dbname=gatus";
         };
         alerting.ntfy = {
           url = status.alert-url;

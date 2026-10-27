@@ -33,7 +33,7 @@ let
   units = lib.concatMap (host: map (unit: unit // { inherit host; }) (config.site.status.fleet-units.${host} or [ ])) hosts;
   local-group = host: "Services on ${host}";
   # where the page's own machinery is shown: the host running Gatus
-  gatus-group = local-group config.site.postgresql-ha.primary;
+  gatus-group = local-group config.site.ha.primary;
   rows =
     [ { group = gatus-group; name = "Alert aggregator"; role = "alerting"; } ]
     ++ map (host: { group = "Hosts"; name = host; role = "host"; inherit host; }) hosts
@@ -85,7 +85,7 @@ in {
       endpoints = lib.genAttrs hosts (host: "http://${host}.internal:${toString gatus.port}");
       local = "http://127.0.0.1:${toString gatus.port}";
       token_file = "push";
-    } // lib.optionalAttrs (config.site.server.host == config.site.postgresql-ha.primary) {
+    } // lib.optionalAttrs (config.site.server.host == config.site.ha.primary) {
       announcements_file = "${config-dir}/50-announcement.yaml";
     };
     dns_pooler_status = dns-pooler-status;

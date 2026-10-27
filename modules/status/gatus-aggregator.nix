@@ -7,7 +7,7 @@
 let
   status = import ./plan.nix { inherit config lib; };
   package = pkgs.callPackage ../../packages/gatus-aggregator.nix { };
-  is-primary = config.site.server.host == config.site.postgresql-ha.primary;
+  is-primary = config.site.server.host == config.site.ha.primary;
   # a plan that fails validation fails the build, not the deploy
   plan-file = pkgs.runCommand "gatus-aggregator-plan.json" { nativeBuildInputs = [ package ]; } ''
     cp ${pkgs.writeText "plan.json" (builtins.toJSON status.plan)} $out

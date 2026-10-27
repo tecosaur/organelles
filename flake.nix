@@ -26,7 +26,7 @@
         beszel-agent
         caddy
         dns-pooler
-        postgresql-ha
+        high-availability
         site-config
         status
         system
@@ -145,7 +145,7 @@
       };
       site-setup = {
         domain = "tecosaur.net";
-        postgresql-ha.primary = "golgi";
+        ha.preference = [ "golgi" "nucleus" ];
         dns = {
           records = let
             mail = name: [

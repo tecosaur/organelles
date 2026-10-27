@@ -1,0 +1,54 @@
+{ config, lib, ... }:
+
+let
+  inherit (config.site) hosts;
+  ha = config.site.ha;
+in {
+  imports = [ ./postgres.nix ];
+
+  options.site.ha = {
+    voters = lib.mkOption {
+      type = lib.types.listOf (lib.types.enum hosts);
+      default = hosts;
+      description = ''
+        The quorum: hosts whose agreement decides which member leads. Only
+        the most reliable hosts should vote, since a majority of them must
+        stay up for anything to fail over.
+      '';
+    };
+    members = lib.mkOption {
+      type = lib.types.listOf (lib.types.enum hosts);
+      default = hosts;
+      description = ''
+        The hosts holding a copy of the replicated data. A host outside it,
+        such as a voter kept for quorum alone, runs no instance and has no
+        replication slot holding WAL back for it.
+      '';
+    };
+    preference = lib.mkOption {
+      type = lib.types.listOf (lib.types.enum ha.members);
+      default = [ ];
+      description = ''
+        The members that may lead, most preferred first. A member not listed
+        replicates but is never promoted. Empty runs no replicated instance
+        anywhere.
+      '';
+    };
+    primary = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      readOnly = true;
+      default = if ha.preference == [ ] then null else lib.head ha.preference;
+      description = ''
+        The preferred primary, where services that follow the primary run
+        until something tracks where the primary actually is.
+      '';
+    };
+    ports = {
+      postgres = lib.mkOption {
+        type = lib.types.port;
+        default = 5433;
+        description = "Port of the replicated Postgres, beside each host's local cluster on 5432";
+      };
+    };
+  };
+}

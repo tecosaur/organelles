@@ -2,21 +2,19 @@
 
 # A second Postgres instance holding the state that must outlive any one
 # host, replicated over the mesh beside each host's local cluster. One host,
-# site.postgresql-ha.primary, takes writes; every other member streams from
+# site.ha.primary, takes writes; every other member streams from
 # it as a hot standby through its own replication slot, cloning itself from
 # the primary when its data directory is empty. Failover is manual: promote
 # a standby, then name it primary.
 
 let
-  inherit (config.site) hosts;
-  cfg = config.services.postgresql-ha;
-  primary = config.site.postgresql-ha.primary;
+  cfg = config.services.ha.postgres;
+  inherit (config.site.ha) primary members;
   this-host = config.site.server.host;
   is-primary = this-host == primary;
-  members = config.site.postgresql-ha.members;
   standbys = lib.remove primary members;
   package = pkgs.postgresql_18;
-  port = config.site.postgresql-ha.port;
+  port = config.site.ha.ports.postgres;
   data-dir = "/var/lib/postgresql-ha/${package.psqlSchema}";
   socket-dir = cfg.socket-dir;
   # a slot name allows only lower-case letters, digits and underscores
@@ -91,40 +89,14 @@ let
   '';
   refused = 3;
 in {
-  options = {
-    site.postgresql-ha.primary = lib.mkOption {
-      type = lib.types.nullOr (lib.types.enum hosts);
-      default = null;
-      description = ''
-        The host whose HA Postgres instance takes writes; every other member
-        runs a standby of it. Null runs no instance anywhere. Moving this is
-        the last step of a failover, after promoting the new primary's standby.
-      '';
-    };
-    site.postgresql-ha.members = lib.mkOption {
-      type = lib.types.listOf (lib.types.enum hosts);
-      default = hosts;
-      description = ''
-        The hosts holding a copy of the data: the primary and its standbys.
-        A host outside it, such as a quorum witness, runs no instance and has
-        no replication slot holding WAL back for it on the primary.
-      '';
-    };
-    site.postgresql-ha.port = lib.mkOption {
-      type = lib.types.port;
-      default = 5433;
-      description = ''
-        Port of the HA instance, beside each host's local cluster on 5432: on
-        the mesh, where members replicate, and in its socket's name.
-      '';
-    };
-    services.postgresql-ha.socket-dir = lib.mkOption {
+  options.services.ha.postgres = {
+    socket-dir = lib.mkOption {
       type = lib.types.str;
       default = "/run/postgresql-ha";
       readOnly = true;
-      description = "Directory of the HA instance's socket, through which services connect by peer authentication";
+      description = "Directory of the replicated Postgres's socket, through which services connect by peer authentication";
     };
-    services.postgresql-ha.databases = lib.mkOption {
+    databases = lib.mkOption {
       type = lib.types.listOf lib.types.str;
       default = [ ];
       description = ''
@@ -136,11 +108,6 @@ in {
   };
 
   config = lib.mkIf (primary != null && lib.elem this-host members) {
-    assertions = [ {
-      assertion = lib.elem primary members;
-      message = "site.postgresql-ha.primary (${primary}) must be one of site.postgresql-ha.members";
-    } ];
-
     site.status.units = [ {
       id = "postgresql-ha";
       name = if is-primary then "Postgres primary" else "Postgres replica";
@@ -149,7 +116,7 @@ in {
     } ];
 
     age.secrets.postgresql-ha-replication = {
-      file = ../secrets/keys/postgresql-ha-replication.age;
+      file = ../../secrets/keys/postgresql-ha-replication.age;
       owner = "postgres";
     };
 
