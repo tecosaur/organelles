@@ -4,7 +4,7 @@ let
   inherit (config.site) hosts;
   ha = config.site.ha;
 in {
-  imports = [ ./postgres.nix ];
+  imports = [ ./etcd.nix ./postgres.nix ];
 
   options.site.ha = {
     voters = lib.mkOption {
@@ -48,6 +48,16 @@ in {
         type = lib.types.port;
         default = 5433;
         description = "Port of the replicated Postgres, beside each host's local cluster on 5432";
+      };
+      etcd = lib.mkOption {
+        type = lib.types.port;
+        default = 2379;
+        description = "Port etcd serves clients on";
+      };
+      etcd-peer = lib.mkOption {
+        type = lib.types.port;
+        default = 2380;
+        description = "Port etcd's voters reach each other on";
       };
     };
   };
