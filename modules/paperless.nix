@@ -83,11 +83,9 @@ in {
       PAPERLESS_DISABLE_REGULAR_LOGIN = true;
       PAPERLESS_SOCIAL_AUTO_SIGNUP = true;
       PAPERLESS_ACCOUNT_EMAIL_VERIFICATION = false;
-      PAPERLESS_ENABLE_HTTP_REMOTE_USER = true;
       PAPERLESS_SOCIAL_ACCOUNT_DEFAULT_GROUPS = "users"; # Comes with basic permissions
       # PAPERLESS_SOCIAL_ACCOUNT_SYNC_GROUPS = true; # This adds people to `admin`, but removes people from the OIDC non-existent `users` group
       PAPERLESS_REDIRECT_LOGIN_TO_SSO = true;
-      PAPERLESS_HTTP_REMOTE_USER_HEADER_NAME = "HTTP_REMOTE_USER";
       PAPERLESS_LOGOUT_REDIRECT_URL = "https://${config.site.apps.paperless.subdomain}.${config.site.domain}";
       # Consumption
       PAPERLESS_CONSUMER_RECURSIVE = true;
