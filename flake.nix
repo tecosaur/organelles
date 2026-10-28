@@ -146,7 +146,7 @@
       };
       site-setup = {
         domain = "tecosaur.net";
-        ha.preference = [ "golgi" "nucleus" ];
+        ha.preference = [ "nucleus" "golgi" ];
         dns = {
           records = let
             mail = name: [
