@@ -262,6 +262,9 @@ in {
     }) beside-primary;
   }) {
     systemd.services = lib.genAttrs cfg.follow-primary (_: {
+      # restarted after the reload: stopped before it, the role watcher
+      # would start the old unit again before the switch could
+      stopIfChanged = false;
       wantedBy = lib.mkForce [ "postgresql-ha-primary.target" ];
       partOf = [ "postgresql-ha-primary.target" ];
       requires = [ "postgresql-ha-setup.service" ];
