@@ -99,6 +99,16 @@ let
       ];
     in
       lib.optionals (force || app.enabled) rules;
+  # SUPPORTED_LOCALES in Bulwark 1.14.2's i18n/routing.ts; its redirect is /<locale>/auth/callback
+  bulwark-locales = [ "ar" "ca" "cs" "da" "de" "en" "es" "fa" "fr" "he" "hu" "it" "ja" "ko"
+                      "lv" "mn" "nb" "nl" "pl" "pt" "ro" "ru" "sk" "tr" "uk" "zh" "zh-TW" ];
+  mail-client = overrides: mkClient config.site.apps.mail ({
+    authorization_policy = config.site.mail.oidc.authorization-policy;
+    claims_policy = config.site.mail.oidc.claims-policy;
+    audience = [ config.site.mail.oidc.audience ];
+    requested_audience_mode = "implicit";
+    access_token_signed_response_alg = "RS256";
+  } // overrides);
 in {
   services.authelia.instances.main.settings = {
     identity_providers.oidc = {
@@ -138,6 +148,24 @@ in {
       clients = lib.flatten [
         (mkClient config.site.apps.beszel {
           redirect_paths = [ "api/oauth2-redirect" ];
+        })
+        (mail-client {
+          name = config.site.mail.oidc.bulwark-client;
+          redirect_paths = map (locale: "${locale}/auth/callback") bulwark-locales;
+          scopes = [ "openid" "profile" config.site.mail.oidc.account-claim "offline_access" ];
+          grant_types = [ "authorization_code" "refresh_token" ];
+          lifespan = config.site.mail.oidc.lifespan;
+          token_endpoint_auth_method = "client_secret_post";
+        })
+        (mail-client {
+          name = config.site.mail.oidc.web-ui-client;
+          redirect_paths = [ "admin/oauth/callback" "account/oauth/callback" ];
+          client_secret = "";
+          public = true;
+          # Authelia discourages implicit consent for public clients
+          consent_mode = "pre-configured";
+          scopes = [ "openid" "profile" config.site.mail.oidc.account-claim ];
+          token_endpoint_auth_method = "none";
         })
         (mkClient config.site.apps.dawarich {
           redirect_paths = [ "users/auth/openid_connect/callback" ];

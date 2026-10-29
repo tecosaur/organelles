@@ -8,6 +8,7 @@ in
 {
   # Paired with the `*-hash.txt` digests; both written by `make-oidc.sh`.
   "oidc/beszel-secret.age".publicKeys = all;
+  "oidc/bulwark-secret.age".publicKeys = all;
   "oidc/dawarich-secret.age".publicKeys = all;
   "oidc/headplane-secret.age".publicKeys = all;
   "oidc/headscale-secret.age".publicKeys = all;
@@ -37,6 +38,7 @@ in
   "credentials/home-assistant-secrets.age" = { publicKeys = all; description = "Home Assistant secrets.yaml"; };
   "credentials/mealie-credentials-env.age" = { publicKeys = all; description = "Mealie OIDC/SMTP environment"; };
   "credentials/ntfy-webpush-keys-env.age" = { publicKeys = all; description = "ntfy web push keys"; };
+  "credentials/smtp2go.age" = { publicKeys = all; description = "SMTP2GO SMTP user's password, for Stalwart's relay"; };
   "credentials/tailscale-preauth.age" = { publicKeys = all; description = "Tailscale pre-auth key"; };
   "credentials/tandoor-fdc-api-key.age" = { publicKeys = all; description = "USDA FoodData Central API key"; };
   "credentials/trek-aerodatabox-key.age" = { publicKeys = all; description = "AeroDataBox RapidAPI key, for TREK flight tracking"; };
@@ -58,16 +60,27 @@ in
   "keys/authelia-oidc-issuer.pem.age".publicKeys = all;
   "keys/authelia-session.age".publicKeys = all;
   "keys/authelia-storage.age".publicKeys = all;
+  "keys/bulwark-session.age".publicKeys = all;
+  "keys/dkim-tecosaur.net.age".publicKeys = all;
+  "keys/garage-mail-overflow.age".publicKeys = all;
+  "keys/garage-mail-primary.age".publicKeys = all;
+  "keys/garage-node-centrosome.age".publicKeys = [ base centrosome ];
+  "keys/garage-node-golgi.age".publicKeys = [ base golgi ];
+  "keys/garage-overflow-rpc.age".publicKeys = all;
   "keys/gatus-push.age".publicKeys = all;
   "keys/lldap-jwt.age".publicKeys = all;
   "keys/lldap-key-seed.age".publicKeys = all;
   "keys/meilisearch-master.age".publicKeys = all;
+  "keys/meilisearch-stalwart.age".publicKeys = all;
   "keys/multi-scrobbler-jellyfin.age".publicKeys = all;
   "keys/multi-scrobbler-koito.age".publicKeys = all;
   "keys/postgresql-ha-replication.age".publicKeys = all;
+  "keys/s3-overflow-client.age".publicKeys = all;
   "keys/status-alert-topic.age".publicKeys = all;
   "keys/trek-encryption.age".publicKeys = all;
   "keys/valkey-ha.age".publicKeys = all;
+  "keys/valkey-s3-overflow.age".publicKeys = all;
+  "keys/valkey-stalwart.age".publicKeys = all;
   "keys/vaultwarden-rsa.pem.age".publicKeys = all;
   "keys/wg-centrosome.age".publicKeys = [ base centrosome ];
   "keys/wg-golgi.age".publicKeys = [ base golgi ];

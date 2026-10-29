@@ -27,6 +27,7 @@
         caddy
         dns-pooler
         high-availability
+        mail
         meilisearch
         site-config
         status
@@ -150,19 +151,10 @@
         domain = "tecosaur.net";
         ha.preference = [ "nucleus" "golgi" ];
         meilisearch.host = "nucleus";
-        dns = {
-          records = let
-            mail = name: [
-              { inherit name; type = "MX"; value = "10 in1-smtp.messagingengine.com."; }
-              { inherit name; type = "MX"; value = "20 in2-smtp.messagingengine.com."; }
-            ];
-            dkim = n: { name = "fm${n}._domainkey"; type = "CNAME";
-                        value = "fm${n}.tecosaur.net.dkim.fmhosted.com."; };
-          in mail "@" ++ mail "*" ++ mail "www" ++ map dkim [ "1" "2" "3" ] ++ [
-            { name = "@"; type = "TXT"; value = "v=spf1 include:spf.messagingengine.com ?all"; }
-            { name = "ssh"; type = "CNAME"; value = "golgi.hosts.tecosaur.net."; }
-          ];
-        };
+        # mail's records are modules/mail/stalwart.nix's
+        dns.records = [
+          { name = "ssh"; type = "CNAME"; value = "golgi.hosts.tecosaur.net."; }
+        ];
         server.admin = {
           hashedPassword = "$6$ET8BLqODvw77VOmI$oun2gILUqBr/3WonH2FO1L.myMIM80KeyO5W1GrYhJTo./jk7XcG8B3vEEcbpfx3R9h.sR0VV187/MgnsnouB1";
           authorizedKeys = [ "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOZZqcJOLdN+QFHKyW8ST2zz750+8TdvO9IT5geXpQVt tec@tranquillity" ];
@@ -170,6 +162,34 @@
         email = {
           server = "smtp.fastmail.com";
           username = "tec@tecosaur.net";
+        };
+        mail = {
+          domains."tecosaur.net" = {
+            users = [ "tec" ];
+            addresses = [ "{user}@{domain}" ];
+            filing = "{location}@{user}.{domain}";
+            catch-all = "tec";
+            catch-subdomains = "tec";
+          };
+          admins = [ "tec" ];
+          # Bodies live on nucleus's bulk volume, and spill to the light nodes while it is down
+          storage = {
+            primary = { nucleus = 1000000000000; };
+            overflow = { golgi = 10000000000; centrosome = 10000000000; };
+            overflow-quota-bytes = 2000000000;
+            cache-bytes = { golgi = 4000000000; };
+          };
+          smtp2go.records = [
+            { name = "mailbounces"; type = "CNAME"; value = "return.smtp2go.net."; }
+            { name = "s766060._domainkey"; type = "CNAME"; value = "dkim.smtp2go.net."; }
+            { name = "mailtrack"; type = "CNAME"; value = "track.smtp2go.net."; }
+          ];
+          relay = {
+            host = "mail-au.smtp2go.com";
+            port = 465;
+            username = "stalwart.tecosaur.net";
+            credential-file = ./secrets/credentials/smtp2go.age;
+          };
         };
         accent = {
           primary = "#239a58";

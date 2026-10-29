@@ -36,11 +36,14 @@ let
          lib.optionalAttrs (app.service != null) {
            service = "${app.service}.service";
          }
-         // lib.optionalAttrs (app.health != null) {
+         // lib.optionalAttrs (app.health != null && app.health.path != null) {
            http = lib.filterAttrs (_: v: v != null) {
              inherit (app) port;
              inherit (app.health) path status body;
            };
+         }
+         // lib.optionalAttrs (app.health != null && app.health.ports != [ ]) {
+           port = app.health.ports;
          });
   settings = {
     host = this-host;
@@ -97,7 +100,7 @@ in {
       NotifyAccess = "main";
       ExecStart = "${lib.getExe dns-pooler-pkg} -config ${config-file} run";
       # Above the longest blocking step (10s) and, with the 10s request
-      # deadline, under dead_after (30s): SPEC §12's sizing.
+      # deadline, under dead_after (30s)
       WatchdogSec = 15;
       # A retired or stopped daemon exits cleanly and must stay down; a crash
       # or a watchdog kill restarts it.

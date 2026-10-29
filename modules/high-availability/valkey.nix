@@ -4,6 +4,7 @@
 # brings a stale master back.
 
 let
+  cfg = config.services.ha.valkey;
   inherit (config.site.ha) primary members preference voters ports;
   this-host = config.site.server.host;
   package = pkgs.valkey;
@@ -36,6 +37,10 @@ let
     min-replicas-to-write 1
     min-replicas-max-lag 10
   '';
+  # Passwords are read from credentials at start, so none reaches the store
+  user-lines = lib.concatStringsSep "\n  " (lib.mapAttrsToList (name: user:
+    "printf 'user %s on >%s %s\\n' ${name} \"$(< \"$CREDENTIALS_DIRECTORY/valkey-${name}\")\" "
+    + lib.escapeShellArg "${user.keys} ${user.channels} ${user.commands}") cfg.users);
   service = {
     wantedBy = [ "multi-user.target" ];
     wants = [ "network-online.target" ];
@@ -49,7 +54,47 @@ let
     };
   };
 in {
+  options.services.ha.valkey.users = lib.mkOption {
+    type = lib.types.attrsOf (lib.types.submodule {
+      options = {
+        keys = lib.mkOption {
+          type = lib.types.str;
+          example = "~app:*";
+          description = "ACL key patterns";
+        };
+        channels = lib.mkOption {
+          type = lib.types.str;
+          default = "resetchannels";
+          example = "&app.events";
+          description = "ACL Pub/Sub channel patterns";
+        };
+        commands = lib.mkOption {
+          type = lib.types.str;
+          example = "+@read +@write";
+          description = "ACL command rules";
+        };
+      };
+    });
+    default = { };
+    description = ''
+      Valkey users beside the default one, each with a password from
+      `keys/valkey-<name>.age`.
+    '';
+  };
   config = lib.mkIf (primary != null) (lib.mkMerge [
+    {
+      services.ha.valkey.users = {
+        stalwart = {
+          keys = "~*";
+          channels = "&stwt.agora";
+          commands = "+@all -@dangerous +eval +evalsha +scan +info +role";
+        };
+        s3-overflow = {
+          keys = "~s3o:*";
+          commands = "+@read +@write +@scripting +@connection -@dangerous +time +wait +role";
+        };
+      };
+    }
     (lib.mkIf (lib.elem this-host (members ++ voters)) {
       age.secrets.valkey-ha.file = ../../secrets/keys/valkey-ha.age;
       environment.systemPackages = [ package ];
@@ -60,6 +105,9 @@ in {
       users.groups.valkey-ha = { };
     })
     (lib.mkIf (lib.elem this-host members) {
+      age.secrets = lib.mapAttrs' (name: _: lib.nameValuePair "valkey-${name}" {
+        file = ../../secrets/keys/valkey-${name}.age;
+      }) cfg.users;
       systemd.services.valkey-ha = lib.recursiveUpdate service {
         description = "Replicated Valkey";
         script = ''
@@ -69,11 +117,14 @@ in {
             echo 'include "${valkey-conf}"'
             echo "requirepass $VALKEYCLI_AUTH"
             echo "masterauth $VALKEYCLI_AUTH"
+            ${user-lines}
             [ "$master" = ${address this-host} ] || echo "replicaof $master $port"
           } > "$RUNTIME_DIRECTORY/valkey.conf"
           exec ${package}/bin/valkey-server "$RUNTIME_DIRECTORY/valkey.conf"
         '';
         serviceConfig = {
+          LoadCredential = service.serviceConfig.LoadCredential
+            ++ lib.mapAttrsToList (name: _: "valkey-${name}:${config.age.secrets."valkey-${name}".path}") cfg.users;
           RuntimeDirectory = "valkey-ha";
           RuntimeDirectoryMode = "0700";
           StateDirectory = "valkey-ha";

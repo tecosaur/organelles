@@ -103,9 +103,10 @@ let
         type = lib.types.nullOr (lib.types.submodule {
           options = {
             path = lib.mkOption {
-              type = lib.types.str;
+              type = lib.types.nullOr lib.types.str;
+              default = null;
               example = "/api/health";
-              description = "Path requested on the app's port, over plain HTTP to localhost";
+              description = "Path requested on the app's port, over plain HTTP to localhost; null for none";
             };
             status = lib.mkOption {
               type = lib.types.nullOr lib.types.int;
@@ -116,6 +117,24 @@ let
               type = lib.types.nullOr lib.types.str;
               default = null;
               description = "Regular expression the response body must match";
+            };
+            ports = lib.mkOption {
+              type = lib.types.listOf (lib.types.submodule {
+                options = {
+                  port = lib.mkOption {
+                    type = lib.types.port;
+                    description = "Port connected to on localhost";
+                  };
+                  tls = lib.mkOption {
+                    type = lib.types.bool;
+                    default = false;
+                    description = "Whether to also verify the certificate for the app's name on it";
+                  };
+                };
+              });
+              default = [ ];
+              example = [ { port = 25; } { port = 993; tls = true; } ];
+              description = "Further ports that must accept a TCP connection";
             };
             startupGrace = lib.mkOption {
               type = lib.types.ints.positive;
@@ -620,6 +639,17 @@ in {
         service = "ntfy-sh";
         subdomain = "ntfy";
         port = 2586;
+      };
+      mail = mkAppOption {
+        name = "Mail";
+        homepage = "https://stalw.art";
+        description = "mail server and web client";
+        service = "stalwart";
+        # its state lives in the replicated Postgres instance and the blob store
+        usesStateDir = false;
+        subdomain = "mail";
+        port = 8460;
+        health.ports = [ { port = 25; } { port = 993; tls = true; } ];
       };
       mealie = mkAppOption {
         health.path = "/api/app/about";

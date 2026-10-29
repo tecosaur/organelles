@@ -45,7 +45,7 @@ in {
     config.site.apps.sftpgo.webdavd-port
   ];
 
-  nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [ "sftpgo" ];
+  site.unfree = [ "sftpgo" ];
 
   services.sftpgo = {
     enable = true;

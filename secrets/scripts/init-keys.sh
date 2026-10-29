@@ -16,24 +16,35 @@ tool_name="init-keys"
 . "$secrets_dir/scripts/lib.sh"
 
 # name:kind. Every node holds this material: instances must share it to accept
-# each other's tokens. A meilisearch key derives from meilisearch-master, so
-# follows it.
+# each other's tokens. A garage-node key is one node's identity, held by it alone.
+# A meilisearch key derives from meilisearch-master, so follows it.
 readonly service_keys=(
     "authelia-jwt:rand"
     "authelia-oidc-hmac:rand"
     "authelia-oidc-issuer.pem:rsa"
     "authelia-session:rand"
     "authelia-storage:rand"
+    "bulwark-session:rand"
+    "dkim-tecosaur.net:dkim"
+    "garage-mail-overflow:s3-key"
+    "garage-mail-primary:s3-key"
+    "garage-node-centrosome:garage-node"
+    "garage-node-golgi:garage-node"
+    "garage-overflow-rpc:hex"
     "gatus-push:rand"
     "lldap-jwt:rand"
     "lldap-key-seed:rand"
     "meilisearch-master:rand"
+    "meilisearch-stalwart:meilisearch"
     "trek-encryption:rand"
     "multi-scrobbler-jellyfin:rand"
     "multi-scrobbler-koito:rand"
     "postgresql-ha-replication:rand"
+    "s3-overflow-client:s3-key"
     "status-alert-topic:rand"
     "valkey-ha:rand"
+    "valkey-s3-overflow:rand"
+    "valkey-stalwart:rand"
     "vaultwarden-rsa.pem:rsa"
 )
 
@@ -66,6 +77,43 @@ function generate_rsa() {
     cat "$dir/private.pem"
 }
 
+# Garage's node_key is libsodium's ed25519 secret key, seed then public key,
+# kept base64-encoded; the public half, hex as `garage node id` shows it, is
+# committed beside it for garage.nix to read at evaluation time.
+function generate_garage_node() {
+    local name="$1" der public
+    der="$(nix_run 'nixpkgs#openssl' -- genpkey -algorithm ed25519 -outform DER | base64 -w0)" ||
+        die "openssl failed to generate an ed25519 key for $name"
+    public="$(base64 -d <<<"$der" |
+        nix_run 'nixpkgs#openssl' -- pkey -inform DER -pubout -outform DER | tail -c 32 | base64 -w0)" ||
+        die "openssl failed to derive the public key for $name"
+    { base64 -d <<<"$public" | od -An -tx1 -v | tr -d ' \n'; echo; } >"$keys_dir/$name.pub" ||
+        die "could not write $keys_dir/$name.pub"
+    { base64 -d <<<"$der" | tail -c 32; base64 -d <<<"$public"; } | base64 -w0
+}
+
+# RSA rather than Ed25519, which not every receiver verifies. The TXT record
+# for <selector>._domainkey is committed beside it for the DNS statics.
+function generate_dkim() {
+    local name="$1" pem public
+    pem="$(nix_run 'nixpkgs#openssl' -- genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048)" ||
+        die "openssl failed to generate an RSA key for $name"
+    public="$(nix_run 'nixpkgs#openssl' -- pkey -pubout -outform DER <<<"$pem" | base64 -w0)" ||
+        die "openssl failed to derive the public key for $name"
+    printf 'v=DKIM1; k=rsa; p=%s\n' "$public" >"$keys_dir/$name.txt" ||
+        die "could not write $keys_dir/$name.txt"
+    printf '%s\n' "$pem"
+}
+
+# An S3 secret key, with its ID committed beside it for the modules to read at
+# evaluation time. Garage takes IDs of GK and 24 hex digits.
+function generate_s3_key() {
+    local name="$1" id
+    id="GK$(nix_run 'nixpkgs#openssl' -- rand -hex 12)" || die "openssl failed to draw an ID for $name"
+    echo "$id" >"$keys_dir/$name.id" || die "could not write $keys_dir/$name.id"
+    nix_run 'nixpkgs#openssl' -- rand -hex 32 | tr -d '\n'
+}
+
 # Meilisearch makes a key the HMAC of its uid under the master key, so a scoped
 # key is derived here and only declared on the server; the uid is committed
 # beside it for meilisearch.nix to read at evaluation time.
@@ -86,7 +134,11 @@ function generate() {
             value="$(generate_rand)"
             [ -n "$value" ] || die "could not parse authelia's random value"
             printf '%s' "$value" ;;
+        hex) nix_run 'nixpkgs#openssl' -- rand -hex 32 | tr -d '\n' ;;
+        garage-node) generate_garage_node "$name" ;;
+        dkim) generate_dkim "$name" ;;
         meilisearch) generate_meilisearch "$name" ;;
+        s3-key) generate_s3_key "$name" ;;
         rsa) generate_rsa ;;
         *) die "unknown key kind '$kind'" ;;
     esac
@@ -139,7 +191,12 @@ created=0
 group="$(recipients_to_group "$(local_binding)" $(node_names))"
 for spec in "${service_keys[@]}"; do
     IFS=: read -r name kind <<<"$spec"
-    init_key "$name" "$kind" "$group" && created=$((created + 1)) || true
+    if [ "$kind" = garage-node ]; then
+        key_group="$(recipients_to_group "$(local_binding)" "${name#garage-node-}")"
+    else
+        key_group="$group"
+    fi
+    init_key "$name" "$kind" "$key_group" && created=$((created + 1)) || true
 done
 
 [ "$created" -gt 0 ] || exit 2

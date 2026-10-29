@@ -13,6 +13,18 @@ svgfmt () {
     svgs_formatted["$infile"]=1
 }
 
+# A maskable icon: the artwork in the middle 60%, within the safe zone a launcher's mask always
+# keeps, on a solid background
+svg2maskable () {
+    local infile="$1" outfile="$2" size="$3" background="$4" inner offset
+    inner=$(( size * 3 / 5 ))
+    offset=$(( (size - inner) / 2 ))
+    svgfmt "$infile"
+    rsvg-convert -w "$inner" -h "$inner" --page-width "$size" --page-height "$size" \
+        --left "$offset" --top "$offset" -b "$background" -f png -o "$outfile" "$infile"
+    pngopt "$outfile"
+}
+
 pngopt () {
     local infile="$1"
     # Use `pngquant` then `oxipng`,
@@ -92,6 +104,14 @@ images[-1].save('$outfile', sizes=[img.size for img in images], append_images=im
 favmake authelia --replace
 # Beszel
 svgfmt beszel/icon.svg
+# Bulwark, at the paths it serves its own icons from
+svg2png bulwark/favicon.svg bulwark/icon-192x192.png -h 192
+svg2png bulwark/favicon.svg bulwark/icon-512x512.png -h 512
+svg2png bulwark/favicon.svg bulwark/apple-touch-icon.png -h 180
+for size in 192 512; do
+    svg2maskable bulwark/favicon.svg "bulwark/icon-maskable-light-${size}x${size}.png" "$size" '#ffffff'
+    svg2maskable bulwark/favicon.svg "bulwark/icon-maskable-dark-${size}x${size}.png" "$size" '#18181b'
+done
 # Forgejo
 favmake forgejo
 svg2png forgejo/favicon.svg -h 180
@@ -155,6 +175,8 @@ rm sftpgo/openid-logo.svg
 favmake site
 svg2png site/logo.svg -h 400
 svg2png site/logo-bw.svg -h 400
+# Stalwart
+favmake stalwart
 # Storyteller
 favmake storyteller
 svg2png storyteller/logo.svg -h 128
