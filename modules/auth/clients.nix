@@ -115,6 +115,7 @@ in {
         (mkPolicy config.site.apps.sftpgo { user_policy = "two_factor"; })
         (mkPolicy config.site.apps.tandoor { admin_policy = "one_factor"; })
         (mkPolicy config.site.apps.trek { })
+        (mkPolicy config.site.apps.vaultwarden { user_policy = "two_factor"; })
         (mkPolicy config.site.apps.warracker { })
       ];
       claims_policies = {
@@ -205,6 +206,9 @@ in {
         (mkClient config.site.apps.trek {
           redirect_paths = [ "api/auth/oidc/callback" ];
           token_endpoint_auth_method = "client_secret_post";
+        })
+        (mkClient config.site.apps.vaultwarden {
+          redirect_paths = [ "identity/connect/oidc-signin" ];
         })
         (mkClient config.site.apps.rustical {
           redirect_paths = [ "frontend/login/oidc/callback" ];

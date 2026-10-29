@@ -32,6 +32,7 @@ readonly service_keys=(
     "postgresql-ha-replication:rand"
     "status-alert-topic:rand"
     "valkey-ha:rand"
+    "vaultwarden-rsa.pem:rsa"
 )
 
 function usage() {

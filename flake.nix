@@ -31,6 +31,7 @@
         status
         system
         tailscale
+        vaultwarden
         wireguard-mesh
         zsh
       ];

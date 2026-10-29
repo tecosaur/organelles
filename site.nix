@@ -822,6 +822,17 @@ in {
         subdomain = "status";
         port = 3001;
       };
+      vaultwarden = mkAppOption {
+        health.path = "/alive";
+        name = "Vaultwarden";
+        homepage = "https://github.com/dani-garcia/vaultwarden";
+        description = "password manager";
+        simpleicon = "vaultwarden";
+        followsPrimary = true;
+        stateSubdirs = [ "attachments" "sends" ];
+        subdomain = "vault";
+        port = 8222;
+      };
       vikunja = mkAppOption {
         name = "Vikunja";
         homepage = "https://vikunja.io/";

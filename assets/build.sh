@@ -175,6 +175,14 @@ svg2png trek/logo.svg trek/icons/icon-192x192.png -h 192
 svg2png trek/logo.svg trek/icons/icon-512x512.png -h 512
 svg2png trek/logo.svg trek/icons/apple-touch-icon-180x180.png -h 180
 
+# Vaultwarden
+favmake vaultwarden
+mkdir -p vaultwarden/images
+svg2png vaultwarden/favicon.svg vaultwarden/images/favicon-16x16.png -h 16
+svg2png vaultwarden/favicon.svg vaultwarden/images/favicon-32x32.png -h 32
+svg2png vaultwarden/favicon.svg vaultwarden/images/apple-touch-icon.png -h 180
+svg2png vaultwarden/favicon.svg vaultwarden/images/android-chrome-192x192.png -h 192
+svg2png vaultwarden/favicon.svg vaultwarden/images/android-chrome-512x512.png -h 512
 # Vikunja
 favmake vikunja/public
 mkdir -p vikunja/public/images/icons

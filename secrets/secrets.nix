@@ -20,6 +20,7 @@ in
   "oidc/storyteller-secret.age".publicKeys = all;
   "oidc/tandoor-secret.age".publicKeys = all;
   "oidc/trek-secret.age".publicKeys = all;
+  "oidc/vaultwarden-secret.age".publicKeys = all;
   "oidc/vikunja-secret.age".publicKeys = all;
   "oidc/warracker-secret.age".publicKeys = all;
   "oidc/windmill-secret.age".publicKeys = all;
@@ -67,6 +68,7 @@ in
   "keys/status-alert-topic.age".publicKeys = all;
   "keys/trek-encryption.age".publicKeys = all;
   "keys/valkey-ha.age".publicKeys = all;
+  "keys/vaultwarden-rsa.pem.age".publicKeys = all;
   "keys/wg-centrosome.age".publicKeys = [ base centrosome ];
   "keys/wg-golgi.age".publicKeys = [ base golgi ];
   "keys/wg-nucleus.age".publicKeys = [ base nucleus ];
