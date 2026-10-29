@@ -23,12 +23,14 @@ readonly service_keys=(
     "authelia-oidc-issuer.pem:rsa"
     "authelia-session:rand"
     "authelia-storage:rand"
+    "gatus-push:rand"
     "lldap-jwt:rand"
     "lldap-key-seed:rand"
     "trek-encryption:rand"
     "multi-scrobbler-jellyfin:rand"
     "multi-scrobbler-koito:rand"
     "postgresql-ha-replication:rand"
+    "status-alert-topic:rand"
 )
 
 function usage() {

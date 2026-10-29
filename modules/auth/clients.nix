@@ -228,7 +228,6 @@ in {
         subject = [ "group:${config.site.apps.multi-scrobbler.groups.admin}" ];
       })
       (mkAccessControl config.site.apps.ntfy { policy = "two_factor"; })
-      (mkAccessControl config.site.apps.uptime { })
     ];
   };
 }

@@ -141,6 +141,13 @@ in {
       message = "site.postgresql-ha.primary (${primary}) must be one of site.postgresql-ha.members";
     } ];
 
+    site.status.units = [ {
+      id = "postgresql-ha";
+      name = if is-primary then "Postgres primary" else "Postgres replica";
+      unit = "postgresql-ha.service";
+      command = [ "${package}/bin/pg_isready" "--quiet" "--host=${socket-dir}" "--port=${toString port}" ];
+    } ];
+
     age.secrets.postgresql-ha-replication = {
       file = ../secrets/keys/postgresql-ha-replication.age;
       owner = "postgres";

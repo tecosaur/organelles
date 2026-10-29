@@ -53,6 +53,14 @@ let
         default = null;
         description = "Host that the ${name} app is running on";
       };
+      hosts = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = [ ];
+        description = ''
+          Every host the ${name} app runs on, set by the flake from each
+          machine's configuration; `host` names only one of them.
+        '';
+      };
       subdomain = lib.mkOption {
         type = lib.types.str;
         default = subdomain;
@@ -100,6 +108,14 @@ let
               type = lib.types.nullOr lib.types.str;
               default = null;
               description = "Regular expression the response body must match";
+            };
+            startupGrace = lib.mkOption {
+              type = lib.types.ints.positive;
+              default = 120;
+              description = ''
+                Seconds a fresh start may fail this check before the status
+                page counts it as unhealthy rather than starting.
+              '';
             };
           };
         });
@@ -229,6 +245,58 @@ in {
           The names each host's Caddy serves, relative to the site domain, set
           from every machine's configuration by the flake. dns-pooler points
           each at its host.
+        '';
+      };
+    };
+    status = {
+      units = lib.mkOption {
+        type = lib.types.listOf (lib.types.submodule {
+          options = {
+            id = lib.mkOption {
+              type = lib.types.str;
+              description = "Stable identifier, unique on its host";
+            };
+            name = lib.mkOption {
+              type = lib.types.str;
+              description = "How the status page names it";
+            };
+            kind = lib.mkOption {
+              type = lib.types.enum [ "service" "mesh" ];
+              default = "service";
+              description = ''
+                A systemd service, or the mesh as the local dns-pooler sees
+                its peers.
+              '';
+            };
+            unit = lib.mkOption {
+              type = lib.types.nullOr lib.types.str;
+              default = null;
+              example = "caddy.service";
+              description = "The systemd unit, for a service";
+            };
+            command = lib.mkOption {
+              type = lib.types.listOf lib.types.str;
+              default = [ ];
+              description = ''
+                A readiness probe that must exit zero for the running unit to
+                count as healthy, such as pg_isready.
+              '';
+            };
+          };
+        });
+        default = [ ];
+        description = ''
+          This host's infrastructure, shown beside its apps on the status
+          page: what no app accounts for, but everything relies on.
+        '';
+      };
+      fleet-units = lib.mkOption {
+        type = lib.types.attrsOf (lib.types.listOf lib.types.attrs);
+        default = { };
+        internal = true;
+        description = ''
+          Every host's status units, by host, set from every machine's
+          configuration by the flake.
         '';
       };
     };
@@ -734,13 +802,14 @@ in {
         subdomain = "users";
         port = 17170;
       };
-      uptime = mkAppOption {
-        health.path = "/api/entry-page";
-        name = "Uptime Kuma";
-        homepage = "https://uptime.kuma.pet";
-        description = "endpoint monitoring";
-        simpleicon = "uptimekuma";
-        subdomain = "uptime";
+      gatus = mkAppOption {
+        health = { path = "/health"; body = ''"status":"UP"''; };
+        name = "Gatus";
+        homepage = "https://gatus.io";
+        description = "status page";
+        # its history lives in the replicated Postgres instance
+        usesStateDir = false;
+        subdomain = "status";
         port = 3001;
       };
       vikunja = mkAppOption {

@@ -138,13 +138,12 @@ in {
           })
           (mkAppStatus {
             title = "Status";
-            app = config.site.apps.uptime;
+            app = config.site.apps.gatus;
             extraOptions = {
-              href = "https://${config.site.apps.uptime.subdomain}.${config.site.domain}/status/site";
+              href = "https://${config.site.apps.gatus.subdomain}.${config.site.domain}";
               # widget = {
-              #   type = "uptimekuma";
-              #   url = "http://localhost:${toString config.site.apps.uptime.port}";
-              #   slug = "site";
+              #   type = "gatus";
+              #   url = "http://localhost:${toString config.site.apps.gatus.port}";
               # };
             };
           })
@@ -190,7 +189,7 @@ in {
           { app = config.site.apps.syncthing; }
           { app = config.site.apps.lldap;
             icon = "mdi-account-edit";}
-          { app = config.site.apps.uptime; }
+          { app = config.site.apps.gatus; }
           { app = config.site.apps.vikunja;
             icon = "mdi-format-list-checks";}
         ] ++ lib.optionals config.site.apps.koito.enabled [

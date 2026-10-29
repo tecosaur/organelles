@@ -4,6 +4,8 @@ let
   relay-port = config.site.apps.headscale.relay-port;
   tags = lib.optional (relay-port != null) "sys-relay";
 in {
+  site.status.units = [ { id = "tailscale"; name = "Tailscale"; unit = "tailscaled.service"; } ];
+
   age.secrets.tailscale-preauth = {
     owner = "root";
     group = "root";

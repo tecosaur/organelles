@@ -47,6 +47,9 @@ in
     mode = "0640";
   };
 
+  # the mesh has no unit of its own; dns-pooler's view of its peers stands in
+  site.status.units = [ { id = "mesh"; name = "Mesh"; kind = "mesh"; } ];
+
   networking.firewall.allowedUDPPorts = [ port ];
 
   networking.hosts = lib.listToAttrs

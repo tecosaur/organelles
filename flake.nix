@@ -28,6 +28,7 @@
         dns-pooler
         postgresql-ha
         site-config
+        status
         system
         tailscale
         wireguard-mesh
@@ -53,7 +54,6 @@
             rustical
             site-root
             syncthing
-            uptime
             vikunja
           ];
         };
@@ -95,6 +95,11 @@
                     [ { site = machine-site name setup; } ];
         }))
         machines;
+      # every machine each app is enabled on, in machine order
+      global-app-hosts = nixpkgs.lib.zipAttrs (nixpkgs.lib.mapAttrsToList (machine: sys:
+        nixpkgs.lib.mapAttrs (_: _: machine)
+          (nixpkgs.lib.filterAttrs (_: conf: conf.enabled) sys.config.site.apps))
+        machine-systems);
       global-enabled-apps = nixpkgs.lib.concatMapAttrs (machine: sys:
         (nixpkgs.lib.foldlAttrs
           (acc: app: conf:
@@ -102,6 +107,7 @@
               acc // { "${app}" = {
                          enabled = true;
                          host = machine;
+                         hosts = global-app-hosts.${app};
                          serviceConfig = if conf.service == null then { } else
                            sys.config.systemd.services."${conf.service}".serviceConfig;
                        }; }
@@ -109,6 +115,7 @@
           { }
           sys.config.site.apps))
         machine-systems;
+      global-status-units = nixpkgs.lib.mapAttrs (_: sys: sys.config.site.status.units) machine-systems;
       # The names each machine's Caddy serves, relative to the domain ("@" the
       # apex): a virtual host key may list several addresses, with a scheme or
       # port, and only those under the site domain are ours.
@@ -127,7 +134,7 @@
           (lib.attrNames sys.config.services.caddy.virtualHosts)))
         machine-systems;
       # One machine's site settings, everything but what is computed across
-      # machines (global-enabled-apps, dns.served).
+      # machines (global-enabled-apps, dns.served, status.fleet-units).
       machine-site = name: setup: nixpkgs.lib.recursiveUpdate site-setup {
         hosts = builtins.attrNames machines;
         server = (setup.server or { }) // { host = name; };
@@ -235,6 +242,7 @@
               apps = nixpkgs.lib.recursiveUpdate global-enabled-apps
                 (machine-site name setup).apps;
               dns.served = global-served-names;
+              status.fleet-units = global-status-units;
             };
           }];
         })

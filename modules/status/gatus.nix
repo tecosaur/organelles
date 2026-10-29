@@ -1,0 +1,119 @@
+{ config, lib, pkgs, ... }:
+
+# Gatus runs on the HA Postgres primary alone, keeping its history there:
+# two instances sharing one database would record every result twice.
+# Nothing in its configuration is written by hand; every row comes from
+# plan.nix, and gatus-aggregator pushes them all.
+
+let
+  inherit (config.site) domain;
+  app = config.site.apps.gatus;
+  status = import ./plan.nix { inherit config lib; };
+  is-primary = config.site.server.host == config.site.postgresql-ha.primary;
+  page-domain = "${app.subdomain}.${domain}";
+  start = pkgs.writeShellScript "gatus-start" ''
+    GATUS_PUSH_TOKEN="$(< "$CREDENTIALS_DIRECTORY/push")"
+    GATUS_ALERT_TOPIC="$(< "$CREDENTIALS_DIRECTORY/topic")"
+    export GATUS_PUSH_TOKEN GATUS_ALERT_TOPIC
+    exec ${lib.getExe config.services.gatus.package}
+  '';
+in {
+  config = lib.mkIf is-primary {
+    site.apps.gatus.enabled = true;
+
+    services.postgresql-ha.databases = [ "gatus" ];
+
+    services.gatus = {
+      enable = true;
+      settings = {
+        web.port = app.port;
+        # a bad announcement file is logged and ignored, not fatal
+        skip-invalid-config-update = true;
+        # peer authentication over the socket, as the gatus system user
+        storage = {
+          type = "postgres";
+          path = with config; "host=${services.postgresql-ha.socket-dir} port=${toString site.postgresql-ha.port} user=gatus dbname=gatus";
+        };
+        alerting.ntfy = {
+          url = status.alert-url;
+          topic = "\${GATUS_ALERT_TOPIC}";
+          priority = 4;
+        };
+        inherit (status) external-endpoints;
+        # Gatus insists on one endpoint it polls itself; the alert route is
+        # the one thing nothing else watches
+        endpoints = [ {
+          group = status.gatus-group;
+          name = "Alert delivery";
+          url = "${status.alert-url}/v1/health";
+          interval = "5m";
+          conditions = [ "[STATUS] == 200" "[BODY].healthy == true" ];
+          ui.hide-url = true;
+        } ];
+        ui = {
+          title = "Status of ${domain}";
+          description = "Live health of the machines and services running ${domain}.";
+          header = domain;
+          dashboard-heading = "Status";
+          dashboard-subheading = "Live health of the machines and services running ${domain}.";
+          logo = "/brand/logo.svg";
+          link = "https://${domain}";
+          favicon.default = "/brand/favicon.svg";
+          buttons = [
+            { name = "Home"; link = "https://${domain}"; }
+            { name = "Services"; link = "https://${domain}/services"; }
+          ];
+          custom-css = import ./theme.nix { inherit (config.site) accent; };
+          default-sort-by = "group";
+          # follow the visitor's own light or dark preference
+          dark-mode = false;
+        };
+      };
+    };
+
+    users.users.gatus = {
+      isSystemUser = true;
+      group = "gatus";
+    };
+    users.groups.gatus = { };
+
+    # setgid, so the aggregator's announcement stays readable by Gatus
+    systemd.tmpfiles.settings."10-gatus-config" = {
+      ${status.config-dir}.d = { user = "gatus"; group = "gatus"; mode = "2775"; };
+      "${status.config-dir}/00-site.yaml"."L+".argument = "${config.services.gatus.configFile}";
+    };
+
+    systemd.services.gatus = {
+      requires = [ "postgresql-ha-setup.service" ];
+      after = [ "postgresql-ha-setup.service" ];
+      # the configuration is read through a link that never moves
+      environment.GATUS_CONFIG_PATH = lib.mkForce status.config-dir;
+      restartTriggers = [ config.services.gatus.configFile ];
+      # Gatus exits when its database is unreachable; keep trying
+      startLimitIntervalSec = 0;
+      serviceConfig = {
+        # peer authentication needs the system user the database is named for
+        DynamicUser = lib.mkForce false;
+        ExecStart = lib.mkForce start;
+        LoadCredential = [
+          "push:${config.age.secrets.gatus-push.path}"
+          "topic:${config.age.secrets.status-alert-topic.path}"
+        ];
+        RestartSec = "10s";
+      };
+    };
+
+    # reporters push over the mesh, never through the public site
+    networking.firewall.interfaces.wg0.allowedTCPPorts = [ app.port ];
+
+    services.caddy.virtualHosts.${page-domain}.extraConfig = ''
+      @push path /api/v1/endpoints/*/external
+      respond @push 403
+      handle_path /brand/* {
+          root * ${config.site.assets}/site
+          file_server
+      }
+      reverse_proxy :${toString app.port}
+    '';
+  };
+}

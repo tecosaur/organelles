@@ -56,11 +56,15 @@ in
   "keys/authelia-oidc-issuer.pem.age".publicKeys = all;
   "keys/authelia-session.age".publicKeys = all;
   "keys/authelia-storage.age".publicKeys = all;
+  # every reporter pushes with it, and Gatus checks it
+  "keys/gatus-push.age".publicKeys = all;
   "keys/lldap-jwt.age".publicKeys = all;
   "keys/lldap-key-seed.age".publicKeys = all;
   "keys/multi-scrobbler-jellyfin.age".publicKeys = all;
   "keys/multi-scrobbler-koito.age".publicKeys = all;
   "keys/postgresql-ha-replication.age".publicKeys = all;
+  # the ntfy.sh topic status alerts go to; any host may need to send one
+  "keys/status-alert-topic.age".publicKeys = all;
   "keys/wg-golgi.age".publicKeys = gbase;
   "keys/wg-nucleus.age".publicKeys = nbase;
 }

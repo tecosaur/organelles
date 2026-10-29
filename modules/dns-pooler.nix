@@ -14,6 +14,8 @@ let
   dns-pooler-pkg = pkgs.callPackage ../packages/dns-pooler.nix { };
   toml = pkgs.formats.toml { };
   peer-port = 9433;
+  # /status for the local monitor, unauthenticated, so loopback only
+  status-port = 9434;
   # systemd places a LoadCredential secret at this fixed per-unit path
   credential-path = "/run/credentials/dns-pooler.service/provider";
   mesh-endpoint = host: "[${config.site.mesh.addresses.${host}}]:${toString peer-port}";
@@ -58,6 +60,7 @@ let
     };
     peers = {
       listen = mesh-endpoint this-host;
+      status_listen = "127.0.0.1:${toString status-port}";
       wg_interface = "wg0";
     };
     peer = lib.genAttrs (lib.remove this-host hosts)
@@ -73,6 +76,8 @@ let
     cp ${toml.generate "dns-pooler.toml" settings} $out
   '';
 in {
+  site.status.units = [ { id = "dns-pooler"; name = "dns-pooler"; unit = "dns-pooler.service"; } ];
+
   # shared with Caddy, which answers ACME DNS challenges with it
   age.secrets.bunny-dns-key.file = ../secrets/credentials/bunny-dns-key.age;
 
