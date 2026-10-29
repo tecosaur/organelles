@@ -42,12 +42,10 @@ in {
   };
 
   # beside the primary: a search is eight queries, but one LDAP request
-  services.ha.postgres = {
-    databases = [ lldap-user ];
-    follow-primary = [ "lldap" ];
-  };
+  services.ha.postgres.databases = [ lldap-user ];
 
-  networking.firewall.interfaces.wg0.allowedTCPPorts = with config.services.lldap.settings; [ ldap_port http_port ];
+  # for Authelia on every node
+  networking.firewall.interfaces.wg0.allowedTCPPorts = [ config.services.lldap.settings.ldap_port ];
 
   systemd.services.lldap = {
     serviceConfig = {

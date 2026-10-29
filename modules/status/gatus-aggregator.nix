@@ -1,13 +1,12 @@
 { config, lib, pkgs, ... }:
 
 # gatus-aggregator: every host reports on its own apps and units and on
-# others' from outside; beside Gatus, on the HA primary, the aggregator
-# derives the fleet view and sends alerts.
+# others' from outside; beside Gatus, wherever the HA primary is, the
+# aggregator derives the fleet view and sends alerts.
 
 let
   status = import ./plan.nix { inherit config lib; };
   package = pkgs.callPackage ../../packages/gatus-aggregator.nix { };
-  is-primary = config.site.server.host == config.site.ha.primary;
   # a plan that fails validation fails the build, not the deploy
   plan-file = pkgs.runCommand "gatus-aggregator-plan.json" { nativeBuildInputs = [ package ]; } ''
     cp ${pkgs.writeText "plan.json" (builtins.toJSON status.plan)} $out
@@ -60,7 +59,9 @@ in {
 
   systemd.services.gatus-aggregator-report = service "report" "Status reports to Gatus";
 
-  systemd.services.gatus-aggregator-aggregate = lib.mkIf is-primary (lib.recursiveUpdate
+  services.ha.postgres.follow-primary = lib.mkIf config.site.ha.may-lead [ "gatus-aggregator-aggregate" ];
+
+  systemd.services.gatus-aggregator-aggregate = lib.mkIf config.site.ha.may-lead (lib.recursiveUpdate
     (service "aggregate" "Status aggregation and alerts beside Gatus") {
       after = [ "network-online.target" "dns-pooler.service" "gatus.service" ];
       # it keeps the page's announcement in Gatus's configuration directory

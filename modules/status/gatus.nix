@@ -1,7 +1,8 @@
 { config, lib, pkgs, ... }:
 
-# Gatus runs on the HA Postgres primary alone, keeping its history there:
-# two instances sharing one database would record every result twice.
+# Gatus runs beside the HA Postgres primary alone, wherever that is,
+# keeping its history there: two instances sharing one database would
+# record every result twice. Every preferred member's Caddy proxies to it.
 # Nothing in its configuration is written by hand; every row comes from
 # plan.nix, and gatus-aggregator pushes them all.
 
@@ -9,7 +10,6 @@ let
   inherit (config.site) domain;
   app = config.site.apps.gatus;
   status = import ./plan.nix { inherit config lib; };
-  is-primary = config.site.server.host == config.site.ha.primary;
   page-domain = "${app.subdomain}.${domain}";
   start = pkgs.writeShellScript "gatus-start" ''
     GATUS_PUSH_TOKEN="$(< "$CREDENTIALS_DIRECTORY/push")"
@@ -18,13 +18,10 @@ let
     exec ${lib.getExe config.services.gatus.package}
   '';
 in {
-  config = lib.mkIf is-primary {
+  config = lib.mkIf config.site.ha.may-lead {
     site.apps.gatus.enabled = true;
 
-    services.ha.postgres = {
-      databases = [ "gatus" ];
-      follow-primary = [ "gatus" ];
-    };
+    services.ha.postgres.databases = [ "gatus" ];
 
     services.gatus = {
       enable = true;
@@ -104,9 +101,6 @@ in {
       };
     };
 
-    # reporters push over the mesh, never through the public site
-    networking.firewall.interfaces.wg0.allowedTCPPorts = [ app.port ];
-
     services.caddy.virtualHosts.${page-domain}.extraConfig = ''
       @push path /api/v1/endpoints/*/external
       respond @push 403
@@ -114,7 +108,7 @@ in {
           root * ${config.site.assets}/site
           file_server
       }
-      reverse_proxy :${toString app.port}
+      ${config.site.ha.primary-proxy app.port}
     '';
   };
 }

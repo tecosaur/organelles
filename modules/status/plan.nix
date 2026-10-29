@@ -90,7 +90,7 @@ in {
       endpoints = lib.genAttrs hosts (host: "http://${host}.internal:${toString gatus.port}");
       local = "http://127.0.0.1:${toString gatus.port}";
       token_file = "push";
-    } // lib.optionalAttrs (config.site.server.host == config.site.ha.primary) {
+    } // lib.optionalAttrs (lib.elem config.site.server.host config.site.ha.preference) {
       announcements_file = "${config-dir}/50-announcement.yaml";
     };
     dns_pooler_status = dns-pooler-status;

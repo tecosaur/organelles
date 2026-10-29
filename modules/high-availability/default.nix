@@ -38,10 +38,13 @@ in {
       type = lib.types.nullOr lib.types.str;
       readOnly = true;
       default = if ha.preference == [ ] then null else lib.head ha.preference;
-      description = ''
-        The preferred primary, where services that follow the primary run
-        until something tracks where the primary actually is.
-      '';
+      description = "The most preferred member, where the cluster is first led from";
+    };
+    may-lead = lib.mkOption {
+      type = lib.types.bool;
+      readOnly = true;
+      default = lib.elem config.site.server.host ha.preference;
+      description = "Whether this host may lead, and so must carry every app that runs beside the primary";
     };
     primary-proxy = lib.mkOption {
       type = lib.types.functionTo lib.types.lines;

@@ -249,7 +249,18 @@ in {
         ExecCondition = leads;
       };
     };
-  } {
+  } (let
+    beside-primary = lib.filter (app: app.followsPrimary && app.hosts != [ ]) (lib.attrValues config.site.apps);
+    here = lib.filter (app: lib.elem this-host app.hosts) beside-primary;
+  in {
+    # site.apps' followsPrimary, every Caddy proxying to wherever it runs
+    services.ha.postgres.follow-primary = map (app: app.service) here;
+    networking.firewall.interfaces.wg0.allowedTCPPorts = map (app: app.port) here;
+    assertions = map (app: {
+      assertion = lib.all (host: lib.elem host app.hosts) preference;
+      message = "${app.name} runs beside the primary, so must be on every host in site.ha.preference (${toString preference}), not only ${toString app.hosts}";
+    }) beside-primary;
+  }) {
     systemd.services = lib.genAttrs cfg.follow-primary (_: {
       wantedBy = lib.mkForce [ "postgresql-ha-primary.target" ];
       partOf = [ "postgresql-ha-primary.target" ];
