@@ -27,6 +27,7 @@
         caddy
         dns-pooler
         high-availability
+        meilisearch
         site-config
         status
         system
@@ -148,6 +149,7 @@
       site-setup = {
         domain = "tecosaur.net";
         ha.preference = [ "nucleus" "golgi" ];
+        meilisearch.host = "nucleus";
         dns = {
           records = let
             mail = name: [

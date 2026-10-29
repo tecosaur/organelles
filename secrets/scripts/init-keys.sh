@@ -16,7 +16,8 @@ tool_name="init-keys"
 . "$secrets_dir/scripts/lib.sh"
 
 # name:kind. Every node holds this material: instances must share it to accept
-# each other's tokens.
+# each other's tokens. A meilisearch key derives from meilisearch-master, so
+# follows it.
 readonly service_keys=(
     "authelia-jwt:rand"
     "authelia-oidc-hmac:rand"
@@ -26,6 +27,7 @@ readonly service_keys=(
     "gatus-push:rand"
     "lldap-jwt:rand"
     "lldap-key-seed:rand"
+    "meilisearch-master:rand"
     "trek-encryption:rand"
     "multi-scrobbler-jellyfin:rand"
     "multi-scrobbler-koito:rand"
@@ -64,13 +66,27 @@ function generate_rsa() {
     cat "$dir/private.pem"
 }
 
+# Meilisearch makes a key the HMAC of its uid under the master key, so a scoped
+# key is derived here and only declared on the server; the uid is committed
+# beside it for meilisearch.nix to read at evaluation time.
+function generate_meilisearch() {
+    local name="$1" master uid
+    master="$(cd "$secrets_dir" && nix_run github:ryantm/agenix -- -d keys/meilisearch-master.age)" ||
+        die "agenix failed to decrypt keys/meilisearch-master.age, from which $name derives;" \
+            "create it first"
+    uid="$(cat /proc/sys/kernel/random/uuid)"
+    echo "$uid" >"$keys_dir/$name.uid" || die "could not write $keys_dir/$name.uid"
+    printf '%s' "$uid" | nix_run 'nixpkgs#openssl' -- dgst -sha256 -hmac "$master" -r | cut -d' ' -f1 | tr -d '\n'
+}
+
 function generate() {
-    local kind="$1" value
+    local kind="$1" name="$2" value
     case "$kind" in
         rand)
             value="$(generate_rand)"
             [ -n "$value" ] || die "could not parse authelia's random value"
             printf '%s' "$value" ;;
+        meilisearch) generate_meilisearch "$name" ;;
         rsa) generate_rsa ;;
         *) die "unknown key kind '$kind'" ;;
     esac
@@ -98,7 +114,7 @@ function init_key() {
     # agenix reads secrets.nix for the recipients, so the entry must exist first.
     register_secret "$age_file" "$group"
     # A non-interactive stdin makes agenix use `cp /dev/stdin` as its editor.
-    generate "$kind" |
+    generate "$kind" "$name" |
         (cd "$secrets_dir" && nix_run github:ryantm/agenix -- -e "$age_file") ||
         die "agenix failed to encrypt $age_file;" \
             "secrets.nix now names $age_file, which does not exist yet"
