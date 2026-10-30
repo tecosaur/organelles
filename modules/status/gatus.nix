@@ -29,10 +29,11 @@ in {
         web.port = app.port;
         # a bad announcement file is logged and ignored, not fatal
         skip-invalid-config-update = true;
-        # peer authentication over the socket, as the gatus system user
+        # The primary, by PGHOST and PGPORT; ident authenticates the gatus system user. The mesh
+        # encrypts, and lib/pq, unlike libpq, refuses a server without TLS unless told
         storage = {
           type = "postgres";
-          path = with config; "host=${services.ha.postgres.socket-dir} port=${toString site.ha.ports.postgres} user=gatus dbname=gatus";
+          path = "user=gatus dbname=gatus sslmode=disable";
         };
         alerting.ntfy = {
           url = status.alert-url;

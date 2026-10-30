@@ -3,7 +3,7 @@
 # The S3 gateway beside each Stalwart; gateways share locks (Postgres) and heat (Valkey).
 
 let
-  inherit (config.site.ha) preference voters ports;
+  inherit (config.site.ha) members voters ports;
   this-host = config.site.server.host;
   package = pkgs.callPackage ../../packages/s3-overflow.nix { };
   garage = config.site.mail.garage;
@@ -63,7 +63,7 @@ let
     overflow = store "overflow" // { max_bytes = garage.overflow.quota-bytes; };
     coordination = {
       postgres = lib.concatStringsSep " " [
-        "host=${lib.concatMapStringsSep "," (host: "${host}.internal") preference}"
+        "host=${lib.concatMapStringsSep "," (host: "${host}.internal") members}"
         "port=${toString ports.postgres}"
         "dbname=${user}"
         "user=${user}"

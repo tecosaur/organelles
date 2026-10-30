@@ -28,7 +28,6 @@ in {
   services.lldap = {
     enable = true;
     settings = {
-      database_url = with config; "postgresql://${lldap-user}@localhost:${toString site.ha.ports.postgres}/${lldap-user}?host=${services.ha.postgres.socket-dir}";
       ldap_base_dn = lldap-base-dn;
       ldap_user_dn = "admin";
       ldap_user_email = "lldap-admin@${config.site.domain}";
@@ -48,6 +47,10 @@ in {
   networking.firewall.interfaces.wg0.allowedTCPPorts = [ config.services.lldap.settings.ldap_port ];
 
   systemd.services.lldap = {
+    # The primary, from primary-env: LLDAP's ORM needs a host in the URL, so PGHOST cannot supply it
+    script = lib.mkBefore ''
+      export LLDAP_DATABASE_URL="postgresql://${lldap-user}@$HA_PRIMARY.internal:${toString config.site.ha.ports.postgres}/${lldap-user}"
+    '';
     serviceConfig = {
       # started before it listens, which Authelia's startup check would beat
       ExecStartPost = pkgs.writeShellScript "lldap-listening" ''

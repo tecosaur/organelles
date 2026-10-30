@@ -25,8 +25,8 @@ in {
       dbBackend = "postgresql";
       config = {
         DOMAIN = "https://${vault-domain}";
-        # peer authentication: the system user is the role
-        DATABASE_URL = with config; "postgresql://vaultwarden@/vaultwarden?host=${services.ha.postgres.socket-dir}&port=${toString site.ha.ports.postgres}";
+        # The primary, by PGHOST and PGPORT; ident authenticates the system user as the role
+        DATABASE_URL = "postgresql://vaultwarden@/vaultwarden";
         ROCKET_ADDRESS = "::";
         ROCKET_PORT = app.port;
         # .pem is appended; differing between members, it would sign

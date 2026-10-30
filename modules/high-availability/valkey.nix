@@ -136,7 +136,7 @@ in {
     })
     (lib.mkIf (lib.elem this-host preference) {
       systemd.services.valkey-ha-follow = lib.recursiveUpdate service {
-        description = "Keep the Valkey master with the Postgres primary";
+        description = "Keep the Valkey master with the serving host";
         after = [ "valkey-ha.service" "postgresql-ha-role.service" ];
         path = [ package ];
         script = ''
@@ -149,14 +149,14 @@ in {
           }
           stray=0
           while :; do
-            primary=$(sed -n 's/^HA_PRIMARY=//p' ${config.services.ha.postgres.primary-env} 2>/dev/null)
-            if [ "$primary" = ${this-host} ]; then want=1; else want=${toString (priority this-host)}; fi
+            serving=$(sed -n 's/^HA_SERVING=//p' ${config.services.ha.postgres.primary-env} 2>/dev/null)
+            if [ "$serving" = ${this-host} ]; then want=1; else want=${toString (priority this-host)}; fi
             [ "$(cli -p ${toString ports.valkey} CONFIG GET replica-priority | tail -1)" = "$want" ] ||
               cli -p ${toString ports.valkey} CONFIG SET replica-priority "$want" >/dev/null || true
             master=$(sentinel get-master-addr-by-name ha | head -1)
-            if [ "$primary" = ${this-host} ] && [ -n "$master" ] && [ "$master" != ${address this-host} ]; then
+            if [ "$serving" = ${this-host} ] && [ -n "$master" ] && [ "$master" != ${address this-host} ]; then
               if [ $((++stray)) -ge 6 ]; then
-                echo "Postgres leads here but the Valkey master is $master; handing it over"
+                echo "This host serves but the Valkey master is $master; handing it over"
                 sentinel failover ha coordinated || true
                 stray=0
                 sleep 60

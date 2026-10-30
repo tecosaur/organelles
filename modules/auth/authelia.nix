@@ -4,7 +4,7 @@ let
   auth-domain = "${config.site.apps.authelia.subdomain}.${config.site.domain}";
   authelia-port = config.site.apps.authelia.port;
   authelia-user = "authelia";
-  inherit (config.site.ha) preference voters ports;
+  inherit (config.site.ha) members voters ports;
   this-host = config.site.server.host;
   sentinels = map (host: { host = "${host}.internal"; port = ports.sentinel; })
     (lib.optional (lib.elem this-host voters) this-host ++ lib.remove this-host voters);
@@ -144,7 +144,7 @@ in {
       storage.postgres = {
         address = "unix://${config.services.ha.postgres.socket-dir}/.s.PGSQL.${toString ports.postgres}";
         servers = map (host: { address = "tcp://${host}.internal:${toString ports.postgres}"; })
-          (lib.remove this-host preference);
+          (lib.remove this-host members);
         database = authelia-user;
         username = authelia-user;
       };

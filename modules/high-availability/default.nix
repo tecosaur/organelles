@@ -29,9 +29,11 @@ in {
       type = lib.types.listOf (lib.types.enum ha.members);
       default = [ ];
       description = ''
-        The members that may lead, most preferred first. A member not listed
-        replicates but is never promoted. Empty runs no replicated instance
-        anywhere.
+        The members that serve, most preferred first: each carries every app
+        that runs beside the primary, and leads in this order. A member not
+        listed is promoted only when none of these can be, to keep what its
+        acknowledgements made durable, and hands back by failback. Empty runs
+        no replicated instance anywhere.
       '';
     };
     primary = lib.mkOption {
@@ -44,7 +46,15 @@ in {
       type = lib.types.bool;
       readOnly = true;
       default = lib.elem config.site.server.host ha.preference;
-      description = "Whether this host may lead, and so must carry every app that runs beside the primary";
+      description = "Whether this host may serve, and so must carry every app that runs beside the primary";
+    };
+    failback-minutes = lib.mkOption {
+      type = lib.types.ints.positive;
+      default = 10;
+      description = ''
+        How long a member preferred over the leader must have streamed
+        before the leader hands over to it.
+      '';
     };
     primary-proxy = lib.mkOption {
       type = lib.types.functionTo lib.types.lines;
@@ -52,16 +62,16 @@ in {
       default = port: ''
         reverse_proxy ${toString (map (host: "${host}.internal:${toString port}") ha.preference)} {
           lb_policy first
-          health_uri /primary
-          health_port ${toString ha.ports.patroni}
+          health_uri /serving
+          health_port ${toString ha.ports.serving}
           health_interval 2s
           lb_try_duration 15s
         }
       '';
       description = ''
         A Caddy directive proxying to a port on whichever preferred member
-        leads, by Patroni's /primary: for an app that runs beside the primary
-        alone, reachable through every host.
+        serves: for an app that runs beside the primary alone, reachable
+        through every host.
       '';
     };
     ports = {
@@ -84,6 +94,11 @@ in {
         type = lib.types.port;
         default = 8008;
         description = "Port of Patroni's REST API, whose /primary answers 200 only on the leader";
+      };
+      serving = lib.mkOption {
+        type = lib.types.port;
+        default = 8009;
+        description = "Port whose /serving answers 200 only on the serving member, for Caddy's health checks";
       };
       valkey = lib.mkOption {
         type = lib.types.port;
