@@ -27,11 +27,7 @@ let
       WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '${db}') \gexec
     ALTER ROLE "${db}" SET synchronous_commit = ${if lib.elem db cfg.local-commits then "local" else "remote_write"};
   '') cfg.databases);
-  psql = "${package}/bin/psql -h ${cfg.socket-dir} -p ${toString ports.postgres} -d postgres";
   patroni-api = "http://${address this-host}:${toString ports.patroni}";
-  leads = pkgs.writeShellScript "postgresql-ha-leads" ''
-    ${pkgs.curl}/bin/curl -sf -o /dev/null --max-time 3 ${patroni-api}/primary
-  '';
   serves = pkgs.writeShellScript "postgresql-ha-serves" ''
     grep -qx 'HA_SERVING=${this-host}' ${primary-env}
   '';
@@ -299,18 +295,19 @@ in {
 
     systemd.services.postgresql-ha-setup = {
       description = "Roles and databases of the replicated PostgreSQL";
-      wantedBy = [ "postgresql-ha-serving.target" ];
-      partOf = [ "postgresql-ha-serving.target" ];
-      after = [ "patroni.service" ];
-      script = "${psql} -f ${setup-sql}";
+      wantedBy = [ "multi-user.target" ];
+      wants = [ "postgresql-ha-role.service" "oidentd.service" ];
+      after = [ "patroni.service" "postgresql-ha-role.service" "oidentd.service" ];
+      script = "${package}/bin/psql -d postgres -f ${setup-sql}";
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;
         User = "postgres";
         Group = "postgres";
+        EnvironmentFile = primary-env;
         LoadCredential = [ "replication:${config.age.secrets.postgresql-ha-replication.path}" ];
-        # skipped, not failed, where a deploy restarts it off the leader
-        ExecCondition = leads;
+        Restart = "on-failure";
+        RestartSec = "10s";
       };
     };
   } (let
@@ -337,8 +334,8 @@ in {
     });
   } {
     systemd.services = lib.genAttrs trackers (_: {
-      wants = [ "postgresql-ha-role.service" "oidentd.service" ];
-      after = [ "postgresql-ha-role.service" "oidentd.service" ];
+      wants = [ "postgresql-ha-role.service" "oidentd.service" "postgresql-ha-setup.service" ];
+      after = [ "postgresql-ha-role.service" "oidentd.service" "postgresql-ha-setup.service" ];
       serviceConfig.EnvironmentFile = "-${primary-env}";
     });
   } ]);
