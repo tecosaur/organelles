@@ -58,6 +58,8 @@ in {
   age.secrets.status-alert-topic.file = ../../secrets/keys/status-alert-topic.age;
 
   systemd.services.gatus-aggregator-report = service "report" "Status reports to Gatus";
+  services.ha.postgres.probe-roles = [ "gatus-aggregator-report" ];
+  services.postgresql.ensureUsers = lib.mkIf config.services.postgresql.enable [ { name = "gatus-aggregator-report"; } ];
 
   services.ha.postgres.follow-primary = lib.mkIf config.site.ha.may-lead [ "gatus-aggregator-aggregate" ];
 

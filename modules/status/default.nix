@@ -15,6 +15,7 @@
       name = "Local Postgres";
       unit = "postgresql.service";
       command = [ "${config.services.postgresql.package}/bin/pg_isready" "--quiet"
-                  "--host=/run/postgresql" "--port=${toString config.services.postgresql.settings.port}" ];
+                  "--host=/run/postgresql" "--port=${toString config.services.postgresql.settings.port}"
+                  "--dbname=postgres" ];
     };
 }
