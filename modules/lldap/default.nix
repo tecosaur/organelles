@@ -50,7 +50,7 @@ in {
   systemd.services.lldap = {
     # The primary, from primary-env: LLDAP's ORM needs a host in the URL, so PGHOST cannot supply it
     script = lib.mkBefore ''
-      export LLDAP_DATABASE_URL="postgresql://${lldap-user}@$HA_PRIMARY.internal:${toString config.site.ports.postgres-ha.port}/${lldap-user}"
+      export LLDAP_DATABASE_URL="postgresql://${lldap-user}@$HA_PRIMARY.internal:${toString config.site.ports.ha-postgres.port}/${lldap-user}"
     '';
     serviceConfig = {
       # started before it listens, which Authelia's startup check would beat

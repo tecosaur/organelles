@@ -7,7 +7,7 @@ let
   inherit (config.site.ha) members voters;
   inherit (config.site) ports;
   this-host = config.site.server.host;
-  sentinels = map (host: { host = "${host}.internal"; port = ports.sentinel.port; })
+  sentinels = map (host: { host = "${host}.internal"; port = ports.ha-sentinel.port; })
     (lib.optional (lib.elem this-host voters) this-host ++ lib.remove this-host voters);
   # for the status page's anonymous probes; a path of / is the app itself
   health-rules = lib.concatMap (app: lib.optional (app.health != null && lib.elem app.health.path [ null "/" ] == false) {
@@ -147,8 +147,8 @@ in {
       };
       # PGTARGETSESSIONATTRS passes over hosts that can't take writes
       storage.postgres = {
-        address = "unix://${config.services.ha.postgres.socket-dir}/.s.PGSQL.${toString ports.postgres-ha.port}";
-        servers = map (host: { address = "tcp://${host}.internal:${toString ports.postgres-ha.port}"; })
+        address = "unix://${config.services.ha.postgres.socket-dir}/.s.PGSQL.${toString ports.ha-postgres.port}";
+        servers = map (host: { address = "tcp://${host}.internal:${toString ports.ha-postgres.port}"; })
           (lib.remove this-host members);
         database = authelia-user;
         username = authelia-user;

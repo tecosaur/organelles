@@ -88,7 +88,7 @@ in {
 
   config.site.ha.preference = [ "nucleus" "golgi" ];
   config.site.ports = {
-    postgres-ha = mesh 5433 "patroni" {
+    ha-postgres = mesh 5433 "patroni" {
       patroni = members;
       postgresql-ha-setup = preference;
       authelia-main = on "authelia";
@@ -109,7 +109,7 @@ in {
     patroni = mesh 8008 "patroni" { patroni = members; postgresql-ha-role = members; };
     # /serving answers 200 only on the serving member, for Caddy's health checks
     ha-serving = mesh 8009 "caddy" { caddy = hosts; } // { hosts = preference; };
-    valkey-ha = mesh 6380 "valkey-ha" valkey-clients;
-    sentinel = mesh 26379 "valkey-ha-sentinel" valkey-clients;
+    ha-valkey = mesh 6380 "valkey-ha" valkey-clients;
+    ha-sentinel = mesh 26379 "valkey-ha-sentinel" valkey-clients;
   };
 }

@@ -98,7 +98,7 @@ in {
       id = "postgresql-ha";
       name = "Replicated Postgres";
       unit = "patroni.service";
-      command = [ "${package}/bin/pg_isready" "--quiet" "--host=${cfg.socket-dir}" "--port=${toString ports.postgres-ha.port}" "--dbname=postgres" ];
+      command = [ "${package}/bin/pg_isready" "--quiet" "--host=${cfg.socket-dir}" "--port=${toString ports.ha-postgres.port}" "--dbname=postgres" ];
     } ];
 
     age.secrets.postgresql-ha-replication.file = ../../secrets/keys/postgresql-ha-replication.age;
@@ -140,7 +140,7 @@ in {
       nodeIp = address this-host;
       postgresqlPackage = package;
       postgresqlDataDir = data-dir;
-      postgresqlPort = ports.postgres-ha.port;
+      postgresqlPort = ports.ha-postgres.port;
       restApiPort = ports.patroni.port;
       softwareWatchdog = true;
       settings = {
@@ -167,7 +167,7 @@ in {
           };
         };
         postgresql = {
-          listen = lib.mkForce "*:${toString ports.postgres-ha.port}";
+          listen = lib.mkForce "*:${toString ports.ha-postgres.port}";
           use_unix_socket = true;
           remove_data_directory_on_diverged_timelines = true;
           remove_data_directory_on_rewind_failure = true;
@@ -247,7 +247,7 @@ in {
             if ($leader | IN($preference[])) then $leader
             else first($preference[] as $p | .members[] | select(.name == $p and (.state == "streaming" or .state == "running")) | .name) // "" end' <<<"$cluster")
           if [ -n "$primary" ]; then
-            env=$(printf 'HA_PRIMARY=%s\nHA_SERVING=%s\nPGHOST=%s.internal\nPGPORT=%s' "$primary" "$serving" "$primary" ${toString ports.postgres-ha.port})
+            env=$(printf 'HA_PRIMARY=%s\nHA_SERVING=%s\nPGHOST=%s.internal\nPGPORT=%s' "$primary" "$serving" "$primary" ${toString ports.ha-postgres.port})
             if [ "$env" != "$(cat ${primary-env} 2>/dev/null)" ]; then
               moved=$(grep -qx "HA_PRIMARY=$primary" ${primary-env} 2>/dev/null || echo 1)
               echo "$env" > ${primary-env}

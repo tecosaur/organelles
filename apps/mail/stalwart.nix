@@ -60,7 +60,7 @@ let
     acme = { contact = "postmaster@${domain}"; bunny-key = "${credentials}/bunny-key"; };
     in-memory-store = {
       "@type" = "RedisSentinel";
-      urls = lib.genAttrs (map (host: "redis://${host}.internal:${toString ports.sentinel.port}") voters) (_: true);
+      urls = lib.genAttrs (map (host: "redis://${host}.internal:${toString ports.ha-sentinel.port}") voters) (_: true);
       serviceName = "ha";
       authUsername = user;
       authSecret = file "valkey-password";
@@ -111,10 +111,10 @@ let
       await "postgresql-ha-role to name the HA primary" grep -qs '^HA_PRIMARY=.' ${primary-env}
       primary=$(sed -n 's/^HA_PRIMARY=//p' ${primary-env})
       # The leader creates the roles its own generation lists, so a host deployed before it waits
-      has_database() { PGCONNECT_TIMEOUT=5 psql -w -h "$primary.internal" -p ${toString ports.postgres-ha.port} -d ${user} -Atqc 'SELECT 1' >/dev/null 2>&1; }
+      has_database() { PGCONNECT_TIMEOUT=5 psql -w -h "$primary.internal" -p ${toString ports.ha-postgres.port} -d ${user} -Atqc 'SELECT 1' >/dev/null 2>&1; }
       await "$primary to create the ${user} database, as it does once it runs this generation" has_database
       jq -n --arg host "$primary.internal" '{
-        "@type": "PostgreSql", host: $host, port: ${toString ports.postgres-ha.port},
+        "@type": "PostgreSql", host: $host, port: ${toString ports.ha-postgres.port},
         database: "${user}", authUsername: "${user}", authSecret: {"@type": "None"}
       }' >"$RUNTIME_DIRECTORY/config.json"
       # The previous generation's settings, which the provisioner retracts against until it has its own record

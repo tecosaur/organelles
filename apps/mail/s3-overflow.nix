@@ -65,13 +65,13 @@ let
     coordination = {
       postgres = lib.concatStringsSep " " [
         "host=${lib.concatMapStringsSep "," (host: "${host}.internal") members}"
-        "port=${toString ports.postgres-ha.port}"
+        "port=${toString ports.ha-postgres.port}"
         "dbname=${user}"
         "user=${user}"
         "target_session_attrs=read-write"
       ];
       valkey = {
-        sentinels = map (host: "${host}.internal:${toString ports.sentinel.port}") voters;
+        sentinels = map (host: "${host}.internal:${toString ports.ha-sentinel.port}") voters;
         master = "ha";
         username = user;
         password_file = "valkey-password";
