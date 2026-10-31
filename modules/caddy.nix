@@ -9,10 +9,10 @@
       package = pkgs.caddy.withPlugins {
         plugins = [
           "github.com/caddy-dns/bunny@v1.2.0"
-          "github.com/tecosaur/caddy-fs-git@v0.0.0-20240109175104-ef9d0ab232f4"
+          "github.com/tecosaur/caddy-fs-git@v0.0.0-20261101180219-0b62135bc0e2"
           "github.com/caddyserver/replace-response@v0.0.0-20250618171559-80962887e4c6"
         ];
-        hash = "sha256-+W4e8tGbjwN3G+fI4crsCyoGPEITxpTzbPdQL0wA+xQ=";
+        hash = "sha256-Za5UmqZhqSXhnHzVsLn2QCwShqIvjQpQhkFsOxY30u8=";
       };
       globalConfig =
         ''
