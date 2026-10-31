@@ -5,7 +5,8 @@
     nixpkgs.url = github:NixOS/nixpkgs/nixos-unstable;
     flake-utils-plus.url = github:gytis-ivaskevicius/flake-utils-plus;
     agenix.url = "github:ryantm/agenix";
-    declarative-jellyfin.url = "github:Sveske-Juice/declarative-jellyfin";
+    # PR 35 lists Jellyfin 12.3 and 12.4; back to the default branch once merged
+    declarative-jellyfin.url = "github:Sveske-Juice/declarative-jellyfin/pull/35/head";
     declarative-jellyfin.inputs.nixpkgs.follows = "nixpkgs";
     deploy-rs = {
       url = github:serokell/deploy-rs;

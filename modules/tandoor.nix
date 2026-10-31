@@ -27,22 +27,6 @@ let
 in {
   site.apps.tandoor.enabled = true;
 
-  # requests-hardened 1.3.0 caps uv_build below the 0.12 nixpkgs ships
-  nixpkgs.overlays = [
-    (final: prev: {
-      pythonPackagesExtensions = prev.pythonPackagesExtensions ++ [
-        (pyfinal: pyprev: {
-          requests-hardened = pyprev.requests-hardened.overridePythonAttrs (old: {
-            postPatch = (old.postPatch or "") + ''
-              substituteInPlace pyproject.toml \
-                --replace-fail '"uv_build>=0.11.0,<0.12.0"' '"uv_build>=0.11.0"'
-            '';
-          });
-        })
-      ];
-    })
-  ];
-
   age.secrets.tandoor-oidc = {
     owner = config.services.tandoor-recipes.user;
     file = ../secrets/oidc/tandoor-secret.age;
