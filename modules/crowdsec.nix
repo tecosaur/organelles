@@ -4,184 +4,93 @@
 
 let
   crowdsec-port = 8057;
-  data-dir = config.services.crowdsec.settings.general.config_paths.data_dir;
-  lapi-credentials = "${data-dir}/local_api_credentials.yaml";
-  mkAcquisition =
-    enable: unit:
-    if enable then
-      {
-        source = "journalctl";
-        journalctl_filter = [ "_SYSTEMD_UNIT=${unit}" ];
-        labels.type = "syslog";
-      }
-    else
-      null;
+  data-dir = config.services.crowdsec.settings.config.config_paths.data_dir;
+  caddy-logs = config.services.caddy.logDir;
 in {
-  age.secrets.crowdsec-enroll-key = {
-    owner = "crowdsec";
-    group = "users";
-    file = ../secrets/credentials/crowdsec-enroll-key.age;
+  # Caddy creates its logs owner-only unless told otherwise
+  options.services.caddy.virtualHosts = lib.mkOption {
+    type = lib.types.attrsOf (lib.types.submodule ({ name, ... }: {
+      config.logFormat = lib.mkDefault ''
+        output file ${caddy-logs}/access-${name}.log {
+          mode 0640
+        }
+      '';
+    }));
   };
 
-  services.crowdsec = {
-    enable = true;
-    autoUpdateService = true;
-    localConfig = {
-      acquisitions = builtins.filter (v: v != null) [
-        (mkAcquisition config.services.openssh.enable "sshd.service")
-        (mkAcquisition config.services.caddy.enable "caddy.service")
-      ];
-    };
-    hub = {
-      collections = [
-        "crowdsecurity/linux"
-        "crowdsecurity/caddy"
-        "crowdsecurity/sshd"
-      ];
-      scenarios = [
-        "crowdsecurity/http-bad-user-agent"
-        "crowdsecurity/http-crawl-non_statics"
-        "crowdsecurity/http-probing"
-      ];
-      postOverflows = [
-        "crowdsecurity/cdn-qc-whitelsit"
-        "crowdsecurity/cdn-whitelist"
-        "crowdsecurity/discord-crawler-whitelist"
-        "crowdsecurity/ipv6_to_range"
-        "crowdsecurity/rdns"
-        "crowdsecurity/seo-bots-whitelist"
-      ];
-    };
-    settings = {
-      simulation = { simulation = false; };
-      lapi.credentialsFile = lapi-credentials;
-      # `capi.credentialsFile` is deliberately unset: the setup script runs
-      # `cscli machines add` (which loads the LAPI, and so reads the CAPI
-      # credentials) before the `cscli capi register` that would create them,
-      # so setting it aborts startup on a fresh install. Central API enrolment
-      # happens through `console.tokenFile` below instead.
-      console = {
-        tokenFile = config.age.secrets.crowdsec-enroll-key.path;
+  config = {
+    age.secrets.crowdsec-enroll-key.file = ../secrets/credentials/crowdsec-enroll-key.age;
+
+    services.crowdsec = {
+      enable = true;
+      autoUpdateService = true;
+      # Caddy's access logs, which its group may read
+      extraGroups = lib.optional config.services.caddy.enable config.services.caddy.group;
+      readOnlyPaths = lib.optional config.services.caddy.enable caddy-logs;
+      hub = {
+        collections = [
+          "crowdsecurity/linux"
+          "crowdsecurity/caddy"
+          "crowdsecurity/sshd"
+        ];
+        scenarios = [
+          "crowdsecurity/http-bad-user-agent"
+          "crowdsecurity/http-crawl-non_statics"
+          "crowdsecurity/http-probing"
+        ];
+        postoverflows = [
+          "crowdsecurity/cdn-qc-whitelsit"
+          "crowdsecurity/cdn-whitelist"
+          "crowdsecurity/discord-crawler-whitelist"
+          "crowdsecurity/ipv6_to_range"
+          "crowdsecurity/rdns"
+          "crowdsecurity/seo-bots-whitelist"
+        ];
       };
-      general = {
-        api.server = {
-          enable = true;
+      settings = {
+        simulation.simulation = false;
+        acquisitions = lib.optional config.services.openssh.enable {
+          source = "journalctl";
+          journalctl_filter = [ "_SYSTEMD_UNIT=sshd.service" ];
+          labels.type = "syslog";
+        } ++ lib.optional config.services.caddy.enable {
+          source = "file";
+          filenames = [ "${caddy-logs}/access-*.log" ];
+          labels.type = "caddy";
+        };
+        # Peers reach each other's Caddy over the mesh (health checks, JMAP
+        # forwarding, status reports), and banning one would cut it off; the
+        # stock whitelist covers private IPv4 but no IPv6 ULA.
+        parsers.s02Enrich = [ {
+          name = "site/whitelist";
+          description = "Never act on loopback, private networks, or the mesh";
+          whitelist = {
+            reason = "the site's own hosts";
+            ip = [ "::1" ];
+            cidr = [ "127.0.0.0/8" "10.0.0.0/8" "172.16.0.0/12" "192.168.0.0/16"
+                     "${config.site.mesh.subnet}/64" ];
+          };
+        } ];
+        console.enrollKeyFile = config.age.secrets.crowdsec-enroll-key.path;
+        config.api.server = {
           listen_uri = "127.0.0.1:${toString crowdsec-port}";
+          online_client.credentials_path = "${data-dir}/online_api_credentials.yaml";
         };
       };
     };
+
+    # mode applies to files Caddy creates, not those it already has
+    systemd.tmpfiles.rules = lib.mkIf config.services.caddy.enable [
+      "z ${caddy-logs}/access-*.log 0640 ${config.services.caddy.user} ${config.services.caddy.group} -"
+    ];
+
+    services.crowdsec-firewall-bouncer = {
+      enable = true;
+      registerBouncer.enable = true;
+      settings = {
+        update_frequency = "10s";
+        deny_action = "DROP";
+      };
+    };
   };
-
-  # The nftables bouncer is what turns detections into bans, and still needs
-  # enabling. `services.crowdsec-firewall-bouncer` with `registerBouncer.enable`
-  # replaces the hand-rolled registration below, but its register service fails
-  # with "open /etc/crowdsec/config.yaml: no such file": upstream passes the
-  # generated config to the agent via `-c <store path>` and never populates
-  # /etc/crowdsec, so a bare `cscli` finds nothing.
-
-  # systemd.services.crowdsec = {
-  #   postStart = ''
-  #     set -euo pipefail
-  #     export PATH="$PATH:${lib.makeBinPath [ pkgs.crowdsec ]}"
-  #     alias cscli='${lib.getExe' pkgs.crowdsec "cscli"}'
-  #     while ! cscli lapi status; do
-  #       echo "Waiting for CrowdSec daemon to be ready"
-  #       sleep 5
-  #     done
-  #     cscli bouncers add cs-firewall-bouncer --key cs-firewall-bouncer || true
-  #   '';
-  # };
-
-  # services.crowdsec-firewall-bouncer = {
-  #   enable = false;
-  #   settings = {
-  #     api_url = "http://127.0.0.1:${toString crowdsec-port}";
-  #     api_key = "cs-firewall-bouncer";
-  #     mode = "nftables";
-  #     nftables = {
-  #       ipv4 = {
-  #         enabled = true;
-  #         set-only = false;
-  #         table = "crowdsec";
-  #         chain = "crowdsec-chain";
-  #       };
-  #       ipv6 = {
-  #         enabled = true;
-  #         set-only = false;
-  #         table = "crowdsec6";
-  #         chain = "crowdsec6-chain";
-  #       };
-  #     };
-  #   };
-  # };
-
-  # let
-  #   csb-settings-file = (pkgs.formats.yaml { }).generate "crowdsec.yaml" {
-  #     api_url = "http://127.0.0.1:${toString crowdsec-port}";
-  #     api_key = "cs-firewall-bouncer";
-  #     log_mode = "stdout";
-  #     mode = "nftables";
-  #     ipset_type = "nethash";
-  #     update_frequency = "10s";
-  #     deny_action = "DROP";
-  #     blacklists_ipv4 = "crowdsec-blacklists";
-  #     blacklists_ipv6 = "crowdsec6-blacklists";
-  #     iptables_chains = [ "INPUT" ];
-  #     nftables = {
-  #       ipv4 = {
-  #         enabled = true;
-  #         set-only = false;
-  #         table = "crowdsec";
-  #         chain = "crowdsec-chain";
-  #       };
-  #       ipv6 = {
-  #         enabled = true;
-  #         set-only = false;
-  #         table = "crowdsec6";
-  #         chain = "crowdsec6-chain";
-  #       };
-  #     };
-  #   };
-  # in {
-  #   systemd.services.crowdsec-firewall-bouncer = {
-  #     description = "Crowdsec Firewall Bouncer";
-  #     path = with pkgs; [ ipset iptables nftables ];
-  #     wantedBy = [ "multi-user.target" ];
-  #     partOf = [ "firewall.service" ];
-  #     after = [ "crowdsec.service" ];
-  #     requires = [ "crowdsec.service" ];
-  #     serviceConfig = {
-  #       Type = "notify"
-  #         Restart = "always";
-  #       RestartSec = 5;
-  #       LimitNOFILE = 65536;
-  #       MemoryDenyWriteExecute = true;
-  #       CapabilityBoundingSet = [ "CAP_NET_ADMIN" "CAP_NET_RAW" ];
-  #       NoNewPrivileges = true;
-  #       LockPersonality = true;
-  #       RemoveIPC = true;
-  #       ProtectSystem = "strict";
-  #       ProtectHome = true;
-  #       PrivateTmp = true;
-  #       PrivateDevices = true;
-  #       PrivateHostname = true;
-  #       ProtectKernelTunables = true;
-  #       ProtectKernelModules = true;
-  #       ProtectControlGroups = true;
-  #       PRotectProc = "invisible";
-  #       ProcSubset = "pid";
-  #       RestrictNameSpaces = true;
-  #       RestrictRealtime = true;
-  #       RestrictSUIDSGID = true;
-  #       SystemCallFilter = ["@system-service" "@network-io"];
-  #       SystemCallArchitectures = "native";
-  #       SystemCallErrorNumber = "EPERM";
-  #       ExecPaths = [ "/nix/store" ];
-  #       NoExecPaths = [ "/" ];
-  #       ExecStartPre = "${pkgs.crowdsec-firewall-bouncer}/bin/cs-firewall-bouncer -t -c '${csb-settings-file}'";
-  #       ExecStart = "${pkgs.crowdsec-firewall-bouncer}/bin/cs-firewall-bouncer -c '${csb-settings-file}'";
-  #       ExecStartPost = "${pkgs.coreutils}/bin/sleep 0.2";
-  #     };
-  #   };
-  # };
 }

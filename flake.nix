@@ -25,6 +25,7 @@
         agenix.nixosModules.default
         beszel-agent
         caddy
+        crowdsec
         dns-pooler
         high-availability
         mail
