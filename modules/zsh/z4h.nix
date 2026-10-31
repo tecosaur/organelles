@@ -164,6 +164,9 @@ in
         ''
         setopt glob_dots     # no special treatment for file names with a leading dot
         setopt no_auto_menu  # require an extra TAB press to open the completion menu
+        unsetopt hist_save_by_copy  # the shared histfile is root-owned, so a copy-then-rename save is skipped
+        setopt hist_fcntl_lock
+        setopt inc_append_history_time
         ''
       ];
     };
