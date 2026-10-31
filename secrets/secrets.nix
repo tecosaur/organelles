@@ -75,6 +75,7 @@ in
   "keys/meilisearch-stalwart.age".publicKeys = all;
   "keys/multi-scrobbler-jellyfin.age".publicKeys = all;
   "keys/multi-scrobbler-koito.age".publicKeys = all;
+  "keys/patroni-restapi.age".publicKeys = all;
   "keys/postgresql-ha-replication.age".publicKeys = all;
   "keys/s3-overflow-client.age".publicKeys = all;
   "keys/status-alert-topic.age".publicKeys = all;

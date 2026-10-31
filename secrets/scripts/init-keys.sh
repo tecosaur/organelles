@@ -39,6 +39,7 @@ readonly service_keys=(
     "meilisearch-stalwart:meilisearch"
     "multi-scrobbler-jellyfin:rand"
     "multi-scrobbler-koito:rand"
+    "patroni-restapi:rand"
     "postgresql-ha-replication:rand"
     "s3-overflow-client:s3-key"
     "status-alert-topic:rand"

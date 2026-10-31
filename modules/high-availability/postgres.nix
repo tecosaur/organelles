@@ -100,10 +100,17 @@ in {
       command = [ "${package}/bin/pg_isready" "--quiet" "--host=${cfg.socket-dir}" "--port=${toString ports.postgres}" "--dbname=postgres" ];
     } ];
 
-    age.secrets.postgresql-ha-replication = {
-      file = ../../secrets/keys/postgresql-ha-replication.age;
-      owner = "postgres";
-    };
+    age.secrets.postgresql-ha-replication.file = ../../secrets/keys/postgresql-ha-replication.age;
+    # Required for the REST API's unsafe methods; reads stay open, for Caddy's health checks
+    age.secrets.patroni-restapi.file = ../../secrets/keys/patroni-restapi.age;
+
+    # Root's patronictl may switch over and edit the configuration; others only read
+    environment.systemPackages = [ (lib.hiPrio (pkgs.writeShellScriptBin "patronictl" ''
+      if [ -r ${config.age.secrets.patroni-restapi.path} ]; then
+        export PATRONI_RESTAPI_USERNAME=patroni PATRONI_RESTAPI_PASSWORD="$(< ${config.age.secrets.patroni-restapi.path})"
+      fi
+      exec ${pkgs.patroni}/bin/patronictl "$@"
+    '')) ];
 
     # the local cluster's module declares these where it runs
     users = lib.mkIf (!config.services.postgresql.enable) {
@@ -200,7 +207,6 @@ in {
 
     systemd.services.patroni = let
       config-file = config.environment.sessionVariables.PATRONICTL_CONFIG_FILE;
-      secret = config.age.secrets.postgresql-ha-replication.path;
     in {
       wants = [ "network-online.target" ];
       after = [ "network-online.target" "systemd-networkd.service" ];
@@ -209,10 +215,16 @@ in {
       reloadIfChanged = true;
       restartTriggers = [ config.environment.etc.${lib.removePrefix "/etc/" config-file}.source ];
       script = lib.mkForce ''
-        export PATRONI_REPLICATION_PASSWORD="$(< ${secret})" PATRONI_REWIND_PASSWORD="$(< ${secret})"
+        replication="$(< "$CREDENTIALS_DIRECTORY/replication")"
+        export PATRONI_REPLICATION_PASSWORD="$replication" PATRONI_REWIND_PASSWORD="$replication"
+        export PATRONI_RESTAPI_USERNAME=patroni PATRONI_RESTAPI_PASSWORD="$(< "$CREDENTIALS_DIRECTORY/restapi")"
         exec ${lib.getExe pkgs.patroni} ${config-file}
       '';
       serviceConfig = {
+        LoadCredential = [
+          "replication:${config.age.secrets.postgresql-ha-replication.path}"
+          "restapi:${config.age.secrets.patroni-restapi.path}"
+        ];
         RuntimeDirectory = "postgresql-ha";
         RuntimeDirectoryMode = "0755";
         RuntimeDirectoryPreserve = true;
@@ -260,7 +272,8 @@ in {
             [ "$candidate" = "$streaming" ] || { streaming=$candidate since=$SECONDS; }
             if [ -n "$candidate" ] && [ $((SECONDS - since)) -ge ${toString (config.site.ha.failback-minutes * 60)} ]; then
               echo "postgresql-ha: $candidate has streamed for ${toString config.site.ha.failback-minutes} minutes; handing over"
-              curl -sS --fail-with-body --max-time 60 -H 'Content-Type: application/json' \
+              printf 'user = "patroni:%s"\n' "$(< "$CREDENTIALS_DIRECTORY/restapi")" |
+              curl -sS --fail-with-body --max-time 60 -K - -H 'Content-Type: application/json' \
                 -d "{\"leader\": \"${this-host}\", \"candidate\": \"$candidate\"}" ${patroni-api}/switchover ||
                 echo "postgresql-ha: handing over to $candidate failed; retrying in ${toString config.site.ha.failback-minutes} minutes" >&2
               since=$SECONDS
@@ -275,6 +288,7 @@ in {
         Type = "notify";
         NotifyAccess = "all";
         Restart = "always";
+        LoadCredential = lib.optional (ahead != [ ]) "restapi:${config.age.secrets.patroni-restapi.path}";
         RuntimeDirectory = "postgresql-ha-role";
         RuntimeDirectoryPreserve = true;
       };
