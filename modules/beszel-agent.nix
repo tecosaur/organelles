@@ -8,7 +8,8 @@
 
   services.beszel.agent = {
     enable = true;
-    openFirewall = true;
+    # The agent dials the hub over a WebSocket; its SSH listener is only a fallback
+    openFirewall = false;
     environment = {
       HUB_URL = "https://${config.site.apps.beszel.subdomain}.${config.site.domain}";
       KEY = config.site.apps.beszel.publicKey;
