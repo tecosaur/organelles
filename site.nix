@@ -645,10 +645,7 @@ in {
         simpleicon = "jellyfin";
         subdomain = "media";
         port = 8096;
-        # LAN and TV clients connect directly
-        exposure = "public";
         clients = [ "multi-scrobbler" ];
-        ports.dlna = { port = 1900; protocols = [ "udp" ]; exposure = "public"; };
       };
       headscale = mkAppOption {
         health.path = "/health";
