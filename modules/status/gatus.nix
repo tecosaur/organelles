@@ -27,8 +27,6 @@ in {
       enable = true;
       settings = {
         web.port = app.port;
-        # a bad announcement file is logged and ignored, not fatal
-        skip-invalid-config-update = true;
         # The primary, by PGHOST and PGPORT; ident authenticates the gatus system user. The mesh
         # encrypts, and lib/pq, unlike libpq, refuses a server without TLS unless told
         storage = {
@@ -78,10 +76,11 @@ in {
     };
     users.groups.gatus = { };
 
-    # setgid, so the aggregator's announcement stays readable by Gatus
     systemd.tmpfiles.settings."10-gatus-config" = {
-      ${status.config-dir}.d = { user = "gatus"; group = "gatus"; mode = "2775"; };
+      ${status.config-dir}.d = { user = "gatus"; group = "gatus"; mode = "0755"; };
       "${status.config-dir}/00-site.yaml"."L+".argument = "${config.services.gatus.configFile}";
+      # the announcement Gatus once reloaded for, now the aggregator's to serve
+      "${status.config-dir}/50-announcement.yaml".r = { };
     };
 
     systemd.services.gatus = {
@@ -105,6 +104,21 @@ in {
     services.caddy.virtualHosts.${page-domain}.extraConfig = ''
       @push path /api/v1/endpoints/*/external
       respond @push 403
+      # The page reads its announcement here: from the aggregator beside Gatus, which serves it
+      # without Gatus reloading, else from Gatus itself, without one
+      @config path /api/v1/config
+      handle @config {
+          reverse_proxy ${toString (lib.concatMap (host: [
+            "${host}.internal:${toString status.announcement-port}"
+            "${host}.internal:${toString app.port}"
+          ]) config.site.ha.preference)} {
+              lb_policy first
+              health_uri /serving
+              health_port ${toString config.site.ha.ports.serving}
+              health_interval 2s
+              lb_try_duration 5s
+          }
+      }
       handle_path /brand/* {
           root * ${config.site.assets}/site
           file_server

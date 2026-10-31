@@ -15,6 +15,8 @@ let
   config-dir = "/var/lib/gatus/config";
   # each reporter's board of planned transitions, on the mesh
   conditions-port = 9435;
+  # the aggregator's answer to the page's /api/v1/config, its announcement, on the mesh
+  announcement-port = 9436;
   # dns-pooler.nix's loopback status listener
   dns-pooler-status = "http://127.0.0.1:9434/status";
   # Alerts go to a secret topic on ntfy.sh: the site's own ntfy runs on one
@@ -63,7 +65,7 @@ let
     inherit (unit) id name host kind unit command;
   };
 in {
-  inherit alert-url conditions-port config-dir gatus-group rows;
+  inherit alert-url announcement-port conditions-port config-dir gatus-group rows;
 
   # Gatus's external endpoints, one per row
   external-endpoints = map (row: {
@@ -91,7 +93,8 @@ in {
       local = "http://127.0.0.1:${toString gatus.port}";
       token_file = "push";
     } // lib.optionalAttrs (lib.elem config.site.server.host config.site.ha.preference) {
-      announcements_file = "${config-dir}/50-announcement.yaml";
+      announcements_file = "/var/lib/gatus-aggregator/announcement.json";
+      config_listen = "[::]:${toString announcement-port}";
     };
     dns_pooler_status = dns-pooler-status;
     conditions = {
