@@ -2,12 +2,12 @@
   --background-body: #fff;
   --background: #efefef;
   --background-alt: #f7f7f7;
-  --selection: #37a462;
+  --selection: #29b266;
   --text-main: #363636;
   --text-bright: #000;
   --text-muted: #70777f;
-  --links: #20864c;
-  --focus: #228e51;
+  --links: #13934c;
+  --focus: #149c51;
   --border: #dbdbdb;
   --code: #000;
   --animation-duration: 0.1s;
@@ -26,17 +26,17 @@
     --background-body: #191b19;
     --background: #262f29;
     --background-alt: #222824;
-    --selection: #309258;
+    --selection: #239f5a;
     --text-main: #dbdbdb;
     --text-bright: #fff;
     --text-muted: #a9b1ba;
-    --links: #2bb468;
-    --focus: #28ab62;
+    --links: #19c666;
+    --focus: #17bc60;
     --border: #526980;
-    --code: #daf4e1;
+    --code: #d7f7e5;
     --animation-duration: 0.1s;
-    --button-base: #08130b;
-    --button-hover: #042511;
+    --button-base: #07140d;
+    --button-hover: #002912;
     --scrollbar-thumb: var(--button-hover);
     --scrollbar-thumb-hover: #000;
     --form-placeholder: #a9a9a9;
@@ -239,7 +239,7 @@ q:before {
 }
 
 blockquote {
-  border-left: 4px solid #389b5f;
+  border-left: 4px solid #2ba863;
   border-left: 4px solid var(--focus);
   margin: 1.5em 0;
   padding: .5em 1em;
@@ -248,13 +248,13 @@ blockquote {
 
 @media (prefers-color-scheme:dark) {
   blockquote {
-    border-left: 4px solid #389b5f;
+    border-left: 4px solid #2ba863;
     border-left: 4px solid var(--focus)
   }
 }
 
 q {
-  border-left: 4px solid #389b5f;
+  border-left: 4px solid #2ba863;
   border-left: 4px solid var(--focus);
   margin: 1.5em 0;
   padding: .5em 1em;
@@ -263,7 +263,7 @@ q {
 
 @media (prefers-color-scheme:dark) {
   q {
-    border-left: 4px solid #389b5f;
+    border-left: 4px solid #2ba863;
     border-left: 4px solid var(--focus)
   }
 }
@@ -582,49 +582,49 @@ select[multiple] {
 }
 
 input:focus {
-  box-shadow: 0 0 0 2px #389b5f;
+  box-shadow: 0 0 0 2px #2ba863;
   box-shadow: 0 0 0 2px var(--focus)
 }
 
 @media (prefers-color-scheme:dark) {
   input:focus {
-    box-shadow: 0 0 0 2px #389b5f;
+    box-shadow: 0 0 0 2px #2ba863;
     box-shadow: 0 0 0 2px var(--focus)
   }
 }
 
 select:focus {
-  box-shadow: 0 0 0 2px #389b5f;
+  box-shadow: 0 0 0 2px #2ba863;
   box-shadow: 0 0 0 2px var(--focus)
 }
 
 @media (prefers-color-scheme:dark) {
   select:focus {
-    box-shadow: 0 0 0 2px #389b5f;
+    box-shadow: 0 0 0 2px #2ba863;
     box-shadow: 0 0 0 2px var(--focus)
   }
 }
 
 button:focus {
-  box-shadow: 0 0 0 2px #389b5f;
+  box-shadow: 0 0 0 2px #2ba863;
   box-shadow: 0 0 0 2px var(--focus)
 }
 
 @media (prefers-color-scheme:dark) {
   button:focus {
-    box-shadow: 0 0 0 2px #389b5f;
+    box-shadow: 0 0 0 2px #2ba863;
     box-shadow: 0 0 0 2px var(--focus)
   }
 }
 
 textarea:focus {
-  box-shadow: 0 0 0 2px #389b5f;
+  box-shadow: 0 0 0 2px #2ba863;
   box-shadow: 0 0 0 2px var(--focus)
 }
 
 @media (prefers-color-scheme:dark) {
   textarea:focus {
-    box-shadow: 0 0 0 2px #389b5f;
+    box-shadow: 0 0 0 2px #2ba863;
     box-shadow: 0 0 0 2px var(--focus)
   }
 }
@@ -690,7 +690,7 @@ textarea:disabled {
 }
 
 fieldset {
-  border: 1px solid #389b5f;
+  border: 1px solid #2ba863;
   border: 1px solid var(--focus);
   border-radius: 6px;
   margin: 0 0 12px;
@@ -699,7 +699,7 @@ fieldset {
 
 @media (prefers-color-scheme:dark) {
   fieldset {
-    border: 1px solid #389b5f;
+    border: 1px solid #2ba863;
     border: 1px solid var(--focus)
   }
 }
@@ -881,13 +881,13 @@ input[type=range]:focus::-ms-fill-upper {
 
 a {
   text-decoration: none;
-  color: #008646;
+  color: #00863c;
   color: var(--links)
 }
 
 @media (prefers-color-scheme:dark) {
   a {
-    color: #00be66;
+    color: #00be55;
     color: var(--links)
   }
 }
@@ -908,7 +908,7 @@ code {
 
 @media (prefers-color-scheme:dark) {
   code {
-    color: #daf4e1;
+    color: #d7f7e5;
     color: var(--code);
     background: #161f27;
     background: var(--background)
@@ -927,7 +927,7 @@ samp {
 
 @media (prefers-color-scheme:dark) {
   samp {
-    color: #daf4e1;
+    color: #d7f7e5;
     color: var(--code);
     background: #161f27;
     background: var(--background)
@@ -946,7 +946,7 @@ time {
 
 @media (prefers-color-scheme:dark) {
   time {
-    color: #daf4e1;
+    color: #d7f7e5;
     color: var(--code);
     background: #161f27;
     background: var(--background)
@@ -1151,12 +1151,12 @@ tbody tr:nth-child(2n) button:hover {
 
 @media (prefers-color-scheme:dark) {
   ::-moz-selection {
-    background-color: #28ab62;
+    background-color: #17bc60;
     background-color: var(--selection)
   }
 
   ::selection {
-    background-color: #28ab62;
+    background-color: #17bc60;
     background-color: var(--selection)
   }
 }

@@ -37,7 +37,7 @@ let
           </div>
           HTML
         re "\n*<div>\s*<p[^>]*>Read[^<]+<\/p>\s*<\/div>" ""
-        `<a href="https://${ubin-domain}/"> Go Home</a>` ""
+        re `<a href="https://${ubin-domain}/">\s*Go Home</a>` ""
     }
     '';
   caddy-settings-filter =
