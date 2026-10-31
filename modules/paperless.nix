@@ -69,6 +69,13 @@ in {
     file = ../secrets/passwords/llm-api-key.age;
   };
 
+  # configureTika's gotenberg exports metrics and traces over OTLP by default, to a collector
+  # nothing runs
+  systemd.services.gotenberg.environment = {
+    OTEL_METRICS_EXPORTER = "none";
+    OTEL_TRACES_EXPORTER = "none";
+  };
+
   services.paperless = {
     enable = true;
     port = config.site.apps.paperless.port;

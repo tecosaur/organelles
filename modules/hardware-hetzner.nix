@@ -5,6 +5,8 @@
   system.stateVersion = "26.05";
   # Postgres state is per major version; move it with upgrade-pg-cluster
   services.postgresql.package = pkgs.postgresql_18;
+  # A virtual disk has no SMART data, so beszel would fail smartctl every scan
+  services.beszel.agent.environment.SMART_DEVICES = "";
 
   boot = {
     initrd = {

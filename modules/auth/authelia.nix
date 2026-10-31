@@ -138,6 +138,8 @@ in {
         base_dn = config.services.lldap.settings.ldap_base_dn;
         users_filter = "(&({username_attribute}={input})(objectClass=person))";
         groups_filter = "(member={dn})";
+        # From the base, the group filter would reach users too, whose missing member LLDAP warns of
+        additional_groups_dn = "ou=groups";
         user = "uid=${config.services.lldap.settings.ldap_user_dn},ou=people,${config.services.lldap.settings.ldap_base_dn}";
       };
       # PGTARGETSESSIONATTRS passes over hosts that can't take writes

@@ -22,6 +22,8 @@ in {
       extraConf = {
         HEARTBEAT_INTERVAL = "500";
         ELECTION_TIMEOUT = "5000";
+        # A read waits on the leader, a WAN round trip away, so the default 100 ms warns on every one
+        WARNING_APPLY_DURATION = "1s";
       };
     };
 

@@ -66,6 +66,7 @@ in {
       "stream"
       "squeezebox"
       "thread"
+      "wiim"
       "zeroconf"
     ];
     customComponents = with pkgs.home-assistant-custom-components; [
