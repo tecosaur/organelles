@@ -5,6 +5,8 @@ let
   storyteller-domain = "${storyteller.subdomain}.${config.site.domain}";
   storyteller-pkg = pkgs.callPackage ../packages/storyteller.nix { whisper = pkgs.whisper-cpp-vulkan; };
   storyteller-import = "/data/media/books";
+  # A user token from hardcover.app, so it does not block a deploy.
+  has-hardcover-token = builtins.pathExists ../secrets/credentials/hardcover-token.age;
 in {
   site.apps.storyteller.enabled = true;
 
@@ -16,6 +18,11 @@ in {
   age.secrets.storyteller-smtp = {
     owner = "storyteller";
     file = ../secrets/credentials/fastmail.age;
+  };
+
+  age.secrets.storyteller-hardcover = lib.mkIf has-hardcover-token {
+    owner = "storyteller";
+    file = ../secrets/credentials/hardcover-token.age;
   };
 
   systemd.services.storyteller = {
@@ -33,7 +40,7 @@ in {
       STORYTELLER_DATA_DIR = storyteller.dir;
       STORYTELLER_LOG_LEVEL = "info";
       STORYTELLER_SECRET_KEY_FILE = "${storyteller.dir}/secret_key";
-      STORYTELLER_CONFIG = (pkgs.formats.json {}).generate "storyteller-config.json" {
+      STORYTELLER_CONFIG = (pkgs.formats.json {}).generate "storyteller-config.json" ({
         libraryName = "Books @ ${config.site.domain}";
         webUrl = "https://${storyteller-domain}";
         preferenceDefaults.accentColor = config.site.accent.primary;
@@ -70,7 +77,9 @@ in {
         smtpFrom = "Storyteller (${config.site.domain}) <services.storyteller@${config.site.domain}>";
         smtpSsl = true;
         smtpRejectUnauthorized = true;
-      };
+      } // lib.optionalAttrs has-hardcover-token {
+        hardcoverApiToken_file = config.age.secrets.storyteller-hardcover.path;
+      });
       ENABLE_WEB_READER = "true";
       HOME = storyteller.dir;
       # OIDC (trustHost is hardcoded true in Storyteller)

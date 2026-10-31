@@ -5,7 +5,7 @@
   fetchFromGitHub,
   fetchurl,
   yarn-berry_4,
-  nodejs_24,
+  nodejs_26,
   srcOnly,
   removeReferencesTo,
   makeWrapper,
@@ -18,26 +18,41 @@
   buildGoModule,
   whisper-cpp,
   whisper ? whisper-cpp,
+  vulkan-loader,
+  curl,
+  libxml2_13,
+  zlib,
   fraunces,
   ibm-plex
 }:
 
 let
-  nodeSources = srcOnly nodejs_24;
-  yarn-berry = yarn-berry_4;
+  nodeSources = srcOnly nodejs_26;
+  # Upstream's lockfile is written by yarn 4.18, whose builtin TypeScript
+  # compat patch knows the TypeScript 7 package layout; nixpkgs' 4.14 does not
+  # and fails the fetch step on lib/_tsc.js.
+  yarn-berry = yarn-berry_4.overrideAttrs (old: {
+    version = "4.18.0";
+    src = fetchFromGitHub {
+      owner = "yarnpkg";
+      repo = "berry";
+      tag = "@yarnpkg/cli/4.18.0";
+      hash = "sha256-pO89wh17cW9/RGKjo70yiefr+9nlJAQs4ZEdUnzdgQM=";
+    };
+  });
 
   readium-cli = buildGoModule rec {
     pname = "readium-cli";
-    version = "0.7.1";
+    version = "0.9.1";
 
     src = fetchFromGitHub {
       owner = "readium";
       repo = "cli";
       rev = "v${version}";
-      hash = "sha256-HQd8yw2bA7ILP7rQOwKcFeaGQLx1bsnu67lM1BNkreI=";
+      hash = "sha256-D7Qpf+6qMdXWQ35zdIBZTVpT6zJEK7TVpjpLDPg+/n0=";
     };
 
-    vendorHash = "sha256-OxK8D9s2Q80M4ypQ5z+vrIFQZLQujk/QRuDsir95jJM=";
+    vendorHash = "sha256-Jph5NafR7PSrH2ub+85Cd/QxHPi6UyvyDJdlfsJrQNw=";
 
     subPackages = [ "cmd" ];
 
@@ -69,7 +84,7 @@ let
 
   yarnPatch = ''
     # Add dependenciesMeta to package.json and mirror it into yarn.lock.
-    ${nodejs_24}/bin/node <<'JS'
+    ${nodejs_26}/bin/node <<'JS'
     const fs = require("fs");
 
     const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
@@ -122,17 +137,17 @@ let
 in
 stdenv.mkDerivation (finalAttrs: {
   pname = "storyteller";
-  version = "3.0.0-beta.19";
+  version = "3.0.0-beta.58";
 
   src = fetchFromGitLab {
     owner = "storyteller-platform";
     repo = "storyteller";
     rev = "web-v${finalAttrs.version}";
-    hash = "sha256-7sl4G7NGm0tOl6hSxrolM0irWE/mJCBIpya52fjJHeM=";
+    hash = "sha256-J8EBDTQOpzUSyQVsVnbiDyUbKB71CDNkZlNC3ZFsOT8=";
   };
 
   nativeBuildInputs = [
-    nodejs_24
+    nodejs_26
     yarn-berry
     yarn-berry.yarnBerryConfigHook
     makeWrapper
@@ -146,7 +161,7 @@ stdenv.mkDerivation (finalAttrs: {
   offlineCache = yarn-berry.fetchYarnBerryDeps {
     inherit (finalAttrs) src missingHashes;
     postPatch = yarnPatch;
-    hash = "sha256-GpTa341CxDwP4zfd15l3rvbLZuf5ur8OnCvA2wRe+Og=";
+    hash = "sha256-T9f84io5b6qwJ/moxTugyKfYX3iwqDvU+s18VeRqwT8=";
   };
 
   passthru = {
@@ -172,14 +187,17 @@ stdenv.mkDerivation (finalAttrs: {
       exit 1
     fi
 
-    # Build the native part of all instances of better-sqlite3.
-    # Adapted from mkYarnModules.
+    # better-sqlite3 v13 ships NAPI prebuilds for every platform, but they are
+    # linked against a non-Nix glibc/libstdc++. Rebuild from source and replace
+    # the linux-x64 prebuild, which is what lib/binding.js resolves first.
     for f in $(find -path '*/node_modules/better-sqlite3' -type d); do
       (cd "$f" && (
       npm run build-release --offline --nodedir="${nodeSources}"
       find build -type f -exec \
         ${lib.getExe removeReferencesTo} \
         -t "${nodeSources}" {} \;
+      mkdir -p prebuilds
+      cp -f build/Release/better_sqlite3.node prebuilds/linux-x64.node
       ))
     done
 
@@ -209,13 +227,13 @@ stdenv.mkDerivation (finalAttrs: {
     export CI_COMMIT_TAG=web-v${finalAttrs.version}
     export npm_config_cache="$TMPDIR/.npm-cache"
     mkdir -p "$npm_config_cache"
-    # SQLite UUID extension
-    gcc -O2 -g -fPIC -rdynamic -shared applications/web/sqlite/uuid.c -o applications/web/sqlite/uuid.c.so
     # Native bindings used while building the worker and Next.js application
-    export SQLITE_NATIVE_BINDING="$PWD/node_modules/better-sqlite3/build/Release/better_sqlite3.node"
+    export SQLITE_NATIVE_BINDING="$PWD/node_modules/better-sqlite3/prebuilds/linux-x64.node"
     export ERROR_ALIGN_NATIVE_BINDING="$PWD/libraries/align"
-    # Do the build!
-    yarn workspaces foreach -Rpt --from @storyteller-platform/web --exclude @storyteller-platform/eslint run build
+    # Do the build! mlx-audio omits typescript from its devDependencies, so its
+    # own build has no tsc; ghost-story's `tsc -b` builds it as a reference.
+    yarn workspaces foreach -Rpt --from @storyteller-platform/web \
+      --exclude @storyteller-platform/mlx-audio run build
     runHook postBuild
   '';
 
@@ -232,9 +250,6 @@ stdenv.mkDerivation (finalAttrs: {
     cp -r applications/web/public/. $out/lib/storyteller/applications/web/public/
     mkdir -p $out/lib/storyteller/applications/web/.next/static
     cp -r applications/web/.next/static/. $out/lib/storyteller/applications/web/.next/static/
-    # SQLite extension
-    mkdir -p $out/lib/storyteller/applications/web/sqlite
-    cp applications/web/sqlite/uuid.c.so $out/lib/storyteller/applications/web/sqlite/
     # Migrations
     cp -r applications/web/migrations $out/lib/storyteller/applications/web/migrations
     # Scripts
@@ -255,34 +270,37 @@ stdenv.mkDerivation (finalAttrs: {
     mkdir -p $out/lib/storyteller/applications/web/work-dist/vendors
     cp -r libraries/epub/vendors/epubcheck-${epubcheckVersion} \
       $out/lib/storyteller/applications/web/work-dist/vendors/
-    # Runtime packages loaded dynamically and not fully traced by Next.js
-    mkdir -p $out/lib/storyteller/node_modules/@parcel
-    cp -r node_modules/@parcel/. \
-      $out/lib/storyteller/node_modules/@parcel/
-    mkdir -p $out/lib/storyteller/node_modules/kuromoji
-    cp -r node_modules/kuromoji/. \
-      $out/lib/storyteller/node_modules/kuromoji/
     # Extract whisper.cpp version from ghost-story source
     whisperCppUpstreamVersion=$(grep -oP 'WHISPER_CPP_UPSTREAM_VERSION\s*=\s*"\K[^"]+' libraries/ghost-story/src/constants.ts)
     whisperCppPatchLevel=$(grep -oP 'WHISPER_CPP_PATCH_LEVEL\s*=\s*\K[0-9]+' libraries/ghost-story/src/constants.ts)
     whisperCppVersion="''${whisperCppUpstreamVersion}-st.''${whisperCppPatchLevel}"
-    # Native binding
-    mkdir -p $out/lib/storyteller/node_modules/better-sqlite3/build/Release
-    cp node_modules/better-sqlite3/build/Release/better_sqlite3.node \
-       $out/lib/storyteller/node_modules/better-sqlite3/build/Release/
+    # Next.js traces better-sqlite3/prebuilds/** wholesale; keep the Nix-built
+    # linux-x64 binding and drop upstream's foreign-platform binaries
+    sqlitePrebuilds=$out/lib/storyteller/node_modules/better-sqlite3/prebuilds
+    if [[ ! -f $sqlitePrebuilds/linux-x64.node ]]; then
+      echo "ERROR: traced better-sqlite3 prebuild missing at $sqlitePrebuilds/linux-x64.node"
+      exit 1
+    fi
+    find $sqlitePrebuilds -type f ! -name linux-x64.node -delete
+    find $sqlitePrebuilds -type d -empty -delete
+    # nodekit's prebuild links the distro's libcurl, libxml2 (the .so.2 soname,
+    # which nixpkgs' default 2.15 no longer provides) and zlib
+    patchelf --add-rpath ${lib.makeLibraryPath [ curl libxml2_13 zlib ]} \
+      $out/lib/storyteller/node_modules/@storyteller-platform/nodekit-linux-x64-gnu/nodekit.linux-x64-gnu.node
     # Wrapper
-    makeWrapper ${nodejs_24}/bin/node $out/bin/storyteller \
+    makeWrapper ${nodejs_26}/bin/node $out/bin/storyteller \
       --add-flags "--enable-source-maps $out/lib/storyteller/applications/web/server.js" \
       --chdir "$out/lib/storyteller/applications/web" \
-      --run "WHISPER_DIR=\"\$HOME/.local/share/ghost-story/whisper-cpp/$whisperCppVersion/linux-x64-cpu/bin\"; mkdir -p \"\$WHISPER_DIR\"; ln -sfn ${lib.getExe whisper} \"\$WHISPER_DIR/whisper-cli\"" \
+      --run "WHISPER_DIR=\"\$HOME/.local/share/ghost-story/whisper-cpp/$whisperCppVersion/linux-x64-vulkan/bin\"; mkdir -p \"\$WHISPER_DIR\"; ln -sfn ${lib.getExe whisper} \"\$WHISPER_DIR/whisper-cli\"" \
       --prefix PATH : ${lib.makeBinPath [ ffmpeg readium-cli ]} \
+      --prefix LD_LIBRARY_PATH : ${lib.makeLibraryPath [ vulkan-loader ]} \
       --set NODE_ENV "production" \
       --set NEXT_TELEMETRY_DISABLED "1" \
       --set CI_COMMIT_TAG "web-v${finalAttrs.version}" \
-      --set STORYTELLER_WHISPER_VARIANT "linux-x64-cpu" \
+      --set STORYTELLER_WHISPER_VARIANT "linux-x64-vulkan" \
       --set STORYTELLER_WORKER "worker.mjs" \
       --set STORYTELLER_FILE_WRITE_WORKER "fileWriteWorker.mjs" \
-      --set SQLITE_NATIVE_BINDING "$out/lib/storyteller/node_modules/better-sqlite3/build/Release/better_sqlite3.node" \
+      --set SQLITE_NATIVE_BINDING "$out/lib/storyteller/node_modules/better-sqlite3/prebuilds/linux-x64.node" \
       --set ERROR_ALIGN_NATIVE_BINDING "$out/lib/storyteller/applications/web/work-dist/@storyteller-platform/align"
     runHook postInstall
   '';
