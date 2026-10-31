@@ -153,7 +153,7 @@ in {
       notifier.smtp = {
         address = "${config.site.email.server}:${toString config.site.email.port}";
         username = config.site.email.username;
-        sender = "${config.site.domain} — Authentication <services.authentication@${config.site.domain}>";
+        sender = "${config.site.domain} authentication <services.authentication@${config.site.domain}>";
         subject = "{title}";
       };
       log.level = "debug";
