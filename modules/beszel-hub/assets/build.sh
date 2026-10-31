@@ -1,0 +1,2 @@
+# Beszel
+svgfmt icon.svg

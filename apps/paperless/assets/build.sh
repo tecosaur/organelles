@@ -1,0 +1,2 @@
+# Paperless
+favmake . --replace

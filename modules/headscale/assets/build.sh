@@ -1,0 +1,2 @@
+# Headscale
+favmake . --replace

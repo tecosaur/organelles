@@ -18,10 +18,10 @@
 
   outputs = inputs@{ self, nixpkgs, flake-utils-plus, agenix, declarative-jellyfin, ... }:
     let
-      site-config = import ./site.nix;
-      modules = flake-utils-plus.lib.exportModules (
-        nixpkgs.lib.mapAttrsToList (name: value: ./modules/${name}) (builtins.readDir ./modules)
-      );
+      site-config = import ./site;
+      # every app and module, by name
+      modules = flake-utils-plus.lib.exportModules (nixpkgs.lib.concatMap (root:
+        nixpkgs.lib.mapAttrsToList (name: _: root + "/${name}") (builtins.readDir root)) [ ./apps ./modules ]);
       core-modules = with modules; [
         agenix.nixosModules.default
         beszel-agent
@@ -46,7 +46,8 @@
             ipv6 = "2a01:4ff:f0:cc83";
           };
           modules = with modules; [
-            auth
+            authelia
+            lldap
             beszel-hub
             fava
             hardware-hetzner
@@ -66,7 +67,8 @@
         nucleus = {
           apps.llm.proxy = [ "tranquillity.lan:5521" ];
           modules = with modules; [
-            auth
+            authelia
+            lldap
             data-mounts
             declarative-jellyfin.nixosModules.default
             hardware-nas
@@ -83,7 +85,8 @@
             site-root
             speedtest
             storyteller
-            streaming
+            jellyfin
+            transmission
             tandoor
             trek
             warracker
@@ -159,7 +162,7 @@
         domain = "tecosaur.net";
         ha.preference = [ "nucleus" "golgi" ];
         meilisearch.host = "nucleus";
-        # mail's records are modules/mail/stalwart.nix's
+        # mail's records are apps/mail/stalwart.nix's
         dns.records = [
           { name = "ssh"; type = "CNAME"; value = "golgi.hosts.tecosaur.net."; }
         ];

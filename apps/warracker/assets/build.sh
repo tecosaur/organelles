@@ -1,0 +1,2 @@
+# Warracker
+favmake .

@@ -6,7 +6,7 @@
 
 let
   status = import ./plan.nix { inherit config lib; };
-  package = pkgs.callPackage ../../packages/gatus-aggregator.nix { };
+  package = pkgs.callPackage ./package.nix { };
   # a plan that fails validation fails the build, not the deploy
   plan-file = pkgs.runCommand "gatus-aggregator-plan.json" { nativeBuildInputs = [ package ]; } ''
     cp ${pkgs.writeText "plan.json" (builtins.toJSON status.plan)} $out

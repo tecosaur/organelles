@@ -1,0 +1,152 @@
+{ config, lib, pkgs, ... }:
+
+# *Setup process*
+# 1. Comment out `PAPERLESS_DISABLE_REGULAR_LOGIN`
+# 2. Log in as `admin`
+# 3. Create the groups (`/usersgroups`):
+#    a) `users` (basic permissions that everyone should have),
+#       at a minimum you probably want this to include:
+#       - Document (all)
+#       - Tag (all)
+#       - Correspondent (all)
+#       - Document Type (view)
+#       - Saved View (all)
+#       - UISettings (all) *important*
+#       - History (view)
+#       - Note (all)
+#       - Share Link (all)
+#    b) `admin` (OIDC admin group), with any extra permissions,
+#       such as:
+#       - Paperless Task
+#       - App Config
+#       - User
+#       - Group
+#       - Custom Field
+#       - Workflow
+# 4. Sign out
+# 5. Uncomment `PAPERLESS_DISABLE_REGULAR_LOGIN`
+
+let
+  django-allauth-oidc-config = {
+    OAUTH_PKCE_ENABLED = true;
+    APPS = [
+      {
+        provider_id = "authelia";
+        name = "Single Sign On";
+        client_id = "paperless";
+        secret = "##oidc_secret##";
+        settings = {
+          fetch_userinfo = true;
+          oauth_pkce_enabled = true;
+          server_url = "https://${config.site.apps.authelia.subdomain}.${config.site.domain}/.well-known/openid-configuration";
+          token_auth_method = "client_secret_basic";
+        };
+      }
+    ];
+    SCOPE = [ "openid" "email" "profile" "groups" ];
+  };
+  secret-env = pkgs.writeText "paperless-secret-env" (lib.toShellVars ({
+    PAPERLESS_SOCIALACCOUNT_PROVIDERS =
+      builtins.toJSON { openid_connect = django-allauth-oidc-config; };
+  } // lib.optionalAttrs config.site.apps.llm.enabled {
+    PAPERLESS_AI_LLM_API_KEY = "##llm_api_key##";
+  }) + "\n");
+in {
+  site.apps.paperless.enabled = true;
+
+  age.secrets.paperless-oidc = {
+    owner = "paperless";
+    file = ../../secrets/oidc/paperless-secret.age;
+  };
+
+  age.secrets.paperless-admin-password = {
+    owner = "paperless";
+    file = ../../secrets/passwords/paperless-admin-password.age;
+  };
+
+  age.secrets.paperless-llm-api-key = lib.mkIf config.site.apps.llm.enabled {
+    owner = "paperless";
+    file = ../../secrets/passwords/llm-api-key.age;
+  };
+
+  # configureTika's gotenberg exports metrics and traces over OTLP by default, to a collector
+  # nothing runs
+  systemd.services.gotenberg.environment = {
+    OTEL_METRICS_EXPORTER = "none";
+    OTEL_TRACES_EXPORTER = "none";
+  };
+
+  services.tika.port = config.site.apps.paperless.ports.tika.port;
+  services.gotenberg.port = config.site.apps.paperless.ports.gotenberg.port;
+
+  services.paperless = {
+    enable = true;
+    port = config.site.apps.paperless.port;
+    dataDir = "/data/paperless";
+    configureTika = true;
+    passwordFile = config.age.secrets.paperless-admin-password.path;
+    settings = {
+      PAPERLESS_APP_TITLE = "Paperless";
+      PAPERLESS_URL = "https://${config.site.apps.paperless.subdomain}.${config.site.domain}";
+      # OIDC
+      PAPERLESS_APPS = "allauth.socialaccount.providers.openid_connect";
+      PAPERLESS_DISABLE_REGULAR_LOGIN = true;
+      PAPERLESS_SOCIAL_AUTO_SIGNUP = true;
+      PAPERLESS_ACCOUNT_EMAIL_VERIFICATION = false;
+      PAPERLESS_SOCIAL_ACCOUNT_DEFAULT_GROUPS = "users"; # Comes with basic permissions
+      # PAPERLESS_SOCIAL_ACCOUNT_SYNC_GROUPS = true; # This adds people to `admin`, but removes people from the OIDC non-existent `users` group
+      PAPERLESS_REDIRECT_LOGIN_TO_SSO = true;
+      PAPERLESS_LOGOUT_REDIRECT_URL = "https://${config.site.apps.paperless.subdomain}.${config.site.domain}";
+      # Consumption
+      PAPERLESS_CONSUMER_RECURSIVE = true;
+      PAPERLESS_CONSUMER_SUBDIRS_AS_TAGS = true;
+      # Storage
+      PAPERLESS_FILENAME_FORMAT = "{{ owner_username }}/{{ created_year }}/{{ correspondent }}/{{ created_month }}-{{ created_month_name_short }}_{{ title }}";
+    } // (lib.optionalAttrs config.site.apps.llm.enabled {
+      PAPERLESS_AI_ENABLED = true;
+      PAPERLESS_AI_LLM_BACKEND = "openai-like";
+      PAPERLESS_AI_LLM_MODEL = "llm";
+      PAPERLESS_AI_LLM_ENDPOINT = "https://${config.site.apps.llm.subdomain}.${config.site.domain}/v1";
+    } // lib.optionalAttrs config.site.apps.llm.embedding.enable {
+      PAPERLESS_AI_LLM_EMBEDDING_BACKEND = "openai-like";
+      PAPERLESS_AI_LLM_EMBEDDING_MODEL = "embedding";
+    });
+    environmentFile = "/run/paperless-secrets/env-file";
+  };
+
+  system.activationScripts.paperless-env-file = {
+    deps = [ "agenix" ];
+    text = ''
+      mkdir -p /run/paperless-secrets
+      chown -R ${config.services.paperless.user}:${config.services.paperless.user} /run/paperless-secrets
+      chmod -R 700 /run/paperless-secrets
+      cp ${secret-env} /run/paperless-secrets/env-file
+      ${lib.getExe pkgs.replace-secret} '##oidc_secret##' '${config.age.secrets.paperless-oidc.path}' /run/paperless-secrets/env-file
+      ${lib.optionalString config.site.apps.llm.enabled
+        "${lib.getExe pkgs.replace-secret} '##llm_api_key##' '${config.age.secrets.paperless-llm-api-key.path}' /run/paperless-secrets/env-file"}
+      chmod 400 /run/paperless-secrets/env-file
+    '';
+  };
+
+  systemd.tmpfiles.settings."10-paperless" = {
+    "${config.services.paperless.dataDir}".d.mode = "770";
+    "${config.services.paperless.mediaDir}".d.mode = "770";
+    "${config.services.paperless.consumptionDir}".d.mode = "770";
+  };
+
+  systemd.services.paperless-scheduler.serviceConfig.UMask = lib.mkForce "0027";
+  systemd.services.paperless-task-queue.serviceConfig.UMask = lib.mkForce "0027";
+  systemd.services.paperless-consumer.serviceConfig.UMask = lib.mkForce "0027";
+  systemd.services.paperless-web.serviceConfig.UMask = lib.mkForce "0027";
+  systemd.services.paperless-exporter.serviceConfig.UMask = lib.mkForce "0027";
+
+  services.caddy.virtualHosts."${config.site.apps.paperless.subdomain}.${config.site.domain}".extraConfig =
+    ''
+    route {
+        file_server /favicon.ico {
+            root ${config.site.assets}/paperless
+        }
+        reverse_proxy :${toString config.site.apps.paperless.port}
+    }
+    '';
+}
