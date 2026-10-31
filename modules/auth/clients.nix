@@ -156,6 +156,8 @@ in {
           grant_types = [ "authorization_code" "refresh_token" ];
           lifespan = config.site.mail.oidc.lifespan;
           token_endpoint_auth_method = "client_secret_post";
+          # It revokes tokens at sign-out as it fetches them, and the default differs
+          revocation_endpoint_auth_method = "client_secret_post";
         })
         (mail-client {
           name = config.site.mail.oidc.web-ui-client;
