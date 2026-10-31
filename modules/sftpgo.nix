@@ -5,6 +5,7 @@ let
   sftpgo-user = "sftpgo";
   sftpgo-pkg = pkgs.callPackage ../packages/sftpgo.nix { };
   sftpgo-admin-user = "admin";
+  webdav-prefix = "/dav";
   sftpgo-exec = pkgs.writeShellScript "sftpgo-start" ''
     if [ -f "$CREDENTIALS_DIRECTORY/default-admin-password" ]; then
       export SFTPGO_DEFAULT_ADMIN_USERNAME="${sftpgo-admin-user}"
@@ -40,10 +41,7 @@ in {
     ExecStart = lib.mkForce sftpgo-exec;
   };
 
-  networking.firewall.allowedTCPPorts = [
-    config.site.apps.sftpgo.sftpd-port
-    config.site.apps.sftpgo.webdavd-port
-  ];
+  networking.firewall.allowedTCPPorts = [ config.site.apps.sftpgo.sftpd-port ];
 
   site.unfree = [ "sftpgo" ];
 
@@ -77,6 +75,7 @@ in {
         {
           address = "127.0.0.1";
           port = config.site.apps.sftpgo.webdavd-port;
+          prefix = webdav-prefix;
           client_ip_proxy_header = "X-Forwarded-For";
           proxy_allowed = [ "127.0.0.1" ];
         }
@@ -155,6 +154,10 @@ in {
         uri strip_prefix /static
         root ${config.site.assets}/sftpgo
         file_server
+    }
+    @webdav path ${webdav-prefix} ${webdav-prefix}/*
+    handle @webdav {
+        reverse_proxy :${toString config.site.apps.sftpgo.webdavd-port}
     }
     reverse_proxy * :${toString config.site.apps.sftpgo.port} {
         header_up Host {http.request.host}
