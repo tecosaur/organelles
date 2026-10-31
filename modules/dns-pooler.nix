@@ -79,6 +79,8 @@ let
     dns-pooler -config ${toml.generate "dns-pooler.toml" settings} check
     cp ${toml.generate "dns-pooler.toml" settings} $out
   '';
+  # A fixed path, so a changed configuration reloads rather than changing the unit
+  config-path = "/etc/dns-pooler/config.toml";
 in {
   site.status.units = [ {
     id = "dns-pooler";
@@ -103,8 +105,11 @@ in {
 
   networking.firewall.interfaces.wg0.allowedTCPPorts = [ peer-port ];
 
+  environment.etc."dns-pooler/config.toml".source = config-file;
+
   systemd.services.dns-pooler = {
     description = "dns-pooler DNS pool reconciliation";
+    reloadTriggers = [ config-file ];
     wantedBy = [ "multi-user.target" ];
     wants = [ "network-online.target" ];
     # the mesh address must exist before the peer listener can bind it
@@ -114,7 +119,9 @@ in {
     serviceConfig = {
       Type = "notify";
       NotifyAccess = "main";
-      ExecStart = "${lib.getExe dns-pooler-pkg} -config ${config-file} run";
+      ExecStart = "${lib.getExe dns-pooler-pkg} -config ${config-path} run";
+      # Applies what it can live, re-executing in place for the rest
+      ExecReload = "${pkgs.coreutils}/bin/kill -HUP $MAINPID";
       # Above the longest blocking step (10s) and, with the 10s request
       # deadline, under dead_after (30s)
       WatchdogSec = 15;

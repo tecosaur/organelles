@@ -5,14 +5,14 @@
 
 buildGoModule {
   pname = "dns-pooler";
-  version = "0.1.0-unstable-2026-10-29";
+  version = "0.1.0-unstable-2026-10-31";
 
   src = fetchFromGitea {
     domain = "code.tecosaur.net";
     owner = "tec";
     repo = "dns-pooler";
-    rev = "e178d7edbe67d7ec4e521921fa9680e8b9ec3e53";
-    hash = "sha256-uxWlOpXVw+mrUeJJkp9jot4eNGv14iE+NuGM+nV91Dg=";
+    rev = "5bc6892af8838c9aa0485560349f1549b6aab592";
+    hash = "sha256-sSGWmRk/LAQSeM0tDKrlOArAchPPojfkpCVR72GCXhI=";
   };
 
   vendorHash = "sha256-D8rsQO3nO56DbNKTGnV8rA7trBFKRPqCptB4S+uUQ04=";
