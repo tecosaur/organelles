@@ -34,6 +34,12 @@ in {
         "ict1634"      = { id = "EG33JRV-Y6DUTXW-CNLYOLZ-H5A6SLS-I6INZIS-VISOZK3-2JV62MV-24K45A7"; };
       };
       folders = {
+        "Autocorrections" = {
+          id = "tec-autocorrections";
+          path = "~/tec-autocorrections";
+          devices = my-computers;
+          type = "receiveonly";
+        };
         "Public" = {
           id = "tec-public";
           path = "~/public";
@@ -77,7 +83,7 @@ in {
     '';
   services.caddy.virtualHosts."${public-domain}".extraConfig =
     ''
-    root * ${config.services.syncthing.dataDir}/public/.build
+    root ${config.services.syncthing.dataDir}/public/.build
     file_server
     '';
 }
