@@ -31,7 +31,6 @@ in {
         buttonText = "Login";
         clientId = "immich";
         clientSecret._secret = config.age.secrets.immich-oidc.path;
-        defaultStorageQuota = 0;
         issuerUrl = "https://${config.site.apps.authelia.subdomain}.${config.site.domain}/.well-known/openid-configuration";
         scope = "openid email profile";
         signingAlgorithm = "RS256";
@@ -55,12 +54,17 @@ in {
           enabled = true;
           modelName = "ViT-B-16-SigLIP2__webli";
         };
-        ocr.modelName = "EN__PP-OCRv5_mobile";
-        facialRecognition.minFaces = 8;
+        duplicateDetection.maxDistance = 0.02;
+        ocr.modelName = "PP-OCRv6_small";
+        facialRecognition = {
+          minScore = 0.4;
+          maxDistance = 0.55;
+          minFaces = 8;
+        };
       };
       notifications.smtp = {
         enabled = true;
-        from = "services.immich@${config.site.domain}";
+        from = "Immich on tecosaur.net <services.immich@${config.site.domain}>";
         replyTo = "contact.immich@${config.site.domain}";
         transport = {
           ignoreCert = false;
@@ -78,6 +82,7 @@ in {
         # HSA_USE_SVM = "0";
         # MACHINE_LEARNING_DEVICE_IDS = "0";
         MACHINE_LEARNING_MODEL_TTL = "0"; # Never expire
+        MACHINE_LEARNING_MODEL_REVISION = "v2";
         MACHINE_LEARNING_PRELOAD__CLIP__VISUAL =
           let clip = config.services.immich.settings.machineLearning.clip; in
           if clip.enabled then clip.modelName else "";
