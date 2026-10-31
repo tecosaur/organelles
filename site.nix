@@ -393,7 +393,9 @@ in {
         homepage = "https://www.authelia.com";
         description = "authentication and SSO portal";
         simpleicon = "authelia";
-        service = null; # "authelia-main";
+        # Named for its status checks; it keeps no state of its own
+        service = "authelia-main";
+        usesStateDir = false;
         subdomain = "auth";
         port = 9091;
       };
@@ -444,7 +446,8 @@ in {
         name = "Fava";
         homepage = "https://beancount.github.io/fava/";
         description = "Beancount web interface";
-        service = null;
+        service = "fava";
+        usesStateDir = false;
         subdomain = "fava";
         port = 5025;
       };
