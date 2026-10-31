@@ -105,6 +105,7 @@ in {
             config_url = "https://${config.site.apps.authelia.subdomain}.${config.site.domain}";
             redirect_base_url = "https://${sftpgo-domain}";
             scopes = [ "openid" "email" "profile" "groups" ];
+            query_userinfo = true;
             username_field = "preferred_username";
             custom_fields = [ "name" "email" ];
           };

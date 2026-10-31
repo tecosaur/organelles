@@ -11,13 +11,13 @@ buildGoModule rec {
   version = "2.7.6-pre1";
 
   src = fetchFromGitHub {
-    owner = "tecosaur";
+    owner = "drakkan";
     repo = "sftpgo";
-    rev = "fa2538c25f71b05948a4d67684e9ad8efcddb6d1";
-    hash = "sha256-C0U5GGbc9sYc0/nO53fKp2sOTEs6bhkz2/YkiJB4j5I=";
+    rev = "be4340ebbc80c4fc1f16accfe700970b046ddbd3";
+    hash = "sha256-BXd546K7Nm/dJr+yFl51owGYDDeF3ih5VdAFzPAoZNU=";
   };
 
-  vendorHash = "sha256-mwFXECEELvE2HlSbssV5GcG8ibXFwLv5EAHaytb7YLQ=";
+  vendorHash = "sha256-BKNC7L8FLfFj6UJbbA8MeNZwatBD0PCIH0zTpfkqybA=";
 
   ldflags = [
     "-s"

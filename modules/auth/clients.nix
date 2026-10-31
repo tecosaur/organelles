@@ -122,20 +122,12 @@ in {
         (mkPolicy config.site.apps.vikunja { user_policy = "two_factor"; })
         (mkPolicy config.site.apps.paperless { user_policy = "two_factor"; })
         (mkPolicy config.site.apps.rustical { })
-        (mkPolicy config.site.apps.sftpgo { user_policy = "two_factor"; })
+        (mkPolicy config.site.apps.sftpgo { })
         (mkPolicy config.site.apps.tandoor { admin_policy = "one_factor"; })
         (mkPolicy config.site.apps.trek { })
         (mkPolicy config.site.apps.vaultwarden { user_policy = "two_factor"; })
         (mkPolicy config.site.apps.warracker { })
       ];
-      claims_policies = {
-        sftpgo = {
-          # An ugly hack because SFTPGo doesn't support the bare
-          # minimum of an OIDC client 🙃.
-          id_token = [ "preferred_username" "email" "name" ];
-        };
-        # legacy.id_token = ["groups" "email" "email_verified" "alt_emails" "preferred_username" "name"];
-      };
       # scopes = {
       #   sftpgo.claims = [ "user_email", "display_name" ];
       # };
@@ -220,8 +212,6 @@ in {
         #   pkce_challenge_method = "S256";
         # })
         (mkClient config.site.apps.sftpgo {
-          authorization_policy = "one_factor";
-          claims_policy = "sftpgo";
           redirect_paths = [ "web/oidc/redirect" "web/oauth2/redirect" ];
           require_pkce = false;
           token_endpoint_auth_method = "client_secret_post";
