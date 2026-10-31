@@ -82,6 +82,7 @@
 
   networking = {
     enableIPv6 = true;
+    tempAddresses = "disabled";
     usePredictableInterfaceNames = true;
     useNetworkd = true;
     useDHCP = true;
@@ -100,6 +101,7 @@
       networkConfig = {
         DHCP = "yes";
         IPv6AcceptRA = true;
+        IPv6PrivacyExtensions = "no";
         MulticastDNS = true;
       };
       linkConfig.Multicast = true;
@@ -109,4 +111,6 @@
       };
     };
   };
+
+  site.apps.beszel.extra-filesystems = [ "/data__Data Volume" ];
 }
