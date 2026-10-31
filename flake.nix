@@ -49,15 +49,13 @@
             fava
             hardware-hetzner
             headscale
-            homepage
             ntfy
-            mealie
+            # mealie
             memos
             microbin
             rustical
             site-root
             syncthing
-            vikunja
           ];
         };
         centrosome = {

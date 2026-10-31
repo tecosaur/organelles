@@ -564,15 +564,6 @@ in {
         port = 8123;
         stateSubdirs = [ "state" ".storage" "blueprints" ];
       };
-      homepage = mkAppOption {
-        health.path = "/api/healthcheck";
-        name = "Homepage";
-        homepage = "https://gethomepage.dev";
-        description = "personal homepage";
-        service = "homepage-dashboard";
-        subdomain = "home";
-        port = 8082;
-      };
       immich = mkAppOption {
         health.path = "/api/server/ping";
         name = "Immich";
