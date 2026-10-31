@@ -8,8 +8,22 @@
 {
   imports = [ ./gatus.nix ./gatus-aggregator.nix ];
 
-  site.status.units =
-    lib.optional config.services.caddy.enable { id = "caddy"; name = "Caddy"; unit = "caddy.service"; }
+  site.status.units = [ {
+    id = "system-units";
+    name = "All system units";
+    # Always active, so the check always runs; it catches what nothing else watches, such as a
+    # oneshot or timer job failing
+    unit = "multi-user.target";
+    command = [ (lib.getExe (pkgs.writeShellApplication {
+      name = "failed-units";
+      runtimeInputs = [ config.systemd.package ];
+      text = ''
+        failed=$(systemctl --failed --plain --no-legend | cut -d' ' -f1 | paste -sd' ')
+        [ -z "$failed" ] || { echo "$failed"; exit 1; }
+      '';
+    })) ];
+  } ]
+    ++ lib.optional config.services.caddy.enable { id = "caddy"; name = "Caddy"; unit = "caddy.service"; }
     ++ lib.optional config.services.postgresql.enable {
       id = "postgresql";
       name = "Local Postgres";

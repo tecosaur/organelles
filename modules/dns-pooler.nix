@@ -80,7 +80,23 @@ let
     cp ${toml.generate "dns-pooler.toml" settings} $out
   '';
 in {
-  site.status.units = [ { id = "dns-pooler"; name = "dns-pooler"; unit = "dns-pooler.service"; } ];
+  site.status.units = [ {
+    id = "dns-pooler";
+    name = "dns-pooler";
+    unit = "dns-pooler.service";
+    # Running is not working: unable to write the zone, it leaves DNS as it was, and failover with it
+    command = [ (lib.getExe (pkgs.writeShellApplication {
+      name = "dns-pooler-health";
+      runtimeInputs = with pkgs; [ curl jq ];
+      text = ''
+        status=$(curl -sf --max-time 3 http://127.0.0.1:${toString status-port}/status) || { echo "its status is unavailable"; exit 1; }
+        problem=$(jq -r 'if .stranded then "it cannot write the zone"
+          elif (.conflicts // []) != [] then "addresses claimed by two hosts: " + (.conflicts | join(", "))
+          else empty end' <<<"$status")
+        [ -z "$problem" ] || { echo "$problem"; exit 1; }
+      '';
+    })) ];
+  } ];
 
   # shared with Caddy, which answers ACME DNS challenges with it
   age.secrets.bunny-dns-key.file = ../secrets/credentials/bunny-dns-key.age;
