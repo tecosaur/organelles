@@ -4,7 +4,7 @@
     <head>
         <meta charset="utf-8">
         <title>Services</title>
-        <meta name="description" content="A quick guide to availible services">
+        <meta name="description" content="A quick guide to available services">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="$ACCENT">
         <link rel="icon" href="/favicon.ico" type="image/x-icon" />
@@ -62,10 +62,10 @@
                 margin-left: -0.5em;
                 margin-right: -0.5em;
             }
-            details.unavailible {
+            details.unavailable {
                 opacity: 0.9;
             }
-            details.unavailible > summary {
+            details.unavailable > summary {
                 color: #999999;
             }
             section > details > summary {
@@ -85,6 +85,56 @@
                 vertical-align: -0.15em;
                 fill: currentColor;
             }
+            /* Platform tabs: one hidden radio group holds the page-wide choice,
+               which each section resolves to its closest tab (exact, desktop, web). */
+            #platforms {
+                position: fixed; /* focusing a radio must not scroll the page */
+                opacity: 0;
+                pointer-events: none;
+            }
+            nav {
+                line-height: 1.8;
+            }
+            nav > label {
+                color: $ACCENT;
+                font-weight: 650;
+                margin-right: 1em;
+                border-bottom: 2px solid transparent;
+                opacity: 0.6;
+                cursor: pointer;
+                white-space: nowrap;
+            }
+            nav + dl {
+                margin-top: 0.5em;
+            }
+            body:has(#platforms :focus-visible) nav {
+                outline: 1px dashed $ACCENT;
+            }
+            body:has(#platforms :checked) [data-platforms] {
+                display: none;
+                & > dt { display: none; }
+                & > dd { margin-left: 0; }
+            }
+            body:has(#p-web:checked)     :is([for=p-web], [data-platforms~=web]),
+            body:has(#p-ios:checked)     :is([for=p-ios], [data-platforms~=ios]),
+            body:has(#p-android:checked) :is([for=p-android], [data-platforms~=android]),
+            body:has(#p-macos:checked)   :is([for=p-macos], [data-platforms~=macos]),
+            body:has(#p-windows:checked) :is([for=p-windows], [data-platforms~=windows]),
+            body:has(#p-linux:checked)   :is([for=p-linux], [data-platforms~=linux]),
+            body:has(#p-desktop:checked) :is([for=p-desktop], [data-platforms~=desktop]),
+            body:has(#p-macos:checked)   details:not(:has([for=p-macos])) :is([for=p-desktop], [data-platforms~=desktop]),
+            body:has(#p-windows:checked) details:not(:has([for=p-windows])) :is([for=p-desktop], [data-platforms~=desktop]),
+            body:has(#p-linux:checked)   details:not(:has([for=p-linux])) :is([for=p-desktop], [data-platforms~=desktop]),
+            body:has(#p-ios:checked)     details:not(:has([for=p-ios])) :is([for=p-web], [data-platforms~=web]),
+            body:has(#p-android:checked) details:not(:has([for=p-android])) :is([for=p-web], [data-platforms~=web]),
+            body:has(#p-desktop:checked) details:not(:has([for=p-desktop])) :is([for=p-web], [data-platforms~=web]),
+            body:has(#p-macos:checked)   details:not(:has([for=p-macos], [for=p-desktop])) :is([for=p-web], [data-platforms~=web]),
+            body:has(#p-windows:checked) details:not(:has([for=p-windows], [for=p-desktop])) :is([for=p-web], [data-platforms~=web]),
+            body:has(#p-linux:checked)   details:not(:has([for=p-linux], [for=p-desktop])) :is([for=p-web], [data-platforms~=web]) {
+                display: revert; /* un-hides entries, leaves labels inline */
+                opacity: 1;
+                border-color: $ACCENT;
+            }
             @media (prefers-color-scheme: dark) {
                 body {
                     background: oklch(from $ACCENT 0.21 0.025 h);
@@ -100,6 +150,15 @@
         </style>
     </head>
     <body>
+        <div id="platforms">
+            <input type="radio" name="platform" id="p-web" value="web" aria-label="Web">
+            <input type="radio" name="platform" id="p-ios" value="ios" aria-label="iOS">
+            <input type="radio" name="platform" id="p-android" value="android" aria-label="Android">
+            <input type="radio" name="platform" id="p-macos" value="macos" aria-label="macOS">
+            <input type="radio" name="platform" id="p-windows" value="windows" aria-label="Windows">
+            <input type="radio" name="platform" id="p-linux" value="linux" aria-label="Linux">
+            <input type="radio" name="platform" id="p-desktop" value="desktop" aria-label="Desktop">
+        </div>
         <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true" focusable="false">
             <symbol id="icon-globe" viewBox="0 0 512 512"><path d="M351.9 280l-190.9 0c2.9 64.5 17.2 123.9 37.5 167.4 11.4 24.5 23.7 41.8 35.1 52.4 11.2 10.5 18.9 12.2 22.9 12.2s11.7-1.7 22.9-12.2c11.4-10.6 23.7-28 35.1-52.4 20.3-43.5 34.6-102.9 37.5-167.4zM160.9 232l190.9 0C349 167.5 334.7 108.1 314.4 64.6 303 40.2 290.7 22.8 279.3 12.2 268.1 1.7 260.4 0 256.4 0s-11.7 1.7-22.9 12.2c-11.4 10.6-23.7 28-35.1 52.4-20.3 43.5-34.6 102.9-37.5 167.4zm-48 0C116.4 146.4 138.5 66.9 170.8 14.7 78.7 47.3 10.9 131.2 1.5 232l111.4 0zM1.5 280c9.4 100.8 77.2 184.7 169.3 217.3-32.3-52.2-54.4-131.7-57.9-217.3L1.5 280zm398.4 0c-3.5 85.6-25.6 165.1-57.9 217.3 92.1-32.7 159.9-116.5 169.3-217.3l-111.4 0zm111.4-48C501.9 131.2 434.1 47.3 342 14.7 374.3 66.9 396.4 146.4 399.9 232l111.4 0z"/></symbol>
             <symbol id="icon-android" viewBox="0 0 640 512"><path d="M131.2 61.9c5.3-.5 10.6 .6 15.3 3s8.6 6.2 11.3 10.8c17 29.5 34.2 58.9 51.2 88.4 3.5-1.4 7-2.7 10.5-3.9 31.3-10.9 64.2-16.6 97.4-16.9 1 0 2.1 0 3.2 0 38.1 0 76.2 7 111.6 21.1L483 75.7c1.8-3.2 4.3-6 7.2-8.2s6.2-3.9 9.8-4.8c3.1-.8 6.4-1.1 9.6-.8 4.2 .4 8.3 1.7 11.9 3.8 4 2.4 7.3 5.7 9.7 9.7 2 3.4 3.3 7.2 3.8 11.2s.1 8-1.2 11.7c-.6 1.9-1.4 3.7-2.4 5.5l-49.7 85.8c19.5 12.2 37.6 26.5 53.9 42.8 12.3 12.2 23.5 25.4 33.5 39.5 8.2 11.5 15.6 23.6 22.2 36.2 17.5 33.6 28.6 70.5 32.7 108.1l-608 0c4.1-37.7 15.2-74.5 32.7-108.1 14.5-27.9 33.4-53.5 55.7-75.7 16.5-16.4 34.7-30.9 54.5-43.1l-49.5-85.4c-3.7-6.4-4.7-14.1-2.8-21.2 1.9-7.1 6.4-13.1 12.7-16.8 3.6-2.2 7.7-3.5 11.9-3.8zm67.3 215.8c-12.2-8.1-30.1-2.5-40.1 12.5s-8.2 33.8 3.9 41.9 30.1 2.5 40.1-12.5 8.2-33.8-3.9-41.9zm283.6 12.5c-10-15-27.9-20.6-40.1-12.5s-13.9 26.9-3.9 41.9c10 15 27.9 20.6 40.1 12.5s13.9-26.9 3.9-41.9z"/></symbol>
@@ -122,16 +181,18 @@
             <symbol id="icon-carrot" viewBox="0 0 640 512"><path d="M453.1-36.7L440.9-24.6c-31.2 31.2-31.2 81.9 0 113.1 15.6 15.6 31.2 31.2 46.9 46.9 31.2 31.2 81.9 31.2 113.1 0l12.1-12.1c6.2-6.2 6.2-16.4 0-22.6L600.9 88.6c-31.2-31.2-81.9-31.2-113.1 0 31.2-31.2 31.2-81.9 0-113.1L475.7-36.7c-6.2-6.2-16.4-6.2-22.6 0zM331.6 96c-45.2 0-87.1 20.4-115 54.3L273.3 207c9.4 9.4 9.4 24.6 0 33.9s-24.6 9.4-33.9 0L191.6 193.2 67.2 466.8c-5.5 12.1-2.9 26.4 6.5 35.9s23.7 12 35.9 6.5l141.6-64.4-43.8-43.8c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l56.5 56.5 95.3-43.3c53.1-24.1 87.2-77.1 87.2-135.5 0-82.2-66.6-148.8-148.8-148.8z"/></symbol>
             <symbol id="icon-stamp" viewBox="0 0 512 512"><path d="M312 201.8c0-17.4 9.2-33.2 19.9-47 12.6-16.2 20.1-36.6 20.1-58.8 0-53-43-96-96-96s-96 43-96 96c0 22.1 7.5 42.5 20.1 58.8 10.7 13.8 19.9 29.6 19.9 47 0 29.9-24.3 54.2-54.2 54.2L112 256c-61.9 0-112 50.1-112 112 0 26.5 21.5 48 48 48l416 0c26.5 0 48-21.5 48-48 0-61.9-50.1-112-112-112l-33.8 0c-29.9 0-54.2-24.3-54.2-54.2zM56 464c-13.3 0-24 10.7-24 24s10.7 24 24 24l400 0c13.3 0 24-10.7 24-24s-10.7-24-24-24L56 464z"/></symbol>
             <symbol id="icon-map" viewBox="0 0 640 512"><path d="M576 48c0-11.1-5.7-21.4-15.2-27.2s-21.2-6.4-31.1-1.4L413.5 77.5 234.1 17.6c-8.1-2.7-16.8-2.1-24.4 1.7l-128 64C70.8 88.8 64 99.9 64 112l0 352c0 11.1 5.7 21.4 15.2 27.2s21.2 6.4 31.1 1.4l116.1-58.1 173.3 57.8c-4.3-6.4-8.5-13.1-12.6-19.9-11-18.3-21.9-39.3-30-61.8l-101.2-33.7 0-284.5 128 42.7 0 99.3c31-35.8 77-58.4 128-58.4 22.6 0 44.2 4.4 64 12.5L576 48zM512 224c-66.3 0-120 52.8-120 117.9 0 68.9 64.1 150.4 98.6 189.3 11.6 13 31.3 13 42.9 0 34.5-38.9 98.6-120.4 98.6-189.3 0-65.1-53.7-117.9-120-117.9zM472 344a40 40 0 1 1 80 0 40 40 0 1 1 -80 0z"/></symbol>
+            <symbol id="icon-windows" viewBox="0 0 448 512"><path d="M0 93.7l183.6-25.3 0 177.4-183.6 0 0-152.1zM0 418.3l183.6 25.3 0-175.2-183.6 0 0 149.9zm203.8 28l244.2 33.7 0-211.6-244.2 0 0 177.9zm0-380.6l0 180.1 244.2 0 0-213.8-244.2 33.7z"/></symbol>
+            <symbol id="icon-linux" viewBox="0 0 448 512"><path d="M220.9 123.3c1 .5 1.8 1.7 3 1.7 1.1 0 2.8-.4 2.9-1.5 .2-1.4-1.9-2.3-3.2-2.9-1.7-.7-3.9-1-5.5-.1-.4 .2-.8 .7-.6 1.1 .3 1.3 2.3 1.1 3.4 1.7zM199 125c1.2 0 2-1.2 3-1.7 1.1-.6 3.1-.4 3.5-1.6 .2-.4-.2-.9-.6-1.1-1.6-.9-3.8-.6-5.5 .1-1.3 .6-3.4 1.5-3.2 2.9 .1 1 1.8 1.5 2.8 1.4zM420 403.8c-3.6-4-5.3-11.6-7.2-19.7-1.8-8.1-3.9-16.8-10.5-22.4-1.3-1.1-2.6-2.1-4-2.9-1.3-.8-2.7-1.5-4.1-2 9.2-27.3 5.6-54.5-3.7-79.1-11.4-30.1-31.3-56.4-46.5-74.4-17.1-21.5-33.7-41.9-33.4-72 .5-45.9 5.1-131.2-75.8-131.3-102.4-.2-76.8 103.4-77.9 135.2-1.7 23.4-6.4 41.8-22.5 64.7-18.9 22.5-45.5 58.8-58.1 96.7-6 17.9-8.8 36.1-6.2 53.3-6.5 5.8-11.4 14.7-16.6 20.2-4.2 4.3-10.3 5.9-17 8.3s-14 6-18.5 14.5c-2.1 3.9-2.8 8.1-2.8 12.4 0 3.9 .6 7.9 1.2 11.8 1.2 8.1 2.5 15.7 .8 20.8-5.2 14.4-5.9 24.4-2.2 31.7 3.8 7.3 11.4 10.5 20.1 12.3 17.3 3.6 40.8 2.7 59.3 12.5 19.8 10.4 39.9 14.1 55.9 10.4 11.6-2.6 21.1-9.6 25.9-20.2 12.5-.1 26.3-5.4 48.3-6.6 14.9-1.2 33.6 5.3 55.1 4.1 .6 2.3 1.4 4.6 2.5 6.7l0 .1c8.3 16.7 23.8 24.3 40.3 23 16.6-1.3 34.1-11 48.3-27.9 13.6-16.4 36-23.2 50.9-32.2 7.4-4.5 13.4-10.1 13.9-18.3 .4-8.2-4.4-17.3-15.5-29.7zM223.8 87.3c9.8-22.2 34.2-21.8 44-.4 6.5 14.2 3.6 30.9-4.3 40.4-1.6-.8-5.9-2.6-12.6-4.9 1.1-1.2 3.1-2.7 3.9-4.6 4.8-11.8-.2-27-9.1-27.3-7.3-.5-13.9 10.8-11.8 23-4.1-2-9.4-3.5-13-4.4-1-6.9-.3-14.6 2.9-21.8zM183.1 75.8c10.1 0 20.8 14.2 19.1 33.5-3.5 1-7.1 2.5-10.2 4.6 1.2-8.9-3.3-20.1-9.6-19.6-8.4 .7-9.8 21.2-1.8 28.1 1 .8 1.9-.2-5.9 5.5-15.6-14.6-10.5-52.1 8.4-52.1zm-13.6 60.7c6.2-4.6 13.6-10 14.1-10.5 4.7-4.4 13.5-14.2 27.9-14.2 7.1 0 15.6 2.3 25.9 8.9 6.3 4.1 11.3 4.4 22.6 9.3 8.4 3.5 13.7 9.7 10.5 18.2-2.6 7.1-11 14.4-22.7 18.1-11.1 3.6-19.8 16-38.2 14.9-3.9-.2-7-1-9.6-2.1-8-3.5-12.2-10.4-20-15-8.6-4.8-13.2-10.4-14.7-15.3-1.4-4.9 0-9 4.2-12.3zm3.3 334c-2.7 35.1-43.9 34.4-75.3 18-29.9-15.8-68.6-6.5-76.5-21.9-2.4-4.7-2.4-12.7 2.6-26.4l0-.2c2.4-7.6 .6-16-.6-23.9-1.2-7.8-1.8-15 .9-20 3.5-6.7 8.5-9.1 14.8-11.3 10.3-3.7 11.8-3.4 19.6-9.9 5.5-5.7 9.5-12.9 14.3-18 5.1-5.5 10-8.1 17.7-6.9 8.1 1.2 15.1 6.8 21.9 16l19.6 35.6c9.5 19.9 43.1 48.4 41 68.9zm-1.4-25.9c-4.1-6.6-9.6-13.6-14.4-19.6 7.1 0 14.2-2.2 16.7-8.9 2.3-6.2 0-14.9-7.4-24.9-13.5-18.2-38.3-32.5-38.3-32.5-13.5-8.4-21.1-18.7-24.6-29.9s-3-23.3-.3-35.2c5.2-22.9 18.6-45.2 27.2-59.2 2.3-1.7 .8 3.2-8.7 20.8-8.5 16.1-24.4 53.3-2.6 82.4 .6-20.7 5.5-41.8 13.8-61.5 12-27.4 37.3-74.9 39.3-112.7 1.1 .8 4.6 3.2 6.2 4.1 4.6 2.7 8.1 6.7 12.6 10.3 12.4 10 28.5 9.2 42.4 1.2 6.2-3.5 11.2-7.5 15.9-9 9.9-3.1 17.8-8.6 22.3-15 7.7 30.4 25.7 74.3 37.2 95.7 6.1 11.4 18.3 35.5 23.6 64.6 3.3-.1 7 .4 10.9 1.4 13.8-35.7-11.7-74.2-23.3-84.9-4.7-4.6-4.9-6.6-2.6-6.5 12.6 11.2 29.2 33.7 35.2 59 2.8 11.6 3.3 23.7 .4 35.7 16.4 6.8 35.9 17.9 30.7 34.8-2.2-.1-3.2 0-4.2 0 3.2-10.1-3.9-17.6-22.8-26.1-19.6-8.6-36-8.6-38.3 12.5-12.1 4.2-18.3 14.7-21.4 27.3-2.8 11.2-3.6 24.7-4.4 39.9-.5 7.7-3.6 18-6.8 29-32.1 22.9-76.7 32.9-114.3 7.2zm257.4-11.5c-.9 16.8-41.2 19.9-63.2 46.5-13.2 15.7-29.4 24.4-43.6 25.5s-26.5-4.8-33.7-19.3c-4.7-11.1-2.4-23.1 1.1-36.3 3.7-14.2 9.2-28.8 9.9-40.6 .8-15.2 1.7-28.5 4.2-38.7 2.6-10.3 6.6-17.2 13.7-21.1 .3-.2 .7-.3 1-.5 .8 13.2 7.3 26.6 18.8 29.5 12.6 3.3 30.7-7.5 38.4-16.3 9-.3 15.7-.9 22.6 5.1 9.9 8.5 7.1 30.3 17.1 41.6 10.6 11.6 14 19.5 13.7 24.6zM173.4 148.7c2 1.9 4.7 4.5 8 7.1 6.6 5.2 15.8 10.6 27.3 10.6 11.6 0 22.5-5.9 31.8-10.8 4.9-2.6 10.9-7 14.8-10.4s5.9-6.3 3.1-6.6-2.6 2.6-6 5.1c-4.4 3.2-9.7 7.4-13.9 9.8-7.4 4.2-19.5 10.2-29.9 10.2s-18.7-4.8-24.9-9.7c-3.1-2.5-5.7-5-7.7-6.9-1.5-1.4-1.9-4.6-4.3-4.9-1.4-.1-1.8 3.7 1.7 6.5z"/></symbol>
         </svg>
         <div>
         <header>
             <img src="logo.svg" alt="Tree" style="width: 5em; max-width: 20vw; max-height: 15vh; aspect-ratio: 1; display: block; margin: 0 auto;"/>
             <h1>Services <a href=".." style="float: right;" title="Return to Homepage">↩</a></h1>
-            <p>An overview of potentially-useful serivces I'm running,
+            <p>An overview of potentially-useful services I'm running,
                (in no particular order) and instructions on how to start using them.</p>
         </header>
         <section>
-            {{- define "greyout" }}{{ if not . }}class="unavailible"{{ end }}{{ end}}
+            {{- define "greyout" }}{{ if not . }}class="unavailable"{{ end }}{{ end}}
             {{- define "ask4access" }}{{ if not . -}}
             <p style="background: #239a5844; text-align: center"><strong>Ask for access</strong></p>
             {{- end}}{{ end -}}
@@ -140,23 +201,32 @@
                 <summary><svg class="icon"><use href="#icon-image"></use></svg> Photo management and storage</summary>
                 {{- template "ask4access" $IMMICH_ACCESS }}
                 <p><a href="https://immich.app/">Immich</a> is a polished photo and video management system.
-                    It is designed for uploading, storing, and sharing media with as bells and whistles like
+                    It is designed for uploading, storing, and sharing media with bells and whistles like
                     face recognition and geotagging.</p>
-                <p>There are three ways you can use Immich:</p>
+                <nav>
+                    <label for="p-web"><svg class="icon"><use href="#icon-globe"></use></svg> Web</label>
+                    <label for="p-ios"><svg class="icon"><use href="#icon-apple"></use></svg> iOS</label>
+                    <label for="p-android"><svg class="icon"><use href="#icon-android"></use></svg> Android</label>
+                </nav>
                 <dl>
-                    <dt><svg class="icon"><use href="#icon-globe"></use></svg> Web</dt>
-                    <dd>Visit <a href="https://$IMMICH_URL">$IMMICH_SUBDOMAIN.■</a> and sign in.</dd>
-                    <dt><svg class="icon"><use href="#icon-apple"></use></svg> iOS</dt>
-                    <dd>Download the <a href="https://apps.apple.com/sg/app/immich/id1613945652"><svg class="icon"><use href="#icon-astore"></use></svg>Immich app</a>,
-                        then supply the server URL <code>http<b>s</b>://$IMMICH_URL</code>. Log in.</dd>
-                    <dt><svg class="icon"><use href="#icon-android"></use></svg> Android</dt>
-                    <dd>Download the <a href="https://play.google.com/store/apps/details?id=app.alextran.immich"><svg class="icon"><use href="#icon-gplay"></use></svg>Immich app</a>
-                        (or <a href="https://f-droid.org/en/packages/app.alextran.immich/">F-Droid</a>),
-                        then supply the server URL <code>http<b>s</b>://$IMMICH_URL</code>. Log in.</dd>
+                    <div data-platforms="web">
+                        <dt><svg class="icon"><use href="#icon-globe"></use></svg> Web</dt>
+                        <dd>Visit <a href="https://$IMMICH_URL">$IMMICH_SUBDOMAIN.■</a> and sign in.</dd>
+                    </div>
+                    <div data-platforms="ios">
+                        <dt><svg class="icon"><use href="#icon-apple"></use></svg> iOS</dt>
+                        <dd>Download the <a href="https://apps.apple.com/sg/app/immich/id1613945652"><svg class="icon"><use href="#icon-astore"></use></svg>Immich app</a>,
+                            then supply the server URL <code>http<b>s</b>://$IMMICH_URL</code>. Log in.
+                            <p>To back up albums, tap the <svg class="icon"><use href="#icon-up-cloud"></use></svg> icon next to the top right corner; I recommend <em>Recent</em>.</p></dd>
+                    </div>
+                    <div data-platforms="android">
+                        <dt><svg class="icon"><use href="#icon-android"></use></svg> Android</dt>
+                        <dd>Download the <a href="https://play.google.com/store/apps/details?id=app.alextran.immich"><svg class="icon"><use href="#icon-gplay"></use></svg>Immich app</a>
+                            (or <a href="https://f-droid.org/en/packages/app.alextran.immich/">F-Droid</a>),
+                            then supply the server URL <code>http<b>s</b>://$IMMICH_URL</code>. Log in.
+                            <p>To back up albums, tap the <svg class="icon"><use href="#icon-up-cloud"></use></svg> icon next to the top right corner; I recommend <em>Camera</em>.</p></dd>
+                    </div>
                 </dl>
-                <p>When using the iOS or Android app, after logging in you can select albums on the device
-                    to back up (tap on the <svg class="icon"><use href="icon-up-cloud"></use></svg> icon next to the top right corner).
-                    I recommend <em>Camera</em> on Android and <em>Recent</em> on iOS.</p>
                 <details id="photos-migrating">
                     <summary>Migrating from Google Photos or iCloud</summary>
                     <p>With a little effort, it's not too hard to migrate from backup drives or cloud storage, thanks to
@@ -175,16 +245,28 @@
                 <p>Because paperwork and filing is no fun, it learns from the labels and categories you assign to documents,
                     and will automatically apply them to new documents. Simply throw everything in, and rely on the tagging
                     and full-text search to dig out documents with ease later.</p>
-                <p>You can use Paperless a few different ways:</p>
+                <nav>
+                    <label for="p-web"><svg class="icon"><use href="#icon-globe"></use></svg> Web</label>
+                    <label for="p-ios"><svg class="icon"><use href="#icon-apple"></use></svg> iOS</label>
+                    <label for="p-android"><svg class="icon"><use href="#icon-android"></use></svg> Android</label>
+                </nav>
                 <dl>
-                    <dt><svg class="icon"><use href="#icon-globe"></use></svg> Web</dt>
-                    <dd>Visit <a href="https://$PAPERLESS_URL">$PAPERLESS_SUBDOMAIN.■</a> and sign in.</dd>
-                    <dt><svg class="icon"><use href="#icon-apple"></use></svg> iOS</dt>
-                    <dd>You may download the 3rd party <a href="https://apps.apple.com/us/app/swift-paperless/id6448698521"><svg class="icon"><use href="#icon-astore"></use></svg>Swift Paperless</a>.
-                        <a href="https://apps.apple.com/us/app/quickscan-pdf-ocr-text-scanner/id1513790291"><svg class="icon"><use href="#icon-astore"></use></svg>QuickScan</a> also has built-in support for Paperless.</dd>
-                    <dt><svg class="icon"><use href="#icon-android"></use></svg> Android</dt>
-                    <dd>There's <a href="https://play.google.com/store/apps/details?id=de.astubenbord.paperless_mobile"><svg class="icon"><use href="#icon-gplay"></use></svg>Paperless Mobile</a>
-                        (or <a href="https://f-droid.org/packages/de.astubenbord.paperless_mobile">F-Droid</a>).</dd>
+                    <div data-platforms="web">
+                        <dt><svg class="icon"><use href="#icon-globe"></use></svg> Web</dt>
+                        <dd>Visit <a href="https://$PAPERLESS_URL">$PAPERLESS_SUBDOMAIN.■</a> and sign in.</dd>
+                    </div>
+                    <div data-platforms="ios">
+                        <dt><svg class="icon"><use href="#icon-apple"></use></svg> iOS</dt>
+                        <dd>Download the third-party <a href="https://apps.apple.com/us/app/swift-paperless/id6448698521"><svg class="icon"><use href="#icon-astore"></use></svg>Swift Paperless</a> app,
+                            then supply the server URL <code>https://$PAPERLESS_URL</code>. Log in.
+                            <p>For scanning, <a href="https://apps.apple.com/us/app/quickscan-pdf-ocr-text-scanner/id1513790291"><svg class="icon"><use href="#icon-astore"></use></svg>QuickScan</a> also has built-in support for Paperless.</p></dd>
+                    </div>
+                    <div data-platforms="android">
+                        <dt><svg class="icon"><use href="#icon-android"></use></svg> Android</dt>
+                        <dd>Download the <a href="https://play.google.com/store/apps/details?id=de.astubenbord.paperless_mobile"><svg class="icon"><use href="#icon-gplay"></use></svg>Paperless Mobile</a> app
+                            (or <a href="https://f-droid.org/packages/de.astubenbord.paperless_mobile">F-Droid</a>),
+                            then supply the server URL <code>https://$PAPERLESS_URL</code>. Log in.</dd>
+                    </div>
                 </dl>
             </details>
             {{- end }}
@@ -194,32 +276,45 @@
                 <p>⚠️ <b>Work in progress</b></p>
                 {{- template "ask4access" $SFTPGO_ACCESS }}
                 <p>In addition to apps that use storage (such as photo management), you can also make use of the
-                    availible storage as general-purpose cloud storage.</p>
-                <p>This storage can be easily accessed from the web at <a href="https://$SFTPGO_URL">$SFTPGO_SUBDOMAIN.■</a>.
-                   The first time you log in, your account will automatically be created.</p>
-                <details id="storage-macos">
-                    <summary>MacOS</summary>
-                    <p>TODO</p>
-                </details>
-                <details id="storage-windows">
-                    <summary>Windows</summary>
-                    <p>TODO</p>
-                </details>
-                <details id="storage-linux">
-                    <summary>Linux</summary>
-                    <p>You should be able to just visit <code>sftp://<it>&lt;user&gt;</it>@$SFTPGO_URL</code> in your file browser.</p>
-                </details>
-                <details id="storage-ios">
-                    <summary>iOS</summary>
-                    <p>TODO</p>
-                </details>
-                <details id="storage-android">
-                    <summary>Android</summary>
-                    <p>TODO</p>
-                </details>
+                    available storage as general-purpose cloud storage.</p>
+                <nav>
+                    <label for="p-web"><svg class="icon"><use href="#icon-globe"></use></svg> Web</label>
+                    <label for="p-ios"><svg class="icon"><use href="#icon-apple"></use></svg> iOS</label>
+                    <label for="p-android"><svg class="icon"><use href="#icon-android"></use></svg> Android</label>
+                    <label for="p-macos"><svg class="icon"><use href="#icon-apple"></use></svg> macOS</label>
+                    <label for="p-windows"><svg class="icon"><use href="#icon-windows"></use></svg> Windows</label>
+                    <label for="p-linux"><svg class="icon"><use href="#icon-linux"></use></svg> Linux</label>
+                </nav>
+                <dl>
+                    <div data-platforms="web">
+                        <dt><svg class="icon"><use href="#icon-globe"></use></svg> Web</dt>
+                        <dd>Visit <a href="https://$SFTPGO_URL">$SFTPGO_SUBDOMAIN.■</a> and sign in.
+                            The first time you log in, your account will automatically be created.</dd>
+                    </div>
+                    <div data-platforms="ios">
+                        <dt><svg class="icon"><use href="#icon-apple"></use></svg> iOS</dt>
+                        <dd>TODO</dd>
+                    </div>
+                    <div data-platforms="android">
+                        <dt><svg class="icon"><use href="#icon-android"></use></svg> Android</dt>
+                        <dd>TODO</dd>
+                    </div>
+                    <div data-platforms="macos">
+                        <dt><svg class="icon"><use href="#icon-apple"></use></svg> macOS</dt>
+                        <dd>TODO</dd>
+                    </div>
+                    <div data-platforms="windows">
+                        <dt><svg class="icon"><use href="#icon-windows"></use></svg> Windows</dt>
+                        <dd>TODO</dd>
+                    </div>
+                    <div data-platforms="linux">
+                        <dt><svg class="icon"><use href="#icon-linux"></use></svg> Linux</dt>
+                        <dd>You should be able to just visit <code>sftp://<it>&lt;user&gt;</it>@$SFTPGO_URL</code> in your file browser.</dd>
+                    </div>
+                </dl>
             </details>
             {{- end }}
-            <details id="backups" class="unavailible">
+            <details id="backups" class="unavailable">
                 <summary><svg class="icon"><use href="#icon-revclock"></use></svg> Backups</summary>
                 <p>⚠️ <b>Planned but not set up yet</b></p>
                 <!-- Maybe mention https://apps.apple.com/us/app/parachute-backup-mobile/id6749824842 ? -->
@@ -230,15 +325,26 @@
                 {{- template "ask4access" $STORYTELLER_ACCESS }}
                 <p><a href="https://storyteller-platform.gitlab.io/storyteller">Storyteller</a> is an e-book and audiobook
                     library, with support for synced reading position, bookmarks, and notes.</p>
+                <nav>
+                    <label for="p-web"><svg class="icon"><use href="#icon-globe"></use></svg> Web</label>
+                    <label for="p-ios"><svg class="icon"><use href="#icon-apple"></use></svg> iOS</label>
+                    <label for="p-android"><svg class="icon"><use href="#icon-android"></use></svg> Android</label>
+                </nav>
                 <dl>
-                    <dt><svg class="icon"><use href="#icon-globe"></use></svg> Web</dt>
-                    <dd>Visit <a href="https://$STORYTELLER_URL">$STORYTELLER_SUBDOMAIN.■</a> and sign in.</dd>
-                    <dt><svg class="icon"><use href="#icon-apple"></use></svg> iOS</dt>
-                    <dd>Download <a href="https://apps.apple.com/us/app/storyteller-reader/id6474467720"><svg class="icon"><use href="#icon-astore"></use></svg>Storyteller</a> or <a href="https://testflight.apple.com/join/9Cvs89nz"><svg class="icon"><use href="#icon-astore"></use></svg>Silveran Reader</a> (testflight beta),
-                        then supply the server URL <code>https://$STORYTELLER_URL</code>. Log in.</dd>
-                    <dt><svg class="icon"><use href="#icon-android"></use></svg> Android</dt>
-                    <dd>Download <a href="https://play.google.com/store/apps/details?id=dev.smoores.Storyteller"><svg class="icon"><use href="#icon-gplay"></use></svg>Storyteller</a> or <a href="https://www.retar.app/parrot"><svg class="icon"><use href="#icon-globe"></use></svg>Parrot</a>,
-                        then supply the server URL <code>https://$STORYTELLER_URL</code>. Log in.</dd>
+                    <div data-platforms="web">
+                        <dt><svg class="icon"><use href="#icon-globe"></use></svg> Web</dt>
+                        <dd>Visit <a href="https://$STORYTELLER_URL">$STORYTELLER_SUBDOMAIN.■</a> and sign in.</dd>
+                    </div>
+                    <div data-platforms="ios">
+                        <dt><svg class="icon"><use href="#icon-apple"></use></svg> iOS</dt>
+                        <dd>Download <a href="https://apps.apple.com/us/app/storyteller-reader/id6474467720"><svg class="icon"><use href="#icon-astore"></use></svg>Storyteller</a>,
+                            then supply the server URL <code>https://$STORYTELLER_URL</code>. Log in.</dd>
+                    </div>
+                    <div data-platforms="android">
+                        <dt><svg class="icon"><use href="#icon-android"></use></svg> Android</dt>
+                        <dd>Download <a href="https://play.google.com/store/apps/details?id=dev.smoores.Storyteller"><svg class="icon"><use href="#icon-gplay"></use></svg>Storyteller</a> or <a href="https://www.retar.app/parrot"><svg class="icon"><use href="#icon-globe"></use></svg>Parrot</a>,
+                            then supply the server URL <code>https://$STORYTELLER_URL</code>. Log in.</dd>
+                    </div>
                 </dl>
             </details>
             {{- end }}
@@ -248,25 +354,42 @@
                 {{- template "ask4access" $JELLYFIN_ACCESS }}
                 <p><a href="https://jellyfin.org/">Jellyfin</a> is a media server for movies, TV, and music.
                     It supports user profiles, watch history, subtitles, casting, and streaming over the internet.</p>
-                <p>You can use Jellyfin online or through a variety of apps:</p>
+                <nav>
+                    <label for="p-web"><svg class="icon"><use href="#icon-globe"></use></svg> Web</label>
+                    <label for="p-ios"><svg class="icon"><use href="#icon-apple"></use></svg> iOS</label>
+                    <label for="p-android"><svg class="icon"><use href="#icon-android"></use></svg> Android</label>
+                </nav>
                 <dl>
-                    <dt><svg class="icon"><use href="#icon-globe"></use></svg> Web</dt>
-                    <dd>Visit <a href="https://$JELLYFIN_URL">$JELLYFIN_SUBDOMAIN.■</a> and sign in.</dd>
-                    <dt><svg class="icon"><use href="#icon-film"></use></svg> iOS/Android</dt>
-                    <dd>Download <a href="https://apps.apple.com/app/streamyfin/id6593660679"><svg class="icon"><use href="#icon-astore"></use></svg>Streamyfin</a> / 
-                        <a href="https://play.google.com/store/apps/details?id=com.fredrikburmester.streamyfin"><svg class="icon"><use href="#icon-gplay"></use></svg>Streamyfin</a>,
-                        supply the server URL <code>https://$JELLYFIN_URL</code>, then log in <emph>using a quick-connect code</emph>
-                        (the smaller button to the right of Log in).</dd>
-                    <dt><svg class="icon"><use href="#icon-music"></use></svg> iOS/Android</dt>
-                    <dd>For music listening specifically, consider
-                        <a href="https://apps.apple.com/us/app/finamp/id1574922594"><svg class="icon"><use href="#icon-astore"></use></svg>Finamp</a> /
-                        <a href="https://play.google.com/store/apps/details?id=com.unicornsonlsd.finamp"><svg class="icon"><use href="#icon-gplay"></use></svg>Finamp</a>.
-                        Make sure you grab the beta version (it's much improved).
-                    </dd>
-                    <dt><svg class="icon"><use href="#icon-tv"></use></svg> Apple TV</dt>
-                        <dd>Download <a href="https://apps.apple.com/app/streamyfin/id6593660679"><svg class="icon"><use href="#icon-astore"></use></svg>Streamyfin</a></dd>
-                    <dt>More apps</dt>
-                    <dd>See the list of <a href="https://jellyfin.org/downloads/clients/">recommended clients</a>.</dd>
+                    <div data-platforms="web">
+                        <dt><svg class="icon"><use href="#icon-globe"></use></svg> Web</dt>
+                        <dd>Visit <a href="https://$JELLYFIN_URL">$JELLYFIN_SUBDOMAIN.■</a> and sign in.</dd>
+                    </div>
+                    <div data-platforms="ios">
+                        <dt><svg class="icon"><use href="#icon-apple"></use></svg> iOS</dt>
+                        <dd><dl>
+                            <dt><svg class="icon"><use href="#icon-film"></use></svg> Media</dt>
+                            <dd>Download <a href="https://apps.apple.com/app/streamyfin/id6593660679"><svg class="icon"><use href="#icon-astore"></use></svg>Streamyfin</a>, then supply the server URL <code>https://$JELLYFIN_URL</code>.
+                                <p>Log in <emph>using a quick-connect code</emph> (the smaller button to the right of Log in).</p></dd>
+                            <dt><svg class="icon"><use href="#icon-music"></use></svg> Music</dt>
+                            <dd>Download <a href="https://apps.apple.com/us/app/finamp/id1574922594"><svg class="icon"><use href="#icon-astore"></use></svg>Finamp</a>.</dd>
+                            <dt><svg class="icon"><use href="#icon-tv"></use></svg> Apple TV</dt>
+                            <dd>Download <a href="https://apps.apple.com/app/streamyfin/id6593660679"><svg class="icon"><use href="#icon-astore"></use></svg>Streamyfin</a>.</dd>
+                            <dt>More apps</dt>
+                            <dd>See the list of <a href="https://jellyfin.org/downloads/clients/">recommended clients</a>.</dd>
+                        </dl></dd>
+                    </div>
+                    <div data-platforms="android">
+                        <dt><svg class="icon"><use href="#icon-android"></use></svg> Android</dt>
+                        <dd><dl>
+                            <dt><svg class="icon"><use href="#icon-film"></use></svg> Media</dt>
+                            <dd>Download <a href="https://play.google.com/store/apps/details?id=com.fredrikburmester.streamyfin"><svg class="icon"><use href="#icon-gplay"></use></svg>Streamyfin</a>, then supply the server URL <code>https://$JELLYFIN_URL</code>.
+                                <p>Log in <emph>using a quick-connect code</emph> (the smaller button to the right of Log in).</p></dd>
+                            <dt><svg class="icon"><use href="#icon-music"></use></svg> Music</dt>
+                            <dd>Download <a href="https://play.google.com/store/apps/details?id=com.unicornsonlsd.finamp"><svg class="icon"><use href="#icon-gplay"></use></svg>Finamp</a>.</dd>
+                            <dt>More apps</dt>
+                            <dd>See the list of <a href="https://jellyfin.org/downloads/clients/">recommended clients</a>.</dd>
+                        </dl></dd>
+                    </div>
                 </dl>
             </details>
             {{- end }}
@@ -275,17 +398,27 @@
                 <summary><svg class="icon"><use href="#icon-penclip"></use></svg> Quick notes</summary>
                 {{- template "ask4access" $MEMOS_ACCESS }}
                 <p><a href="https://www.usememos.com/">Memos</a> is a lightweight notes app, with a small but well-considered set of features.</p>
-                <p>It can be used in the following ways:</p>
+                <nav>
+                    <label for="p-web"><svg class="icon"><use href="#icon-globe"></use></svg> Web</label>
+                    <label for="p-ios"><svg class="icon"><use href="#icon-apple"></use></svg> iOS</label>
+                    <label for="p-android"><svg class="icon"><use href="#icon-android"></use></svg> Android</label>
+                </nav>
                 <dl>
-                    <dt><svg class="icon"><use href="#icon-globe"></use></svg> Web</dt>
-                    <dd>Visit <a href="https://$MEMOS_URL">$MEMOS_SUBDOMAIN.■</a> and sign in.</dd>
-                    <dt><svg class="icon"><use href="#icon-apple"></use></svg> iOS</dt>
-                    <dd>Download the <a href="https://apps.apple.com/app/moe-memos/id1643902185"><svg class="icon"><use href="#icon-astore"></use></svg>Moe Memos</a>
-                        app then supply the server URL <code>https://$MEMOS_URL</code>. Log in.</dd>
-                    <dt><svg class="icon"><use href="#icon-android"></use></svg> Android</dt>
-                    <dd>Download the <a href="https://play.google.com/store/apps/details?id=me.mudkip.moememos"><svg class="icon"><use href="#icon-gplay"></use></svg>Moe Memos</a> app
-                        (also on <a href="https://f-droid.org/packages/me.mudkip.moememos/">F-Droid</a>), then supply the server URL
-                        <code>https://$MEMOS_URL</code>. Log in.</dd>
+                    <div data-platforms="web">
+                        <dt><svg class="icon"><use href="#icon-globe"></use></svg> Web</dt>
+                        <dd>Visit <a href="https://$MEMOS_URL">$MEMOS_SUBDOMAIN.■</a> and sign in.</dd>
+                    </div>
+                    <div data-platforms="ios">
+                        <dt><svg class="icon"><use href="#icon-apple"></use></svg> iOS</dt>
+                        <dd>Download the <a href="https://apps.apple.com/app/moe-memos/id1643902185"><svg class="icon"><use href="#icon-astore"></use></svg>Moe Memos</a>
+                            app, then supply the server URL <code>https://$MEMOS_URL</code>. Log in.</dd>
+                    </div>
+                    <div data-platforms="android">
+                        <dt><svg class="icon"><use href="#icon-android"></use></svg> Android</dt>
+                        <dd>Download the <a href="https://play.google.com/store/apps/details?id=me.mudkip.moememos"><svg class="icon"><use href="#icon-gplay"></use></svg>Moe Memos</a> app
+                            (or <a href="https://f-droid.org/packages/me.mudkip.moememos/">F-Droid</a>), then supply the server URL
+                            <code>https://$MEMOS_URL</code>. Log in.</dd>
+                    </div>
                 </dl>
             </details>
             {{- end }}
@@ -293,17 +426,28 @@
             <details id="location" {{ template "greyout" $DAWARICH_ACCESS }}>
                 <summary><svg class="icon"><use href="#icon-map"></use></svg> Location tracking</summary>
                 {{- template "ask4access" $DAWARICH_ACCESS }}
-                <p><a href="https://dawarich.app/">Dawarich</a> records a timeline of your location, helping you see where you've been.</p>
-                <p>It can be used with almost any GPS tracker app:</p>
+                <p><a href="https://dawarich.app/">Dawarich</a> records a timeline of your location, helping you see where you've been.
+                    As well as its own app, it works with almost any GPS tracker app.</p>
+                <nav>
+                    <label for="p-web"><svg class="icon"><use href="#icon-globe"></use></svg> Web</label>
+                    <label for="p-ios"><svg class="icon"><use href="#icon-apple"></use></svg> iOS</label>
+                    <label for="p-android"><svg class="icon"><use href="#icon-android"></use></svg> Android</label>
+                </nav>
                 <dl>
-                    <dt><svg class="icon"><use href="#icon-globe"></use></svg> Web</dt>
-                    <dd>Visit <a href="https://$DAWARICH_URL">$DAWARICH_SUBDOMAIN.■</a> and sign in to view your tracks.</dd>
-                    <dt><svg class="icon"><use href="#icon-apple"></use></svg> iOS</dt>
-                    <dd>Download the <a href="https://apps.apple.com/us/app/dawarich/id6739544999"><svg class="icon"><use href="#icon-astore"></use></svg>Dawarich</a>
-                        app, then supply the server URL <code>https://$DAWARICH_URL</code>. Log in.</dd>
-                    <dt><svg class="icon"><use href="#icon-android"></use></svg> Android</dt>
-                    <dd>Download the <a href="https://play.google.com/store/apps/details?id=app.dawarich.Dawarich"><svg class="icon"><use href="#icon-gplay"></use></svg>Dawarich</a> app, then supply the server URL
-                        <code>https://$DAWARICH_URL</code>. Log in.</dd>
+                    <div data-platforms="web">
+                        <dt><svg class="icon"><use href="#icon-globe"></use></svg> Web</dt>
+                        <dd>Visit <a href="https://$DAWARICH_URL">$DAWARICH_SUBDOMAIN.■</a> and sign in to view your tracks.</dd>
+                    </div>
+                    <div data-platforms="ios">
+                        <dt><svg class="icon"><use href="#icon-apple"></use></svg> iOS</dt>
+                        <dd>Download the <a href="https://apps.apple.com/us/app/dawarich/id6739544999"><svg class="icon"><use href="#icon-astore"></use></svg>Dawarich</a>
+                            app, then supply the server URL <code>https://$DAWARICH_URL</code>. Log in.</dd>
+                    </div>
+                    <div data-platforms="android">
+                        <dt><svg class="icon"><use href="#icon-android"></use></svg> Android</dt>
+                        <dd>Download the <a href="https://play.google.com/store/apps/details?id=app.dawarich.Dawarich"><svg class="icon"><use href="#icon-gplay"></use></svg>Dawarich</a> app, then supply the server URL
+                            <code>https://$DAWARICH_URL</code>. Log in.</dd>
+                    </div>
                 </dl>
             </details>
             {{- end }}
@@ -311,16 +455,31 @@
             <details id="recipes" {{ template "greyout" $TANDOOR_ACCESS }}>
                 <summary><svg class="icon"><use href="#icon-carrot"></use></svg> Recipe management</summary>
                 {{- template "ask4access" $TANDOOR_ACCESS }}
-                <p><a href="https://https://tandoor.dev/">Tandoor</a> offers recipe management and meal planning,
+                <p><a href="https://tandoor.dev/">Tandoor</a> offers recipe management and meal planning,
                     with built-in importers from various recipe sites.</p>
+                <nav>
+                    <label for="p-web"><svg class="icon"><use href="#icon-globe"></use></svg> Web</label>
+                    <label for="p-ios"><svg class="icon"><use href="#icon-apple"></use></svg> iOS</label>
+                    <label for="p-android"><svg class="icon"><use href="#icon-android"></use></svg> Android</label>
+                </nav>
                 <dl>
-                    <dt><svg class="icon"><use href="#icon-globe"></use></svg> Web</dt>
-                    <dd>Visit <a href="https://$TANDOOR_URL">$TANDOOR_SUBDOMAIN.■</a> and sign in. On mobile devices,
-                    you should be able to add this to your home screen as a <abbr title="Progressive Web App">PWA</abbr>.</dd>
-                    <dt><svg class="icon"><use href="#icon-apple"></use></svg> iOS / <svg class="icon"><use href="#icon-android"></use></svg> Android</dt>
-                    <dd>Download the <a href="https://apps.apple.com/us/app/kitshn-for-tandoor/id6740168361"><svg class="icon"><use href="#icon-astore"></use></svg>Kitshn</a> /  <a href="https://play.google.com/store/apps/details?id=de.kitshn.android"><svg class="icon"><use href="#icon-gplay"></use></svg>Kitchn</a>
-                        app, then supply the server URL <code>https://$TANDOOR_URL</code>. Pick the "<it>Log in using web browser</it>" option at the bottom
-                        (you may have to hide your phone's keyboard to see this button) and make sure to sign in with username and password (not passkey).</dd>
+                    <div data-platforms="web">
+                        <dt><svg class="icon"><use href="#icon-globe"></use></svg> Web</dt>
+                        <dd>Visit <a href="https://$TANDOOR_URL">$TANDOOR_SUBDOMAIN.■</a> and sign in.
+                            <p>On mobile devices, you should be able to add this to your home screen as a <abbr title="Progressive Web App">PWA</abbr>.</p></dd>
+                    </div>
+                    <div data-platforms="ios">
+                        <dt><svg class="icon"><use href="#icon-apple"></use></svg> iOS</dt>
+                        <dd>Download the <a href="https://apps.apple.com/us/app/kitshn-for-tandoor/id6740168361"><svg class="icon"><use href="#icon-astore"></use></svg>Kitshn</a> app, then supply the server URL <code>https://$TANDOOR_URL</code>.
+                            <p>Pick the "<it>Log in using web browser</it>" option at the bottom
+                            (you may have to hide your phone's keyboard to see this button) and make sure to sign in with username and password (not passkey).</p></dd>
+                    </div>
+                    <div data-platforms="android">
+                        <dt><svg class="icon"><use href="#icon-android"></use></svg> Android</dt>
+                        <dd>Download the <a href="https://play.google.com/store/apps/details?id=de.kitshn.android"><svg class="icon"><use href="#icon-gplay"></use></svg>Kitshn</a> app, then supply the server URL <code>https://$TANDOOR_URL</code>.
+                            <p>Pick the "<it>Log in using web browser</it>" option at the bottom
+                            (you may have to hide your phone's keyboard to see this button) and make sure to sign in with username and password (not passkey).</p></dd>
+                    </div>
                 </dl>
             </details>
             {{- end }}
@@ -352,6 +511,22 @@
                 history.replaceState(null, '', e.target.open ? '#' + e.target.id : location.pathname + location.search);
             }, { capture: true });
          }, 0);
+         function detectPlatform() {
+             const ua = navigator.userAgent;
+             // iPadOS reports itself as a Mac
+             if (/iPhone|iPad|iPod/.test(ua) || /Macintosh/.test(ua) && navigator.maxTouchPoints > 0) return 'ios';
+             if (/Android/.test(ua)) return 'android'; // before Linux, which Android UAs also contain
+             if (/Macintosh/.test(ua)) return 'macos';
+             if (/Windows/.test(ua)) return 'windows';
+             if (/Linux/.test(ua)) return 'linux';
+             return 'web';
+         }
+         let savedPlatform;
+         try { savedPlatform = localStorage.getItem('platform'); } catch {}
+         (document.getElementById('p-' + savedPlatform) ?? document.getElementById('p-' + detectPlatform())).checked = true;
+         document.getElementById('platforms').addEventListener('change', e => {
+             try { localStorage.setItem('platform', e.target.value); } catch {}
+         });
         </script>
     </body>
 </html>
