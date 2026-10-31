@@ -14,8 +14,6 @@ in {
 
   services.ntfy-sh = {
     enable = true;
-    user = ntfy-user;
-    group = ntfy-user;
     settings = {
       base-url = "https://${ntfy-domain}";
       listen-http = ":${toString config.site.apps.ntfy.port}";
@@ -40,6 +38,11 @@ in {
 
   systemd.services.ntfy-sh = {
     serviceConfig = {
+      # Static user, so data-mounts binds the state directory and the
+      # existing files keep their owner.
+      DynamicUser = lib.mkForce false;
+      User = ntfy-user;
+      Group = ntfy-user;
       EnvironmentFile = config.age.secrets.webpush-keys-env.path;
       StateDirectory = lib.mkForce "${baseNameOf config.site.apps.ntfy.dir}";
     };

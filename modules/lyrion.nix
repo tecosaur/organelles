@@ -4,9 +4,21 @@ let
   lyrion-domains = [ "music.lan" "local.music" ];
   music-dir = "/data/media/music";
   lyrion-web-port = 9000;
+  # GCC 16 vectorises Image::Scale's cos() into libmvec calls, but the module
+  # links without -lm, so it fails to load with an undefined _ZGVbN2v_cos.
+  perlPackages = pkgs.perlPackages.overrideScope (_: super: {
+    ImageScale = super.ImageScale.overrideAttrs { NIX_LDFLAGS = "-lm"; };
+  });
+  patched-slimserver = (pkgs.slimserver.override { inherit perlPackages; }).overrideAttrs (old: {
+    postPatch = (old.postPatch or "") + ''
+      # Temporary workaround for SQLite/FTS corruption.
+      rm -rf Slim/Plugin/FullTextSearch
+    '';
+  });
 in {
   services.slimserver = {
     enable = true;
+    package = patched-slimserver;
   };
 
   systemd.services.slimserver = {
@@ -34,7 +46,7 @@ in {
       MemoryDenyWriteExecute = true;
       StateDirectory = "slimserver";
       ReadOnlyPaths = [ music-dir "/nix" ];
-      ReadWritePaths = [ "/var/lib/slimserver" pkgs.slimserver ];
+      ReadWritePaths = [ "/var/lib/slimserver" ];
       UMask = "0077";
       DevicePolicy = "closed";
       SystemCallArchitectures = "native";

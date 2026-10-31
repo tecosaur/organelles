@@ -16,6 +16,7 @@
     environment = {
       OIDC_CLIENT_ID = "dawarich";
       # OIDC_CLIENT_SECRET is set in the age secret file
+      # Update when <https://github.com/NixOS/nixpkgs/issues/545545> is resolved
       OIDC_ISSUER = "https://${config.site.apps.authelia.subdomain}.${config.site.domain}";
       OIDC_REDIRECT_URI = "https://${config.site.apps.dawarich.subdomain}.${config.site.domain}/users/auth/openid_connect/callback";
       OIDC_PKCE_ENABLED = "true";

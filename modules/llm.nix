@@ -100,7 +100,7 @@ in lib.mkMerge [
         n-gpu-layers = 99;
         flash-attn = "on";
         cache-ram = 1024;
-        no-mmap = true;
+        load-mode = "none";
         parallel = 1;
         ctx-size = 32768;
         ctx-checkpoints = 2;
@@ -143,7 +143,7 @@ in lib.mkMerge [
           "--batch-size" "8192"
           "--ubatch-size" "8192"
           "--n-gpu-layers" "99"
-          "--no-mmap"
+          "--load-mode" "none"
           "--parallel" "1"
         ];
         Restart = "on-failure";

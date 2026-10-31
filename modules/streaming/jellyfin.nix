@@ -72,7 +72,8 @@ in {
           tag = "RepositoryInfo";
           content = {
             Name = "SSO";
-            Url = "https://raw.githubusercontent.com/9p4/jellyfin-plugin-sso/manifest-release/manifest.json";
+            # 9p4's builds stop at Jellyfin 10.11; this fork tracks 12.
+            Url = "https://raw.githubusercontent.com/MaxRink/jellyfin-plugin-sso/manifest-release/manifest.json";
           };
         }
         {
@@ -80,6 +81,13 @@ in {
           content = {
             Name = "Intro Skipper";
             Url = "https://intro-skipper.org/manifest.json";
+          };
+        }
+        {
+          tag = "RepositoryInfo";
+          content = {
+            Name = "Dedup Continue Watching"; # No Jellyfin 12 build yet
+            Url = "https://raw.githubusercontent.com/SloMR/jellyfin-plugin-dedupe-continue-watching/main/manifest.json";
           };
         }
         {
@@ -93,7 +101,7 @@ in {
           tag = "RepositoryInfo";
           content = {
             Name = "Jellyfin Tweaks";
-            Url = "https://raw.githubusercontent.com/n00bcodr/jellyfin-plugins/main/10.10/manifest.json ";
+            Url = "https://raw.githubusercontent.com/n00bcodr/jellyfin-plugins/main/12/manifest.json";
           };
         }
       ];
@@ -152,23 +160,6 @@ in {
       # Might want to try <https://github.com/lscambo13/ElegantFin> for 10.11, if Zesty isn't updated quickly
       customCss = builtins.readFile ./jellyfin.css;
     };
-    plugins = [
-      {
-        name = "intro skipper";
-        url = "https://github.com/intro-skipper/intro-skipper/releases/download/10.10/v1.10.10.23/intro-skipper-v1.10.10.23.zip";
-        version = "1.10.10.23";
-        targetAbi = "10.10.7.0"; # Required as intro-skipper doesn't provide a meta.json file
-        sha256 = "sha256:aaaaaaaaaaaahn97a596d559mr9cvrda5wiqnhzqs41qg6i8p2fd";
-      }
-    ];
-    # apikeys = {
-    #   Jellyseerr = {
-    #     key = "78878bf9fc654ff78ae332c63de5aeb6";
-    #   };
-    #   Homarr = {
-    #     keyPath = ../tests/example_apikey.txt;
-    #   };
-    # };
   };
 
   age.secrets.jellyfin-multi-scrobbler = lib.mkIf config.site.apps.multi-scrobbler.enabled {
