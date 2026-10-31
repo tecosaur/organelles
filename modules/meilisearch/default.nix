@@ -42,30 +42,6 @@ let
     '';
   };
 in {
-  options.site.meilisearch = {
-    host = lib.mkOption {
-      type = lib.types.str;
-      example = "nucleus";
-      description = "The host that runs Meilisearch";
-    };
-    url = lib.mkOption {
-      type = lib.types.str;
-      readOnly = true;
-      default = "http://${host}.internal:${toString port}";
-      description = "Where every host reaches Meilisearch";
-    };
-    keys = lib.mkOption {
-      type = lib.types.attrsOf (lib.types.nonEmptyListOf lib.types.str);
-      default = { };
-      example = { stalwart = [ "st_*" ]; };
-      description = ''
-        Each client's key, by name, and the index patterns it may use. The
-        key is keys/meilisearch-<name>.age, its uid keys/meilisearch-<name>.uid;
-        add meilisearch-<name>:meilisearch to secrets/scripts/init-keys.sh and
-        run it to create both.
-      '';
-    };
-  };
   config = lib.mkIf (config.site.server.host == host) {
     age.secrets.meilisearch-master.file = ../../secrets/keys/meilisearch-master.age;
     services.meilisearch = {
