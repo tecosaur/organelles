@@ -35,6 +35,7 @@ readonly service_keys=(
     "lldap-jwt:rand"
     "lldap-key-seed:rand"
     "meilisearch-master:rand"
+    "meilisearch-jellyfin:meilisearch"
     "meilisearch-stalwart:meilisearch"
     "trek-encryption:rand"
     "multi-scrobbler-jellyfin:rand"

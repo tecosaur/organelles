@@ -70,6 +70,7 @@ in
   "keys/gatus-push.age".publicKeys = all;
   "keys/lldap-jwt.age".publicKeys = all;
   "keys/lldap-key-seed.age".publicKeys = all;
+  "keys/meilisearch-jellyfin.age".publicKeys = all;
   "keys/meilisearch-master.age".publicKeys = all;
   "keys/meilisearch-stalwart.age".publicKeys = all;
   "keys/multi-scrobbler-jellyfin.age".publicKeys = all;
