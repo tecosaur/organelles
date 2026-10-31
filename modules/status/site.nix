@@ -5,6 +5,7 @@ let
   inherit (config.site.ha) preference;
   inherit (site-lib) mesh;
 in {
+  config.site.reach.probes = [ "gatus-aggregator-report" ];
   options.site.apps.gatus = site-lib.mkAppOption {
     health = { path = "/health"; body = ''"status":"UP"''; };
     name = "Gatus";

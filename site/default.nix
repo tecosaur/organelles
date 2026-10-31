@@ -1,68 +1,14 @@
 { config, lib, pkgs, site-lib, ... }:
 
 let
-  inherit (site-lib) listener;
-  # A listener's clients as each unit with the hosts it runs on; a bare list
-  # names units on the listener's own hosts
-  client-hosts = hosts: clients: if lib.isList clients then lib.genAttrs clients (_: hosts) else clients;
-  merge-clients = lib.zipAttrsWith (_: hosts: lib.unique (lib.concatLists hosts));
-  probes = hosts: { dns-pooler = hosts; gatus-aggregator-report = hosts; };
-  all-listeners = let
-    of-app = name: app: let
-      probed = if app.health == null then [ ] else map (check: check.listener) app.health.ports;
-      main = {
-        inherit name;
-        inherit (app) port exposure hosts;
-        unit = app.service;
-        protocols = [ "tcp" ];
-        clients = merge-clients ([
-          { caddy = if app.exposure == "mesh" then config.site.hosts else app.hosts; }
-          (client-hosts app.hosts app.clients)
-        ] ++ lib.optional (app.health != null && app.health.path != null) (probes app.hosts));
-      };
-      extra = lib.mapAttrsToList (listener-name: listener: let
-        hosts = if listener.hosts == null then app.hosts else listener.hosts;
-      in listener // {
-        name = "${name}-${listener-name}";
-        inherit hosts;
-        clients = merge-clients ([ (client-hosts hosts listener.clients) ]
-          ++ lib.optional (lib.elem listener-name probed) (probes hosts));
-      }) app.ports;
-    in [ main ] ++ extra;
-  in lib.concatLists (lib.mapAttrsToList of-app (lib.filterAttrs (_: app: app.enabled) config.site.apps))
-    ++ lib.mapAttrsToList (name: listener: let
-      # unfilled outside the flake's final evaluation
-      hosts = if listener.hosts == null then [ ] else listener.hosts;
-    in listener // { inherit name hosts; clients = client-hosts hosts listener.clients; }) config.site.ports;
   assets-pkg = pkgs.callPackage ./assets.nix {
     primary = config.site.accent.primary;
     secondary = config.site.accent.secondary;
   };
 in {
-  imports = [ ./settings.nix ];
+  imports = [ ./network.nix ./settings.nix ];
 
   options.site = {
-    listeners = lib.mkOption {
-      type = lib.types.listOf lib.types.attrs;
-      readOnly = true;
-      default = all-listeners;
-      description = ''
-        Every listener in the site, from site.apps and site.ports alike, with
-        its `hosts` resolved and its `clients` as each unit allowed to connect
-        with the hosts it runs on: what the firewall and confinement act on.
-      '';
-    };
-    ports = lib.mkOption {
-      type = lib.types.attrsOf (listener { });
-      default = { };
-      description = ''
-        Every listener that belongs to no app: the replicated substrate's, the
-        mesh's, and the system's own. With site.apps.<app>.port and .ports it
-        is every port the site listens on, and nothing else opens the
-        firewall. A null `hosts` is filled in by the flake with the machines
-        whose configuration runs the listener's unit.
-      '';
-    };
     domain = lib.mkOption {
       type = lib.types.str;
       description = "Global domain name for the site";
@@ -269,58 +215,18 @@ in {
     };
   };
 
-  config = let
-    this-host = config.site.server.host;
-    listeners-here = lib.filter (listener: lib.elem this-host listener.hosts) config.site.listeners;
-    opened = exposure: protocol: lib.unique (map (listener: listener.port)
-      (lib.filter (listener: listener.exposure == exposure && lib.elem protocol listener.protocols) listeners-here));
-    firewall = config.networking.firewall;
-    # an opening no listener here declares: a module or nixpkgs default opening on its own
-    undeclared = opening: declared: lib.subtractLists declared (lib.unique opening);
-    stray = lib.filterAttrs (_: ports: ports != [ ]) {
-      "public TCP" = undeclared firewall.allowedTCPPorts (opened "public" "tcp");
-      "public UDP" = undeclared firewall.allowedUDPPorts (opened "public" "udp");
-      "wg0 TCP" = undeclared (firewall.interfaces.wg0.allowedTCPPorts or [ ]) (opened "mesh" "tcp");
-      "wg0 UDP" = undeclared (firewall.interfaces.wg0.allowedUDPPorts or [ ]) (opened "mesh" "udp");
-    };
-  in {
-  site.ports.wireguard = site-lib.public 51820 "systemd-networkd" // { protocols = [ "udp" ]; };
-  networking.firewall = {
-    allowedTCPPorts = opened "public" "tcp";
-    allowedUDPPorts = opened "public" "udp";
-    interfaces.wg0 = {
-      allowedTCPPorts = opened "mesh" "tcp";
-      allowedUDPPorts = opened "mesh" "udp";
-    };
-  };
-  assertions = [ {
-    assertion = stray == { };
-    message = "site: ${this-host} opens ${lib.concatStringsSep "; " (lib.mapAttrsToList (what: ports:
-      "${what} ${lib.concatMapStringsSep ", " toString ports}") stray)} with no listener declaring it; "
-      + "declare it in site.ports or site.apps.<app>.ports, and turn off the module's own opening";
-  } ] ++ (
-    let
-      subdomain-claims = lib.mapAttrsToList (name: app: { inherit name; inherit (app) subdomain; })
+  config = {
+    site.ports.wireguard = site-lib.public 51820 "systemd-networkd" // { protocols = [ "udp" ]; };
+    assertions = let
+      subdomains = lib.mapAttrsToList (name: app: { inherit name; inherit (app) subdomain; })
         (lib.filterAttrs (_: app: app.enabled) config.site.apps);
-      clashes = field: claims:
-        lib.filterAttrs (_: claimants: builtins.length claimants > 1)
-          (lib.groupBy (claim: toString claim.${field}) claims);
-      describe = field: contested:
-        lib.concatStringsSep "; " (lib.mapAttrsToList
-          (value: claimants: "${field} ${value} claimed by "
-                             + lib.concatStringsSep ", " (map (c: c.name) claimants))
-          contested);
-      contested-ports = clashes "port" listeners-here;
-      contested-subdomains = clashes "subdomain" subdomain-claims;
-    in [
-      { assertion = contested-ports == { };
-        message = "site.apps: ${describe "port" contested-ports} on ${config.site.server.host}; "
-                  + "give one of them a free port in site.nix";
-      }
-      { assertion = contested-subdomains == { };
-        message = "site.apps: ${describe "subdomain" contested-subdomains}; "
-                  + "subdomains share one domain, so give one of them a distinct name in site.nix";
-      }
-    ]);
+      contested = lib.filterAttrs (_: claimants: lib.length claimants > 1)
+        (lib.groupBy (claim: claim.subdomain) subdomains);
+    in [ {
+      assertion = contested == { };
+      message = "site.apps: ${lib.concatStringsSep "; " (lib.mapAttrsToList (subdomain: claimants:
+        "subdomain ${subdomain} claimed by ${lib.concatMapStringsSep ", " (claim: claim.name) claimants}") contested)}; "
+        + "subdomains share one domain, so give one of them a distinct name in its site.nix";
+    } ];
   };
 }
