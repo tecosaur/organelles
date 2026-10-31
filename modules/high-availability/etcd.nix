@@ -10,6 +10,7 @@ let
   peer-url = host: "http://${address host}:${toString ports.etcd-peer.port}";
   client-url = host: "http://${address host}:${toString ports.etcd.port}";
   local-url = "http://127.0.0.1:${toString ports.etcd.port}";
+  metrics-url = "http://127.0.0.1:${toString ports.etcd-metrics.port}";
 in {
   config = lib.mkIf (primary != null && lib.elem this-host voters) {
     services.etcd = {
@@ -25,6 +26,8 @@ in {
         ELECTION_TIMEOUT = "5000";
         # A read waits on the leader, a WAN round trip away, so the default 100 ms warns on every one
         WARNING_APPLY_DURATION = "1s";
+        # health alone, for the status probe, which so needs no client access
+        LISTEN_METRICS_URLS = metrics-url;
       };
     };
 
@@ -42,7 +45,7 @@ in {
       id = "etcd";
       name = "etcd";
       unit = "etcd.service";
-      command = [ "${config.services.etcd.package}/bin/etcdctl" "--endpoints=${local-url}" "endpoint" "health" ];
+      command = [ "${lib.getExe pkgs.curl}" "--silent" "--fail" "--max-time" "3" "${metrics-url}/health" ];
     } ];
   };
 }

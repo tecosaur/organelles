@@ -1,6 +1,7 @@
 { config, lib, pkgs, ... }:
 
 let
+  clients-type = with lib.types; either (listOf str) (attrsOf (listOf str));
   # The shape every listener is declared in, so the firewall, the port-clash
   # check and confinement read them all alike
   listener = { unit ? null, hosts ? null, exposure ? "local" }:
@@ -33,15 +34,57 @@ let
           default = [ "tcp" ];
           description = "Transport protocols it accepts";
         };
+        clients = lib.mkOption {
+          type = clients-type;
+          default = [ ];
+          example = { patroni = [ "golgi" "nucleus" ]; };
+          description = ''
+            Units that may connect: a list, for units on the hosts it listens on,
+            or each unit with the hosts it runs on. The health probes are added
+            for a listener an app's health check names.
+          '';
+        };
       };
     };
+  # A listener's clients as each unit with the hosts it runs on; a bare list
+  # names units on the listener's own hosts
+  client-hosts = hosts: clients: if lib.isList clients then lib.genAttrs clients (_: hosts) else clients;
+  merge-clients = lib.zipAttrsWith (_: hosts: lib.unique (lib.concatLists hosts));
+  probes = hosts: { dns-pooler = hosts; gatus-aggregator-report = hosts; };
+  all-listeners = let
+    of-app = name: app: let
+      probed = if app.health == null then [ ] else map (check: check.listener) app.health.ports;
+      main = {
+        inherit name;
+        inherit (app) port exposure hosts;
+        unit = app.service;
+        protocols = [ "tcp" ];
+        clients = merge-clients ([
+          { caddy = if app.exposure == "mesh" then config.site.hosts else app.hosts; }
+          (client-hosts app.hosts app.clients)
+        ] ++ lib.optional (app.health != null && app.health.path != null) (probes app.hosts));
+      };
+      extra = lib.mapAttrsToList (listener-name: listener: let
+        hosts = if listener.hosts == null then app.hosts else listener.hosts;
+      in listener // {
+        name = "${name}-${listener-name}";
+        inherit hosts;
+        clients = merge-clients ([ (client-hosts hosts listener.clients) ]
+          ++ lib.optional (lib.elem listener-name probed) (probes hosts));
+      }) app.ports;
+    in [ main ] ++ extra;
+  in lib.concatLists (lib.mapAttrsToList of-app (lib.filterAttrs (_: app: app.enabled) config.site.apps))
+    ++ lib.mapAttrsToList (name: listener: let
+      # unfilled outside the flake's final evaluation
+      hosts = if listener.hosts == null then [ ] else listener.hosts;
+    in listener // { inherit name hosts; clients = client-hosts hosts listener.clients; }) config.site.ports;
   mkAppOption = { name, description, homepage, simpleicon ? null,
                   service ? (lib.toLower (lib.replaceStrings [ " " ] [ "-" ] name)),
                   usesStateDir ? (service != null),
                   subdomain, port, admin ? "admin", extra-groups ? [],
                   auth ? {}, cacheSubdirs ? [], stateSubdirs ? null, health ? null,
                   followsPrimary ? false, exposure ? (if followsPrimary then "mesh" else "local"),
-                  ports ? {}, extraOptions ? {} }:
+                  clients ? [], ports ? {}, extraOptions ? {} }:
     {
       name = lib.mkOption {
         type = lib.types.str;
@@ -130,6 +173,15 @@ let
         type = lib.types.enum [ "local" "mesh" "public" ];
         default = exposure;
         description = "Who may reach the main listener; see `ports`";
+      };
+      clients = lib.mkOption {
+        type = clients-type;
+        default = clients;
+        description = ''
+          Units reaching the main listener besides Caddy (from every host when
+          it is on the mesh) and, given a health path, the health probes; in
+          the form of a listener's `clients`.
+        '';
       };
       ports = lib.mkOption {
         type = lib.types.attrsOf (listener { unit = service; });
@@ -226,6 +278,16 @@ let
   };
 in {
   options.site = {
+    listeners = lib.mkOption {
+      type = lib.types.listOf lib.types.attrs;
+      readOnly = true;
+      default = all-listeners;
+      description = ''
+        Every listener in the site, from site.apps and site.ports alike, with
+        its `hosts` resolved and its `clients` as each unit allowed to connect
+        with the hosts it runs on: what the firewall and confinement act on.
+      '';
+    };
     ports = lib.mkOption {
       type = lib.types.attrsOf (listener { });
       default = { };
@@ -513,6 +575,8 @@ in {
         simpleicon = "forgejo";
         subdomain = "code";
         port = 3002;
+        # git over SSH calls its internal API from sshd's sessions
+        clients = [ "sshd" ];
         extraOptions = {
           site-name = lib.mkOption {
             type = lib.types.str;
@@ -583,6 +647,7 @@ in {
         port = 8096;
         # LAN and TV clients connect directly
         exposure = "public";
+        clients = [ "multi-scrobbler" ];
         ports.dlna = { port = 1900; protocols = [ "udp" ]; exposure = "public"; };
       };
       headscale = mkAppOption {
@@ -593,7 +658,7 @@ in {
         subdomain = "headscale";
         port = 8174;
         ports = {
-          headplane = { port = 8175; unit = "headplane"; };
+          headplane = { port = 8175; unit = "headplane"; clients = [ "caddy" ]; };
           # every host's tailscaled relays for the tailnet
           relay = { port = 40108; unit = "tailscaled"; hosts = config.site.hosts; exposure = "public"; protocols = [ "tcp" "udp" ]; };
         };
@@ -626,7 +691,7 @@ in {
         usesStateDir = false;
         subdomain = "photos";
         port = 2283;
-        ports.machine-learning = { port = 3003; unit = "immich-machine-learning"; };
+        ports.machine-learning = { port = 3003; unit = "immich-machine-learning"; clients = [ "immich-server" ]; };
       };
       llm = mkAppOption {
         health.path = "/health";
@@ -636,7 +701,7 @@ in {
         usesStateDir = false;
         subdomain = "llm";
         port = 8089;
-        ports.embedding = { port = 8088; unit = "llama-cpp-embedding"; };
+        ports.embedding = { port = 8088; unit = "llama-cpp-embedding"; clients = [ "caddy" ]; };
         extraOptions = {
           local = lib.mkOption {
             type = lib.types.bool;
@@ -694,27 +759,39 @@ in {
         port = 8460;
         # for the other hosts' Caddy alone, since it trusts X-Forwarded-For
         exposure = "mesh";
+        # its provisioner calls the management API
+        clients = [ "stalwart" ];
         ports = let
           inherit (config.site.mail.storage) heads;
           cluster-hosts = cluster: lib.attrNames config.site.mail.storage.${cluster};
+          # the head sets up its cluster
+          setup = cluster: { garage-mail-setup = [ heads.${cluster} ]; };
+          s3 = cluster: port: {
+            inherit port;
+            unit = "garage";
+            hosts = [ heads.${cluster} ];
+            exposure = "mesh";
+            clients = setup cluster // { s3-overflow = config.site.apps.mail.hosts; };
+          };
           # a lone node keeps its RPC to itself
           rpc = cluster: port: {
             inherit port;
             unit = "garage";
             hosts = cluster-hosts cluster;
             exposure = if lib.length (cluster-hosts cluster) > 1 then "mesh" else "local";
+            clients = setup cluster // { garage = cluster-hosts cluster; };
           };
         in lib.mapAttrs (_: port: { inherit port; exposure = "public"; })
           { smtp = 25; submissions = 465; submission = 587; imaps = 993; sieve = 4190; }
         // {
-          bulwark = { port = 3480; unit = "bulwark"; };
+          bulwark = { port = 3480; unit = "bulwark"; clients = [ "caddy" ]; };
           # applies the settings before each start
-          stalwart-recovery.port = 8461;
-          s3-gateway = { port = 3920; unit = "s3-overflow"; };
-          s3-gateway-status = { port = 3921; unit = "s3-overflow"; };
-          garage-primary-s3 = { port = 3900; unit = "garage"; hosts = [ heads.primary ]; exposure = "mesh"; };
+          stalwart-recovery = { port = 8461; clients = [ "stalwart" ]; };
+          s3-gateway = { port = 3920; unit = "s3-overflow"; clients = [ "stalwart" ]; };
+          s3-gateway-status = { port = 3921; unit = "s3-overflow"; clients = [ "gatus-aggregator-report" ]; };
+          garage-primary-s3 = s3 "primary" 3900;
           garage-primary-rpc = rpc "primary" 3901;
-          garage-overflow-s3 = { port = 3910; unit = "garage"; hosts = [ heads.overflow ]; exposure = "mesh"; };
+          garage-overflow-s3 = s3 "overflow" 3910;
           garage-overflow-rpc = rpc "overflow" 3911;
         };
         health.ports = [ { listener = "smtp"; } { listener = "imaps"; tls = true; } ];
@@ -765,8 +842,8 @@ in {
         subdomain = "folio";
         port = 28981;
         ports = {
-          tika = { port = 9998; unit = "tika"; };
-          gotenberg = { port = 3000; unit = "gotenberg"; };
+          tika = { port = 9998; unit = "tika"; clients = [ "paperless-task-queue" ]; };
+          gotenberg = { port = 3000; unit = "gotenberg"; clients = [ "paperless-task-queue" ]; };
         };
       };
       rustical = mkAppOption {
@@ -784,7 +861,8 @@ in {
         description = "disk health monitoring";
         subdomain = "drives.health";
         port = 8606;
-        ports.influxdb = { port = 8086; unit = "influxdb2"; };
+        ports.influxdb = { port = 8086; unit = "influxdb2"; clients = [ "scrutiny" ]; };
+        clients = [ "scrutiny-collector" ];
       };
       sftpgo = mkAppOption {
         health.path = "/healthz";
@@ -795,7 +873,7 @@ in {
         port = 8083;
         ports = {
           sftp = { port = 2022; exposure = "public"; };
-          webdav.port = 3303;
+          webdav = { port = 3303; clients = [ "caddy" ]; };
         };
         admin = null;
       };
@@ -816,7 +894,8 @@ in {
         description = "synced audiobook platform";
         subdomain = "books";
         port = 8001;
-        ports.readium.port = 8002;
+        # serves the whole filesystem, so for Storyteller alone
+        ports.readium = { port = 8002; clients = [ "storyteller" ]; };
         cacheSubdirs = [ ".cache" ".local" "image-cache" ];
       };
       syncthing = mkAppOption {
@@ -827,6 +906,7 @@ in {
         simpleicon = "syncthing";
         subdomain = "syncthing";
         port = 8384;
+        clients = [ "syncthing-init" ];
       };
       tandoor = mkAppOption {
         name = "Tandoor";
@@ -854,6 +934,8 @@ in {
         description = "listening history";
         subdomain = "listens";
         port = 4110;
+        # its start checks it serves
+        clients = [ "multi-scrobbler" "koito" ];
         extraOptions = {
           title = lib.mkOption {
             type = lib.types.str;
@@ -903,7 +985,12 @@ in {
         followsPrimary = true;
         subdomain = "users";
         port = 17170;
-        ports.ldap = { port = 3890; exposure = "mesh"; };
+        ports.ldap = {
+          port = 3890;
+          exposure = "mesh";
+          # lldap checks it listens; Syncthing signs its GUI in
+          clients = { authelia-main = config.site.apps.authelia.hosts; lldap = config.site.apps.lldap.hosts; syncthing = config.site.apps.syncthing.hosts; };
+        };
       };
       gatus = mkAppOption {
         health = { path = "/health"; body = ''"status":"UP"''; };
@@ -915,6 +1002,8 @@ in {
         usesStateDir = false;
         subdomain = "status";
         port = 3001;
+        # every reporter pushes to it
+        clients = { gatus-aggregator-report = config.site.hosts; gatus-aggregator-aggregate = config.site.ha.preference; };
       };
       vaultwarden = mkAppOption {
         health.path = "/alive";
@@ -947,17 +1036,7 @@ in {
 
   config = let
     this-host = config.site.server.host;
-    on-this-host = hosts: hosts != null && lib.elem this-host hosts;
-    # Every listener on this host: an app's own where it runs, and any naming
-    # its hosts wherever those are
-    app-listeners = lib.concatLists (lib.mapAttrsToList (name: app: let
-      runs-here = lib.elem this-host app.hosts;
-    in lib.optional runs-here { inherit name; inherit (app) port exposure; protocols = [ "tcp" ]; }
-       ++ lib.mapAttrsToList (listener-name: listener: listener // { name = "${name} ${listener-name}"; })
-            (lib.filterAttrs (_: listener: if listener.hosts == null then runs-here else on-this-host listener.hosts) app.ports))
-      (lib.filterAttrs (_: app: app.enabled) config.site.apps));
-    listeners-here = app-listeners ++ lib.mapAttrsToList (name: listener: listener // { inherit name; })
-      (lib.filterAttrs (_: listener: on-this-host listener.hosts) config.site.ports);
+    listeners-here = lib.filter (listener: lib.elem this-host listener.hosts) config.site.listeners;
     opened = exposure: protocol: lib.unique (map (listener: listener.port)
       (lib.filter (listener: listener.exposure == exposure && lib.elem protocol listener.protocols) listeners-here));
     firewall = config.networking.firewall;
@@ -971,9 +1050,21 @@ in {
     };
   in {
   site.ports = let
-    inherit (config.site.ha) preference;
-    mesh = port: unit: { inherit port unit; exposure = "mesh"; };
+    inherit (config.site.ha) preference members voters;
+    inherit (config.site) hosts;
+    on = app: config.site.apps.${app}.hosts;
+    mesh = port: unit: clients: { inherit port unit clients; exposure = "mesh"; };
+    local = port: unit: clients: { inherit port unit clients; };
     public = port: unit: { inherit port unit; exposure = "public"; };
+    # the clients of the replicated Valkey and its Sentinels alike
+    valkey-clients = {
+      valkey-ha = members;
+      valkey-ha-sentinel = voters;
+      valkey-ha-follow = preference;
+      authelia-main = on "authelia";
+      stalwart = on "mail";
+      s3-overflow = on "mail";
+    };
   in {
     ssh = public 22 "sshd";
     http = public 80 "caddy";
@@ -982,27 +1073,44 @@ in {
     tailscale = public 41641 "tailscaled" // { protocols = [ "udp" ]; };
     # a host's own modules add it where it answers
     mdns = public 5353 "systemd-resolved" // { protocols = [ "udp" ]; hosts = lib.mkDefault [ ]; };
-    dns-pooler-peer = mesh 9433 "dns-pooler";
-    dns-pooler-status = { port = 9434; unit = "dns-pooler"; };
+    dns-pooler-peer = mesh 9433 "dns-pooler" { dns-pooler = hosts; };
+    dns-pooler-status = local 9434 "dns-pooler" { gatus-aggregator-report = hosts; gatus-aggregator-aggregate = preference; };
     # each reporter's board of planned transitions
-    status-conditions = mesh 9435 "gatus-aggregator-report";
+    status-conditions = mesh 9435 "gatus-aggregator-report" { gatus-aggregator-report = hosts; gatus-aggregator-aggregate = preference; };
     # the aggregator's answer to the page's /api/v1/config
-    status-announcement = mesh 9436 "gatus-aggregator-aggregate";
-    crowdsec-api = { port = 8057; unit = "crowdsec"; };
+    status-announcement = mesh 9436 "gatus-aggregator-aggregate" { caddy = preference; };
+    crowdsec-api = local 8057 "crowdsec" [ "crowdsec-firewall-bouncer" "crowdsec-firewall-bouncer-register" ];
     slimproto = public 3483 "slimserver" // { protocols = [ "tcp" "udp" ]; };
     lyrion-web = public 9000 "slimserver";
     lyrion-cli = public 9090 "slimserver";
-    postgres-ha = mesh 5433 "patroni";
+    postgres-ha = mesh 5433 "patroni" {
+      patroni = members;
+      postgresql-ha-setup = preference;
+      authelia-main = on "authelia";
+      lldap = on "lldap";
+      gatus = on "gatus";
+      vaultwarden = on "vaultwarden";
+      stalwart = on "mail";
+      s3-overflow = on "mail";
+    };
     # Postgres asks each client's host on 113, which it can't be told otherwise
-    ident = mesh 113 "oidentd";
-    etcd = mesh 2379 "etcd";
-    etcd-peer = mesh 2380 "etcd";
-    patroni = mesh 8008 "patroni";
+    ident = mesh 113 "oidentd" { patroni = members; };
+    # its gRPC gateway dials its own client listener
+    etcd = mesh 2379 "etcd" { patroni = members; etcd = voters; };
+    etcd-peer = mesh 2380 "etcd" { etcd = voters; };
+    # health alone, for the status probe
+    etcd-metrics = local 2381 "etcd" [ "gatus-aggregator-report" ];
+    # unsafe calls carry a password besides
+    patroni = mesh 8008 "patroni" { patroni = members; postgresql-ha-role = members; };
     # /serving answers 200 only on the serving member, for Caddy's health checks
-    ha-serving = mesh 8009 "caddy" // { hosts = preference; };
-    valkey-ha = mesh 6380 "valkey-ha";
-    sentinel = mesh 26379 "valkey-ha-sentinel";
-    meilisearch = mesh 7700 "meilisearch" // { hosts = [ config.site.meilisearch.host ]; };
+    ha-serving = mesh 8009 "caddy" { caddy = hosts; } // { hosts = preference; };
+    valkey-ha = mesh 6380 "valkey-ha" valkey-clients;
+    sentinel = mesh 26379 "valkey-ha-sentinel" valkey-clients;
+    meilisearch = mesh 7700 "meilisearch" {
+      stalwart = on "mail";
+      jellyfin = on "jellyfin";
+      meilisearch-keys = [ config.site.meilisearch.host ];
+    } // { hosts = [ config.site.meilisearch.host ]; };
   };
   networking.firewall = {
     allowedTCPPorts = opened "public" "tcp";
