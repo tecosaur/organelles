@@ -5,16 +5,18 @@
 
 python3Packages.buildPythonApplication rec {
   pname = "warracker";
-  version = "0.10.1.12";
+  version = "1.0.6";
   pyproject = false;
 
   src = fetchFromGitHub {
     owner = "sassanix";
     repo  = "Warracker";
-    # rev   = version;
-    rev = "39888923cc9d4920df7140c5a3a5960409bd6080";
-    hash  = "sha256-azEwxi7Iq1KEIciUNJDiXVMjwSJHiaqZc8eiLyBDcdM=";
+    rev   = version;
+    hash  = "sha256-xV1PV7sqzXL7slMfpjC9eUa5lk2/eRTli2BlNCu7p0U=";
   };
+
+  # Adds WARRACKER_FIXED_CONFIG, for declarative site settings
+  patches = [ ./warracker-fixed-config.patch ];
 
   dependencies = with python3Packages; [
     apprise

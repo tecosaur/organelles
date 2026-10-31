@@ -10,6 +10,7 @@ let
     email_base_url = "https://${warracker-domain}";
     oidc_enabled = true;
     oidc_only_mode = true;
+    oidc_skip_login_screen = true;
     oidc_client_id = "warracker";
     oidc_provider_name = "authelia";
     oidc_issuer_url = "https://${config.site.apps.authelia.subdomain}.${config.site.domain}";
