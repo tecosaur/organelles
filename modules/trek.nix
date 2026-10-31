@@ -5,15 +5,17 @@ let
   trek-domain = "${trek.subdomain}.${config.site.domain}";
   trek-pkg = pkgs.callPackage ../packages/trek.nix { };
   # A tree of links to the package: the server writes beside its own location.
-  trek-runtime = "/var/lib/trek/runtime";
+  trek-runtime = "${trek.dir}/runtime";
   trek-plugins-dir = "${trek-runtime}/server/data/plugins";
   trek-secrets-env = "/run/trek/secrets.env";
+  # Where TREK itself keeps it: server/data is linked to ${trek.dir}/data.
+  trek-encryption-key = "${trek.dir}/data/.encryption_key";
   # Authoritative: dropping a plugin from here uninstalls it on the next start.
   trek-plugins = map trek-fetch-plugin [
     {
       id = "flight-tracker";
-      src = "fbnlrz/trek-track@v1.8.0";
-      hash = "sha256-IroHwJtXcFhtvlfIYRFSyUgwid4GWDPXOCSZGvGqPOA=";
+      src = "fbnlrz/trek-track@v2.0.0";
+      hash = "sha256-r++zNN+tzjKLSLIvSSlc8jKRPCA6jRIEYfhe25r9MO0=";
       settings.aerodatabox_key = config.age.secrets.trek-aerodatabox-key.path;
     }
   ];
@@ -37,120 +39,92 @@ let
     };
   trek-plugin-manifest = pkgs.writeText "trek-plugins" (lib.concatMapStrings
     (p: "${p.id} ${p.src}\n") trek-plugins);
-  # Unsplash is absent deliberately: its env var outranks anything stored here.
-  trek-admin-keys = {
-    maps_api_key = config.age.secrets.trek-maps-key.path;
-  };
-  # A `{ file = …; }` value is read from that path at run time.
-  trek-settings = {
-    map_provider = "mapbox-gl";
-    mapbox_access_token = { file = config.age.secrets.trek-mapbox-token.path; };
-  };
-  # Drives TREK's service classes directly: the admin API needs a session, and an
-  # OIDC-only instance has no credential to present.
+  # Plugins have no operator-level surface (unlike the API keys, which are env
+  # vars), so this drives TREK's own services: the admin API needs a session, and
+  # an OIDC-only instance has no credential to present. The container is created
+  # but never initialised, so no boot hook runs and no plugin is spawned here; the
+  # server activates every enabled row when it starts.
   trek-reconcile = pkgs.writeText "trek-reconcile.js" ''
     process.env.NODE_ENV = 'production';
 
     const fs = require('node:fs');
     const path = require('node:path');
+    // Written by the same preStart, so the unit's EnvironmentFile predates it
+    process.loadEnvFile(process.argv[2]);
     // This file is in the store; the code it drives is in the runtime tree.
     const serverRequire = require('node:module').createRequire(
       path.join(process.cwd(), 'noop.js'));
+    serverRequire('reflect-metadata');
     serverRequire('tsconfig-paths/register');
 
-    const { db } = serverRequire('./dist/db/database');
-    const { discoverPlugins } = serverRequire('./dist/nest/plugins/install/discovery');
+    const { NestFactory } = serverRequire('@nestjs/core');
+    const { MikroORM } = serverRequire('@mikro-orm/core');
+    const { AppModule } = serverRequire('./dist/nest/app.module');
+    const { DatabaseLifecycle } = serverRequire('./dist/nest/database/database-lifecycle.service');
+    const { withRequestContext } = serverRequire('./dist/nest/database/request-context');
+    const { PluginsRepository } = serverRequire('./dist/db/repositories/Plugins.repository');
     const { PluginsService } = serverRequire('./dist/nest/plugins/plugins.service');
     const { PluginRuntimeService } = serverRequire('./dist/nest/plugins/plugin-runtime.service');
-    const { encrypt_api_key } = serverRequire('./dist/services/apiKeyCrypto');
-    const { setAdminUserDefaults } = serverRequire('./dist/services/settingsService');
+    const { hostSatisfies, hostVersion } = serverRequire('./dist/nest/plugins/install/host-compat');
+    const { isKnownPermission } = serverRequire('./dist/nest/plugins/protocol/envelope');
 
     const declared = ${builtins.toJSON
       (map (p: { inherit (p) id settings; }) trek-plugins)};
-    const adminKeys = ${builtins.toJSON trek-admin-keys};
-    const settings = ${builtins.toJSON trek-settings};
-    const pluginsService = new PluginsService();
-    const runtime = new PluginRuntimeService();
 
-    async function reconcilePlugins() {
-      const { skipped } = discoverPlugins(db);
+    async function reconcilePlugins(app) {
+      const runtime = app.get(PluginRuntimeService, { strict: false });
+      const pluginsService = app.get(PluginsService, { strict: false });
+      const plugins = app.get(PluginsRepository, { strict: false });
+      const { skipped } = await runtime.rescan();
       for (const id of skipped) console.warn(`trek: plugin ''${id} failed discovery`);
 
       const wanted = new Set(declared.map((p) => p.id));
-      for (const { id } of db.prepare('SELECT id FROM plugins').all()) {
+      for (const { id } of await plugins.listDepRows()) {
         if (wanted.has(id)) continue;
         console.log(`trek: uninstalling undeclared plugin ''${id}`);
         await runtime.uninstall(id, false);
       }
 
       for (const { id, settings } of declared) {
+        const row = await plugins.findActivationGate(id);
+        if (!row) {
+          console.warn(`trek: declared plugin ''${id} was not discovered`);
+          continue;
+        }
         for (const [key, file] of Object.entries(settings)) {
           try {
             const value = fs.readFileSync(file, 'utf8').trim();
-            if (value) pluginsService.updateInstanceConfig(id, { [key]: value });
+            if (value) await pluginsService.updateInstanceConfig(id, { [key]: value });
           } catch (err) {
             console.warn(`trek: ''${id}.''${key} not set: ''${err.message}`);
           }
         }
-        // Not runtime.activate(): that forks the plugin child here, and this
-        // process exits mid-handshake (`child error: write EPIPE`). The server
-        // spawns every enabled row itself, and stays alive to supervise it.
-        db.prepare(
-          "UPDATE plugins SET granted_permissions = permissions, enabled = 1, " +
-          "status = 'inactive' WHERE id = ?").run(id);
+        // Declaring a plugin is the operator's consent to run it, outside its
+        // author's TREK range included; renewed each start, as TREK asks again
+        // after a plugin update or a new major.
+        if (row.version && !hostSatisfies(row.trek_range)) {
+          console.warn(`trek: running ''${id} outside its TREK range ''${row.trek_range}`);
+          await plugins.acceptTrekRange(id, row.version, hostVersion());
+        }
+        const permissions = JSON.parse(row.permissions || '[]').filter(isKnownPermission);
+        await plugins.grantPermissionsAndEnable(id, JSON.stringify(permissions));
       }
     }
 
-    function syncAdminKeys() {
-      // TREK falls back to any admin's copy, so one admin's key serves everyone.
-      // None exists until a first SSO login, hence the no-op.
-      const admin = db.prepare(
-        "SELECT id FROM users WHERE role = 'admin' ORDER BY id LIMIT 1").get();
-      for (const [column, file] of Object.entries(adminKeys)) {
-        let value;
-        try {
-          value = fs.readFileSync(file, 'utf8').trim();
-        } catch (err) {
-          console.warn(`trek: ''${column} not set: ''${err.message}`);
-          continue;
-        }
-        if (!value) continue;
-        if (!admin) {
-          console.log(`trek: ''${column} pending — no admin until a first SSO login`);
-          continue;
-        }
-        db.prepare(`UPDATE users SET ''${column} = ? WHERE id = ?`)
-          .run(encrypt_api_key(value), admin.id);
-      }
-    }
-
-    function syncSettings() {
-      const resolved = {};
-      for (const [key, value] of Object.entries(settings)) {
-        if (typeof value !== 'object' || value === null) { resolved[key] = value; continue; }
-        try {
-          const read = fs.readFileSync(value.file, 'utf8').trim();
-          if (read) resolved[key] = read;
-        } catch (err) {
-          console.warn(`trek: ''${key} not set: ''${err.message}`);
-        }
-      }
-      if (Object.keys(resolved).length) setAdminUserDefaults(resolved);
-    }
-
-    // Independent, and none worth failing the unit for: that keeps the site down
-    // over stale config.
+    // Not worth failing the unit for: that keeps the site down over stale plugins.
     async function main() {
-      for (const step of [reconcilePlugins, syncAdminKeys, syncSettings]) {
-        try {
-          await step();
-        } catch (err) {
-          console.error(`trek: ''${step.name} failed: ''${err.message}`);
-        }
+      const app = await NestFactory.create(AppModule, { logger: ['error', 'warn'] });
+      try {
+        await app.get(DatabaseLifecycle).open();
+        await withRequestContext(app.get(MikroORM), () => reconcilePlugins(app));
+      } finally {
+        await app.close();
       }
     }
 
-    main().finally(() => process.exit(0));
+    main()
+      .catch((err) => console.error(`trek: plugin reconcile failed: ''${err.stack || err.message}`))
+      .finally(() => process.exit(0));
   '';
 in {
   site.apps.trek.enabled = true;
@@ -192,6 +166,11 @@ in {
       FORCE_HTTPS = "false";
       COOKIE_SECURE = "true";
       TREK_PLUGINS_DIR = trek-plugins-dir;
+      # "Someone other than the admin owns the config": Nix does. This is what
+      # makes MAPBOX_ACCESS_TOKEN take effect, and it locks the operator-supplied
+      # settings in the admin UI along with UI backup/restore, plugin sideloading
+      # and the home-server integrations (Immich, AirTrail).
+      TREK_MANAGED = "true";
       OIDC_ISSUER = "https://${config.site.apps.authelia.subdomain}.${config.site.domain}";
       OIDC_CLIENT_ID = "trek";
       OIDC_DISPLAY_NAME = "Authelia";
@@ -230,12 +209,19 @@ in {
       done < ${trek-plugin-manifest}
 
       umask 077
-      # UNSPLASH_ACCESS_KEY, not the database: TREK reads it ahead of any stored key.
-      { echo "OIDC_CLIENT_SECRET=$(cat ${config.age.secrets.trek-oidc.path})"
+      # Managed mode insists the at-rest key arrive by env rather than be found in
+      # the data volume. It is the key TREK already persisted (any other would
+      # orphan every stored secret), so it stays state, minted here only once.
+      [ -s ${trek-encryption-key} ] || ${lib.getExe pkgs.openssl} rand -hex 32 > ${trek-encryption-key}
+      # Env vars, not the database: TREK reads these ahead of any stored key.
+      { echo "ENCRYPTION_KEY=$(cat ${trek-encryption-key})"
+        echo "OIDC_CLIENT_SECRET=$(cat ${config.age.secrets.trek-oidc.path})"
         echo "UNSPLASH_ACCESS_KEY=$(cat ${config.age.secrets.trek-unsplash-key.path})"
+        echo "PLACES_API_KEY=$(cat ${config.age.secrets.trek-maps-key.path})"
+        echo "MAPBOX_ACCESS_TOKEN=$(cat ${config.age.secrets.trek-mapbox-token.path})"
       } > ${trek-secrets-env}
 
-      ${lib.getExe pkgs.nodejs} ${trek-reconcile}
+      ${lib.getExe pkgs.nodejs} ${trek-reconcile} ${trek-secrets-env}
     '';
     serviceConfig = {
       User = "trek";

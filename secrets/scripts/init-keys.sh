@@ -37,7 +37,6 @@ readonly service_keys=(
     "meilisearch-master:rand"
     "meilisearch-jellyfin:meilisearch"
     "meilisearch-stalwart:meilisearch"
-    "trek-encryption:rand"
     "multi-scrobbler-jellyfin:rand"
     "multi-scrobbler-koito:rand"
     "postgresql-ha-replication:rand"

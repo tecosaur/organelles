@@ -17,18 +17,22 @@ let
 in
 buildNpmPackage (finalAttrs: {
   pname = "trek";
-  version = "3.4.1";
+  version = "5.1.3";
 
   src = fetchFromGitHub {
     owner = "liketrek";
     repo = "TREK";
     tag = "v${finalAttrs.version}";
-    hash = "sha256-r7Y6vxksX+V4bKCz4MF7K8Ar5UgKIzHoJmjukgR+9Cw=";
+    hash = "sha256-KqoGeZjHCF8toYB1T+daVR7gICTssMPweddmVEkMj4g=";
   };
 
   inherit nodejs;
 
-  npmDepsHash = "sha256-m+2OFN8EbyCv+sc5T3TcNxjR5tl9qKMzqyLIqrTrews=";
+  npmDepsHash = "sha256-y+j+Rz9CneKSpp3jd+En2VnK80t7SXFx+L9nz3Qis1I=";
+
+  # plyr's preinstall runs `npx only-allow pnpm`, which fails offline. The other
+  # install scripts are telemetry, binary checks, or better-sqlite3, built below.
+  npmRebuildFlags = [ "--ignore-scripts" ];
 
   nativeBuildInputs = [
     python3
@@ -45,20 +49,27 @@ buildNpmPackage (finalAttrs: {
   buildPhase = ''
     runHook preBuild
 
+    # better-sqlite3 13 ships prebuilds linked against a non-Nix glibc/libstdc++,
+    # and lib/binding.js loads them ahead of build/Release, so the Nix build has
+    # to take the linux-x64 prebuild's place.
     pushd node_modules/better-sqlite3
     npm run build-release --offline --nodedir="${nodeSources}"
     find build -type f -exec remove-references-to -t "${nodeSources}" {} \;
+    cp -f build/Release/better_sqlite3.node prebuilds/linux-x64.node
+    find prebuilds -type f ! -name linux-x64.node -delete
     popd
 
     npm run build --workspace=shared
-    npm run build --workspace=server
+    # tsc outgrows Node's default heap on the server
+    NODE_OPTIONS=--max-old-space-size=4096 npm run build --workspace=server
     npm run build --workspace=client
 
     runHook postBuild
   '';
 
   # npmInstallHook packs a single workspace; this tree is three, so `npm prune` is
-  # done by hand. Whole workspaces, since the server reads them relative to itself.
+  # done by hand. Whole workspaces, since the server reads them relative to itself;
+  # server/node_modules stays, for whatever npm nests there.
   installPhase = ''
     runHook preInstall
 
@@ -66,7 +77,7 @@ buildNpmPackage (finalAttrs: {
 
     mkdir -p $out/lib/trek
     cp -r node_modules package.json package-lock.json shared server wiki $out/lib/trek/
-    rm -rf $out/lib/trek/server/{src,test,node_modules} $out/lib/trek/shared/{src,node_modules}
+    rm -rf $out/lib/trek/server/{src,tests} $out/lib/trek/shared/{src,node_modules}
     cp -r client/dist/. $out/lib/trek/server/public/
     cp -r client/public/fonts $out/lib/trek/server/public/fonts
 
