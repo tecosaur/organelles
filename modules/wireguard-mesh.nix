@@ -5,10 +5,9 @@
 
 let
   inherit (config.site) hosts;
-  inherit (config.site.mesh) subnet port;
+  inherit (config.site.ports.wireguard) port;
   this-host = config.site.server.host;
-  # The low 16 bits of the name's digest, as the hex group they already are.
-  address = name: "${subnet}${builtins.substring 0 4 (builtins.hashString "sha256" name)}";
+  address = name: config.site.mesh.addresses.${name};
   key-file = name: ../secrets/keys + "/wg-${name}.pub";
   public-key = name: lib.removeSuffix "\n" (builtins.readFile (key-file name));
   unkeyed = lib.filter (name: !builtins.pathExists (key-file name)) hosts;
@@ -49,8 +48,6 @@ in
 
   # the mesh has no unit of its own; dns-pooler's view of its peers stands in
   site.status.units = [ { id = "mesh"; name = "Mesh"; kind = "mesh"; } ];
-
-  networking.firewall.allowedUDPPorts = [ port ];
 
   networking.hosts = lib.listToAttrs
     (map (name: lib.nameValuePair (address name) [ "${name}.internal" ]) hosts);

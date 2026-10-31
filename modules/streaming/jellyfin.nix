@@ -216,9 +216,6 @@ in {
     ];
   };
 
-  networking.firewall.allowedUDPPorts = [ 1900 ]; # DLNA
-  networking.firewall.allowedTCPPorts = [ config.site.apps.jellyfin.port ];
-
   systemd.tmpfiles.rules = [
     "d ${media-dir} 0755 root users - -"
     "d ${movies-dir} 0775 ${config.services.jellyfin.user} users - -"

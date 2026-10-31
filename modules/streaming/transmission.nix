@@ -4,7 +4,7 @@ let
   download-dir = "/data/media/downloads";
   incomplete-dir = "${download-dir}/.incomplete";
   extra-dirs = [ "/data/media" ];
-  peer-port = 58193;
+  peer-port = config.site.apps.transmission.ports.peer.port;
 in {
   site.apps.transmission.enabled = true;
 
@@ -12,7 +12,8 @@ in {
     enable = true;
     group = "users";
     package = pkgs.transmission_4;
-    openRPCPort = true; # Make accessible over the LAN (but not WAN)
+    # opened by its site.apps exposure
+    openRPCPort = false;
     webHome = pkgs.flood-for-transmission;
     settings = {
       rpc-bind-address = "0.0.0.0";
@@ -29,8 +30,6 @@ in {
       umask = "002";
     };
   };
-
-  networking.firewall.allowedTCPPorts = [ peer-port ];
 
   systemd.services.transmission.serviceConfig = {
     UMask = lib.mkForce "0007";

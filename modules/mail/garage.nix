@@ -10,32 +10,33 @@ let
   this-host = config.site.server.host;
   package = pkgs.garage_2;
   region = "garage";
-  inherit (config.site.mail) storage ports;
+  inherit (config.site.mail) storage;
+  ports = config.site.apps.mail.ports;
   keys = ../../secrets/keys;
   address = host: config.site.mesh.addresses.${host};
   sidecar = name: lib.removeSuffix "\n" (builtins.readFile (keys + "/${name}"));
   node-id = host: sidecar "garage-node-${host}.pub";
-  cluster-of = capacity-bytes: rec {
+  cluster-of = capacity-bytes: {
     inherit capacity-bytes;
     # Every node holds a copy
     replication-factor = length (attrNames capacity-bytes);
-    # Serves S3 to the mesh and applies layouts: the member likeliest to run a gateway
-    head-host = lib.findFirst (host: capacity-bytes ? ${host}) (lib.head (attrNames capacity-bytes)) config.site.ha.preference;
   };
   clusters = {
     primary = cluster-of storage.primary // {
+      head-host = storage.heads.primary;
       db-engine = "sqlite";
       root = "/data/garage";
-      ports = { s3 = ports.garage-primary-s3; rpc = ports.garage-primary-rpc; };
+      ports = { s3 = ports.garage-primary-s3.port; rpc = ports.garage-primary-rpc.port; };
       bucket = "mail";
       quota-bytes = null;
       key = { name = "mail-primary"; id = sidecar "garage-mail-primary.id"; };
     };
     overflow = cluster-of storage.overflow // {
+      head-host = storage.heads.overflow;
       # Each node can rebuild LMDB from the other after an unclean shutdown
       db-engine = "lmdb";
       root = "/var/lib/garage-overflow";
-      ports = { s3 = ports.garage-overflow-s3; rpc = ports.garage-overflow-rpc; };
+      ports = { s3 = ports.garage-overflow-s3.port; rpc = ports.garage-overflow-rpc.port; };
       bucket = "mail-overflow";
       quota-bytes = storage.overflow-quota-bytes;
       key = { name = "mail-overflow"; id = sidecar "garage-mail-overflow.id"; };
@@ -205,9 +206,6 @@ in {
         startLimitBurst = 12;
         startLimitIntervalSec = 300;
       };
-      networking.firewall.interfaces.wg0.allowedTCPPorts =
-        lib.optional is-meshed cluster.ports.rpc
-        ++ lib.optional (cluster.head-host == this-host) cluster.ports.s3;
       site.status.units = [ { id = "garage"; name = "Garage mail ${this-cluster-name}"; unit = "garage.service"; } ];
     }
     (lib.mkIf (cluster.head-host == this-host) {

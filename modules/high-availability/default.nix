@@ -63,7 +63,7 @@ in {
         reverse_proxy ${toString (map (host: "${host}.internal:${toString port}") ha.preference)} {
           lb_policy first
           health_uri /serving
-          health_port ${toString ha.ports.serving}
+          health_port ${toString config.site.ports.ha-serving.port}
           health_interval 2s
           lb_try_duration 15s
         }
@@ -73,43 +73,6 @@ in {
         serves: for an app that runs beside the primary alone, reachable
         through every host.
       '';
-    };
-    ports = {
-      postgres = lib.mkOption {
-        type = lib.types.port;
-        default = 5433;
-        description = "Port of the replicated Postgres, beside each host's local cluster on 5432";
-      };
-      etcd = lib.mkOption {
-        type = lib.types.port;
-        default = 2379;
-        description = "Port etcd serves clients on";
-      };
-      etcd-peer = lib.mkOption {
-        type = lib.types.port;
-        default = 2380;
-        description = "Port etcd's voters reach each other on";
-      };
-      patroni = lib.mkOption {
-        type = lib.types.port;
-        default = 8008;
-        description = "Port of Patroni's REST API, whose /primary answers 200 only on the leader";
-      };
-      serving = lib.mkOption {
-        type = lib.types.port;
-        default = 8009;
-        description = "Port whose /serving answers 200 only on the serving member, for Caddy's health checks";
-      };
-      valkey = lib.mkOption {
-        type = lib.types.port;
-        default = 6380;
-        description = "Port of the replicated Valkey";
-      };
-      sentinel = lib.mkOption {
-        type = lib.types.port;
-        default = 26379;
-        description = "Port Sentinel serves on, to its peers and to clients finding the Valkey master";
-      };
     };
   };
 }

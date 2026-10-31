@@ -1,8 +1,8 @@
 { config, lib, pkgs, ... }:
 
 let
-  relay-port = config.site.apps.headscale.relay-port;
-  tags = lib.optional (relay-port != null) "sys-relay";
+  relay-port = config.site.apps.headscale.ports.relay.port;
+  tags = [ "sys-relay" ];
 in {
   site.status.units = [ { id = "tailscale"; name = "Tailscale"; unit = "tailscaled.service"; } ];
 
@@ -14,7 +14,8 @@ in {
 
   services.tailscale = {
     enable = true;
-    openFirewall = true;
+    port = config.site.ports.tailscale.port;
+    openFirewall = false;
     useRoutingFeatures = "server";
     # key generated with: `headscale preauthkeys create -u 1 -e 99y --reusable --tags tag:sys-relay`
     authKeyFile = lib.mkIf config.site.apps.headscale.enabled config.age.secrets.tailscale-preauth.path;
@@ -25,12 +26,8 @@ in {
       # "--ssh"
     ] ++ lib.optional config.site.apps.headscale.enabled
       "--login-server=https://${config.site.apps.headscale.subdomain}.${config.site.domain}";
-    extraSetFlags = lib.optional (relay-port != null)
-      "--relay-server-port=${toString relay-port}";
+    extraSetFlags = [ "--relay-server-port=${toString relay-port}" ];
   };
-
-  networking.firewall.allowedTCPPorts = lib.optional (relay-port != null) relay-port;
-  networking.firewall.allowedUDPPorts = lib.optional (relay-port != null) relay-port;
 
   services.networkd-dispatcher = {
     enable = true;

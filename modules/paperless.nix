@@ -76,6 +76,9 @@ in {
     OTEL_TRACES_EXPORTER = "none";
   };
 
+  services.tika.port = config.site.apps.paperless.ports.tika.port;
+  services.gotenberg.port = config.site.apps.paperless.ports.gotenberg.port;
+
   services.paperless = {
     enable = true;
     port = config.site.apps.paperless.port;

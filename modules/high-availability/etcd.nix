@@ -3,12 +3,13 @@
 # etcd on each voter, over the mesh, so without TLS
 
 let
-  inherit (config.site.ha) voters primary ports;
+  inherit (config.site.ha) voters primary;
+  inherit (config.site) ports;
   this-host = config.site.server.host;
   address = host: "[${config.site.mesh.addresses.${host}}]";
-  peer-url = host: "http://${address host}:${toString ports.etcd-peer}";
-  client-url = host: "http://${address host}:${toString ports.etcd}";
-  local-url = "http://127.0.0.1:${toString ports.etcd}";
+  peer-url = host: "http://${address host}:${toString ports.etcd-peer.port}";
+  client-url = host: "http://${address host}:${toString ports.etcd.port}";
+  local-url = "http://127.0.0.1:${toString ports.etcd.port}";
 in {
   config = lib.mkIf (primary != null && lib.elem this-host voters) {
     services.etcd = {
@@ -36,8 +37,6 @@ in {
         CPUWeight = 500;
       };
     };
-
-    networking.firewall.interfaces.wg0.allowedTCPPorts = [ ports.etcd ports.etcd-peer ];
 
     site.status.units = [ {
       id = "etcd";

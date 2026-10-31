@@ -3,7 +3,7 @@
 let
   lyrion-domains = [ "music.lan" "local.music" ];
   music-dir = "/data/media/music";
-  lyrion-web-port = 9000;
+  inherit (config.site) ports;
   # GCC 16 vectorises Image::Scale's cos() into libmvec calls, but the module
   # links without -lm, so it fails to load with an undefined _ZGVbN2v_cos.
   perlPackages = pkgs.perlPackages.overrideScope (_: super: {
@@ -24,6 +24,16 @@ in {
   systemd.services.slimserver = {
     path = [ pkgs.yt-dlp pkgs.deno ];
     serviceConfig = {
+      # players reach slimproto on 3483 regardless, so only these two are settable
+      ExecStart = lib.mkForce (lib.escapeShellArgs [
+        (lib.getExe patched-slimserver)
+        "--logdir" "${config.services.slimserver.dataDir}/logs"
+        "--prefsdir" "${config.services.slimserver.dataDir}/prefs"
+        "--cachedir" "${config.services.slimserver.dataDir}/cache"
+        "--noimage" "--novideo"
+        "--httpport" (toString ports.lyrion-web.port)
+        "--cliport" (toString ports.lyrion-cli.port)
+      ]);
       NoNewPrivileges = true;
       LockPersonality = true;
       ProtectSystem = "strict";
@@ -67,9 +77,6 @@ in {
     };
   };
 
-  networking.firewall.allowedTCPPorts = [ 3483 9000 9090 ];
-  networking.firewall.allowedUDPPorts = [ 3483 ];
-
   services.caddy.virtualHosts = lib.mkMerge (map (domain: {
     "http://${domain}".extraConfig =
       ''
@@ -78,7 +85,7 @@ in {
           root ${config.site.assets}/lyrion
           file_server
       }
-      reverse_proxy :${toString lyrion-web-port}
+      reverse_proxy :${toString ports.lyrion-web.port}
       '';
   }) lyrion-domains);
 }

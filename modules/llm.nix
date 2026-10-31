@@ -26,7 +26,7 @@ let
   proxy-config = lib.optionalString llm.embedding.enable
     ''
     handle /v1/embeddings {
-        reverse_proxy :${toString llm.embedding.port}
+        reverse_proxy :${toString llm.ports.embedding.port}
     }
     '' + lib.optionalString (pool != [ ])
     ''
@@ -133,7 +133,7 @@ in lib.mkMerge [
         ExecStart = lib.escapeShellArgs [
           (lib.getExe' pkgs.llama-cpp-vulkan "llama-server")
           "--host" "127.0.0.1"
-          "--port" (toString llm.embedding.port)
+          "--port" (toString llm.ports.embedding.port)
           "--hf-repo" "jinaai/jina-embeddings-v5-text-nano-retrieval-GGUF:F16"
           "--alias" "embedding"
           "--embeddings"

@@ -107,6 +107,14 @@
         nixpkgs.lib.mapAttrs (_: _: machine)
           (nixpkgs.lib.filterAttrs (_: conf: conf.enabled) sys.config.site.apps))
         machine-systems);
+      # every machine running each site.ports listener's unit, for those naming no hosts
+      global-port-hosts = nixpkgs.lib.mapAttrs (_: listener:
+        nixpkgs.lib.filter (machine:
+          let services = machine-systems.${machine}.config.systemd.services;
+          in services ? ${listener.unit} && services.${listener.unit}.enable)
+          (builtins.attrNames machines))
+        (nixpkgs.lib.filterAttrs (_: listener: listener.hosts == null)
+          (builtins.head (builtins.attrValues machine-systems)).config.site.ports);
       global-enabled-apps = nixpkgs.lib.concatMapAttrs (machine: sys:
         (nixpkgs.lib.foldlAttrs
           (acc: app: conf:
@@ -270,6 +278,7 @@
                 (machine-site name setup).apps;
               dns.served = global-served-names;
               status.fleet-units = global-status-units;
+              ports = nixpkgs.lib.mapAttrs (_: hosts: { inherit hosts; }) global-port-hosts;
             };
           }];
         })

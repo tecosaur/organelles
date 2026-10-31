@@ -13,7 +13,7 @@ in {
   services.syncthing = {
     enable = true;
     dataDir = config.site.apps.syncthing.dir;
-    guiAddress = "localhost:8384";
+    guiAddress = "localhost:${toString config.site.apps.syncthing.port}";
     overrideDevices = true;
     overrideFolders = true;
     settings = {

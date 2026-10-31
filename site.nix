@@ -1,12 +1,47 @@
 { config, lib, pkgs, ... }:
 
 let
+  # The shape every listener is declared in, so the firewall, the port-clash
+  # check and confinement read them all alike
+  listener = { unit ? null, hosts ? null, exposure ? "local" }:
+    lib.types.submodule {
+      options = {
+        port = lib.mkOption {
+          type = lib.types.port;
+          description = "Port it listens on";
+        };
+        unit = lib.mkOption {
+          type = lib.types.nullOr lib.types.str;
+          default = unit;
+          description = "The systemd service listening";
+        };
+        hosts = lib.mkOption {
+          type = lib.types.nullOr (lib.types.listOf lib.types.str);
+          default = hosts;
+          description = "Hosts it listens on; null for those running its owner";
+        };
+        exposure = lib.mkOption {
+          type = lib.types.enum [ "local" "mesh" "public" ];
+          default = exposure;
+          description = ''
+            Who may connect: units on the same host, other hosts over the mesh,
+            or anyone, for which the firewall opens it.
+          '';
+        };
+        protocols = lib.mkOption {
+          type = lib.types.listOf (lib.types.enum [ "tcp" "udp" ]);
+          default = [ "tcp" ];
+          description = "Transport protocols it accepts";
+        };
+      };
+    };
   mkAppOption = { name, description, homepage, simpleicon ? null,
                   service ? (lib.toLower (lib.replaceStrings [ " " ] [ "-" ] name)),
                   usesStateDir ? (service != null),
                   subdomain, port, admin ? "admin", extra-groups ? [],
                   auth ? {}, cacheSubdirs ? [], stateSubdirs ? null, health ? null,
-                  followsPrimary ? false, extraOptions ? {} }:
+                  followsPrimary ? false, exposure ? (if followsPrimary then "mesh" else "local"),
+                  ports ? {}, extraOptions ? {} }:
     {
       name = lib.mkOption {
         type = lib.types.str;
@@ -87,9 +122,22 @@ let
         '';
       };
       port = lib.mkOption {
-        type = lib.types.int;
+        type = lib.types.port;
         default = port;
-        description = "Port that the ${name} app listens on";
+        description = "Port of the ${name} app's main listener, which Caddy proxies";
+      };
+      exposure = lib.mkOption {
+        type = lib.types.enum [ "local" "mesh" "public" ];
+        default = exposure;
+        description = "Who may reach the main listener; see `ports`";
+      };
+      ports = lib.mkOption {
+        type = lib.types.attrsOf (listener { unit = service; });
+        default = ports;
+        description = ''
+          The ${name} app's other listeners, its helpers' included, by name.
+          Nothing of the app listens on a port not declared here or as `port`.
+        '';
       };
       followsPrimary = lib.mkOption {
         type = lib.types.bool;
@@ -121,9 +169,10 @@ let
             ports = lib.mkOption {
               type = lib.types.listOf (lib.types.submodule {
                 options = {
-                  port = lib.mkOption {
-                    type = lib.types.port;
-                    description = "Port connected to on localhost";
+                  listener = lib.mkOption {
+                    type = lib.types.str;
+                    example = "smtp";
+                    description = "The listener in `ports` connected to, on localhost";
                   };
                   tls = lib.mkOption {
                     type = lib.types.bool;
@@ -133,8 +182,8 @@ let
                 };
               });
               default = [ ];
-              example = [ { port = 25; } { port = 993; tls = true; } ];
-              description = "Further ports that must accept a TCP connection";
+              example = [ { listener = "smtp"; } { listener = "imaps"; tls = true; } ];
+              description = "Further listeners that must accept a TCP connection";
             };
             startupGrace = lib.mkOption {
               type = lib.types.ints.positive;
@@ -177,6 +226,17 @@ let
   };
 in {
   options.site = {
+    ports = lib.mkOption {
+      type = lib.types.attrsOf (listener { });
+      default = { };
+      description = ''
+        Every listener that belongs to no app: the replicated substrate's, the
+        mesh's, and the system's own. With site.apps.<app>.port and .ports it
+        is every port the site listens on, and nothing else opens the
+        firewall. A null `hosts` is filled in by the flake with the machines
+        whose configuration runs the listener's unit.
+      '';
+    };
     domain = lib.mkOption {
       type = lib.types.str;
       description = "Global domain name for the site";
@@ -202,11 +262,6 @@ in {
           name and nothing else: adding, removing or renaming a machine leaves
           every other host's address untouched.
         '';
-      };
-      port = lib.mkOption {
-        type = lib.types.int;
-        default = 51820;
-        description = "Port the mesh listens on, opened to UDP on every host";
       };
       addresses = lib.mkOption {
         type = lib.types.attrsOf lib.types.str;
@@ -398,6 +453,8 @@ in {
         usesStateDir = false;
         subdomain = "auth";
         port = 9091;
+        # the other hosts' Caddy proxy /api/* to it
+        exposure = "mesh";
       };
       beszel = mkAppOption {
         health.path = "/api/health";
@@ -407,6 +464,8 @@ in {
         service = "beszel-hub";
         subdomain = "systems";
         port = 8090;
+        # beszel-agent is a core module, beside the hub or not
+        ports.agent = { port = 45876; unit = "beszel-agent"; hosts = config.site.hosts; };
         admin = null;
         extra-groups = [ "admin" ];
         extraOptions = {
@@ -414,11 +473,6 @@ in {
             type = lib.types.str;
             default = "";
             description = "Public key of the Beszel hub";
-          };
-          agent-port = lib.mkOption {
-            type = lib.types.int;
-            default = 45876;
-            description = "Port that the Beszel agent listens on";
           };
           extra-filesystems = lib.mkOption {
             type = lib.types.listOf lib.types.str;
@@ -527,6 +581,9 @@ in {
         simpleicon = "jellyfin";
         subdomain = "media";
         port = 8096;
+        # LAN and TV clients connect directly
+        exposure = "public";
+        ports.dlna = { port = 1900; protocols = [ "udp" ]; exposure = "public"; };
       };
       headscale = mkAppOption {
         health.path = "/health";
@@ -535,22 +592,17 @@ in {
         description = "mesh virtual private network";
         subdomain = "headscale";
         port = 8174;
+        ports = {
+          headplane = { port = 8175; unit = "headplane"; };
+          # every host's tailscaled relays for the tailnet
+          relay = { port = 40108; unit = "tailscaled"; hosts = config.site.hosts; exposure = "public"; protocols = [ "tcp" "udp" ]; };
+        };
         admin = null;
         extraOptions = {
           magicdns-subdomain = lib.mkOption {
             type = lib.types.str;
             default = "on";
             description = "Subdomain to use in the base domain for MagicDNS.";
-          };
-          headplane-port = lib.mkOption {
-            type = lib.types.int;
-            default = 8175;
-            description = "Port that the headplane service listens on";
-          };
-          relay-port = lib.mkOption {
-            type = lib.types.nullOr lib.types.int;
-            default = 40108;
-            description = "Port that the relay service listens on";
           };
         };
       };
@@ -574,6 +626,7 @@ in {
         usesStateDir = false;
         subdomain = "photos";
         port = 2283;
+        ports.machine-learning = { port = 3003; unit = "immich-machine-learning"; };
       };
       llm = mkAppOption {
         health.path = "/health";
@@ -583,6 +636,7 @@ in {
         usesStateDir = false;
         subdomain = "llm";
         port = 8089;
+        ports.embedding = { port = 8088; unit = "llama-cpp-embedding"; };
         extraOptions = {
           local = lib.mkOption {
             type = lib.types.bool;
@@ -616,11 +670,6 @@ in {
                 embeddings, serving /v1/embeddings on the same domain.
               '';
             };
-            port = lib.mkOption {
-              type = lib.types.int;
-              default = 8088;
-              description = "Port that the embedding llama-server listens on";
-            };
           };
         };
       };
@@ -643,7 +692,32 @@ in {
         usesStateDir = false;
         subdomain = "mail";
         port = 8460;
-        health.ports = [ { port = 25; } { port = 993; tls = true; } ];
+        # for the other hosts' Caddy alone, since it trusts X-Forwarded-For
+        exposure = "mesh";
+        ports = let
+          inherit (config.site.mail.storage) heads;
+          cluster-hosts = cluster: lib.attrNames config.site.mail.storage.${cluster};
+          # a lone node keeps its RPC to itself
+          rpc = cluster: port: {
+            inherit port;
+            unit = "garage";
+            hosts = cluster-hosts cluster;
+            exposure = if lib.length (cluster-hosts cluster) > 1 then "mesh" else "local";
+          };
+        in lib.mapAttrs (_: port: { inherit port; exposure = "public"; })
+          { smtp = 25; submissions = 465; submission = 587; imaps = 993; sieve = 4190; }
+        // {
+          bulwark = { port = 3480; unit = "bulwark"; };
+          # applies the settings before each start
+          stalwart-recovery.port = 8461;
+          s3-gateway = { port = 3920; unit = "s3-overflow"; };
+          s3-gateway-status = { port = 3921; unit = "s3-overflow"; };
+          garage-primary-s3 = { port = 3900; unit = "garage"; hosts = [ heads.primary ]; exposure = "mesh"; };
+          garage-primary-rpc = rpc "primary" 3901;
+          garage-overflow-s3 = { port = 3910; unit = "garage"; hosts = [ heads.overflow ]; exposure = "mesh"; };
+          garage-overflow-rpc = rpc "overflow" 3911;
+        };
+        health.ports = [ { listener = "smtp"; } { listener = "imaps"; tls = true; } ];
       };
       mealie = mkAppOption {
         health.path = "/api/app/about";
@@ -690,6 +764,10 @@ in {
         service = "paperless-web";
         subdomain = "folio";
         port = 28981;
+        ports = {
+          tika = { port = 9998; unit = "tika"; };
+          gotenberg = { port = 3000; unit = "gotenberg"; };
+        };
       };
       rustical = mkAppOption {
         health.path = "/ping";
@@ -706,6 +784,7 @@ in {
         description = "disk health monitoring";
         subdomain = "drives.health";
         port = 8606;
+        ports.influxdb = { port = 8086; unit = "influxdb2"; };
       };
       sftpgo = mkAppOption {
         health.path = "/healthz";
@@ -714,19 +793,11 @@ in {
         description = "SFTP server";
         subdomain = "files";
         port = 8083;
-        admin = null;
-        extraOptions = {
-          webdavd-port = lib.mkOption {
-            type = lib.types.int;
-            default = 3303;
-            description = "Port that the webdavd service listens on";
-          };
-          sftpd-port = lib.mkOption {
-            type = lib.types.int;
-            default = 2022;
-            description = "Port that the sftpd service listens on";
-          };
+        ports = {
+          sftp = { port = 2022; exposure = "public"; };
+          webdav.port = 3303;
         };
+        admin = null;
       };
       speedtest = mkAppOption {
         health.path = "/backend/empty";
@@ -745,14 +816,8 @@ in {
         description = "synced audiobook platform";
         subdomain = "books";
         port = 8001;
+        ports.readium.port = 8002;
         cacheSubdirs = [ ".cache" ".local" "image-cache" ];
-        extraOptions = {
-          readium-port = lib.mkOption {
-            type = lib.types.int;
-            default = 8002;
-            description = "Port that the Readium CLI server listens on";
-          };
-        };
       };
       syncthing = mkAppOption {
         health.path = "/rest/noauth/health";
@@ -826,6 +891,8 @@ in {
         simpleicon = "transmission";
         subdomain = "torrent";
         port = 9092;
+        exposure = "public";
+        ports.peer = { port = 58193; exposure = "public"; };
         stateSubdirs = [ ".config/transmission-daemon" ];
       };
       lldap = mkAppOption {
@@ -836,6 +903,7 @@ in {
         followsPrimary = true;
         subdomain = "users";
         port = 17170;
+        ports.ldap = { port = 3890; exposure = "mesh"; };
       };
       gatus = mkAppOption {
         health = { path = "/health"; body = ''"status":"UP"''; };
@@ -877,25 +945,80 @@ in {
     };
   };
 
-  config.assertions =
+  config = let
+    this-host = config.site.server.host;
+    on-this-host = hosts: hosts != null && lib.elem this-host hosts;
+    # Every listener on this host: an app's own where it runs, and any naming
+    # its hosts wherever those are
+    app-listeners = lib.concatLists (lib.mapAttrsToList (name: app: let
+      runs-here = lib.elem this-host app.hosts;
+    in lib.optional runs-here { inherit name; inherit (app) port exposure; protocols = [ "tcp" ]; }
+       ++ lib.mapAttrsToList (listener-name: listener: listener // { name = "${name} ${listener-name}"; })
+            (lib.filterAttrs (_: listener: if listener.hosts == null then runs-here else on-this-host listener.hosts) app.ports))
+      (lib.filterAttrs (_: app: app.enabled) config.site.apps));
+    listeners-here = app-listeners ++ lib.mapAttrsToList (name: listener: listener // { inherit name; })
+      (lib.filterAttrs (_: listener: on-this-host listener.hosts) config.site.ports);
+    opened = exposure: protocol: lib.unique (map (listener: listener.port)
+      (lib.filter (listener: listener.exposure == exposure && lib.elem protocol listener.protocols) listeners-here));
+    firewall = config.networking.firewall;
+    # an opening no listener here declares: a module or nixpkgs default opening on its own
+    undeclared = opening: declared: lib.subtractLists declared (lib.unique opening);
+    stray = lib.filterAttrs (_: ports: ports != [ ]) {
+      "public TCP" = undeclared firewall.allowedTCPPorts (opened "public" "tcp");
+      "public UDP" = undeclared firewall.allowedUDPPorts (opened "public" "udp");
+      "wg0 TCP" = undeclared (firewall.interfaces.wg0.allowedTCPPorts or [ ]) (opened "mesh" "tcp");
+      "wg0 UDP" = undeclared (firewall.interfaces.wg0.allowedUDPPorts or [ ]) (opened "mesh" "udp");
+    };
+  in {
+  site.ports = let
+    inherit (config.site.ha) preference;
+    mesh = port: unit: { inherit port unit; exposure = "mesh"; };
+    public = port: unit: { inherit port unit; exposure = "public"; };
+  in {
+    ssh = public 22 "sshd";
+    http = public 80 "caddy";
+    https = public 443 "caddy" // { protocols = [ "tcp" "udp" ]; };
+    wireguard = public 51820 "systemd-networkd" // { protocols = [ "udp" ]; };
+    tailscale = public 41641 "tailscaled" // { protocols = [ "udp" ]; };
+    # a host's own modules add it where it answers
+    mdns = public 5353 "systemd-resolved" // { protocols = [ "udp" ]; hosts = lib.mkDefault [ ]; };
+    dns-pooler-peer = mesh 9433 "dns-pooler";
+    dns-pooler-status = { port = 9434; unit = "dns-pooler"; };
+    # each reporter's board of planned transitions
+    status-conditions = mesh 9435 "gatus-aggregator-report";
+    # the aggregator's answer to the page's /api/v1/config
+    status-announcement = mesh 9436 "gatus-aggregator-aggregate";
+    crowdsec-api = { port = 8057; unit = "crowdsec"; };
+    slimproto = public 3483 "slimserver" // { protocols = [ "tcp" "udp" ]; };
+    lyrion-web = public 9000 "slimserver";
+    lyrion-cli = public 9090 "slimserver";
+    postgres-ha = mesh 5433 "patroni";
+    # Postgres asks each client's host on 113, which it can't be told otherwise
+    ident = mesh 113 "oidentd";
+    etcd = mesh 2379 "etcd";
+    etcd-peer = mesh 2380 "etcd";
+    patroni = mesh 8008 "patroni";
+    # /serving answers 200 only on the serving member, for Caddy's health checks
+    ha-serving = mesh 8009 "caddy" // { hosts = preference; };
+    valkey-ha = mesh 6380 "valkey-ha";
+    sentinel = mesh 26379 "valkey-ha-sentinel";
+    meilisearch = mesh 7700 "meilisearch" // { hosts = [ config.site.meilisearch.host ]; };
+  };
+  networking.firewall = {
+    allowedTCPPorts = opened "public" "tcp";
+    allowedUDPPorts = opened "public" "udp";
+    interfaces.wg0 = {
+      allowedTCPPorts = opened "mesh" "tcp";
+      allowedUDPPorts = opened "mesh" "udp";
+    };
+  };
+  assertions = [ {
+    assertion = stray == { };
+    message = "site: ${this-host} opens ${lib.concatStringsSep "; " (lib.mapAttrsToList (what: ports:
+      "${what} ${lib.concatMapStringsSep ", " toString ports}") stray)} with no listener declaring it; "
+      + "declare it in site.ports or site.apps.<app>.ports, and turn off the module's own opening";
+  } ] ++ (
     let
-      # Auxiliary listeners are found by the `*-port` suffix rather than
-      # enumerated, so one added to `extraOptions` is covered without touching
-      # this.
-      listeners = name: app:
-        lib.mapAttrsToList
-          (option: port: { name = if option == "port" then name
-                                  else "${name} ${lib.removeSuffix "-port" option}";
-                           inherit port; })
-          (lib.filterAttrs
-            (option: port: (option == "port" || lib.hasSuffix "-port" option) && port != null)
-            app);
-      claims-here = lib.concatLists (lib.mapAttrsToList listeners
-        (lib.filterAttrs (_: app: app.enabled && app.host == config.site.server.host)
-          config.site.apps))
-        # beszel-agent is a core module, so it listens on hosts without the hub too.
-        ++ lib.optional (config.site.apps.beszel.host != config.site.server.host)
-             { name = "beszel agent"; port = config.site.apps.beszel.agent-port; };
       subdomain-claims = lib.mapAttrsToList (name: app: { inherit name; inherit (app) subdomain; })
         (lib.filterAttrs (_: app: app.enabled) config.site.apps);
       clashes = field: claims:
@@ -906,7 +1029,7 @@ in {
           (value: claimants: "${field} ${value} claimed by "
                              + lib.concatStringsSep ", " (map (c: c.name) claimants))
           contested);
-      contested-ports = clashes "port" claims-here;
+      contested-ports = clashes "port" listeners-here;
       contested-subdomains = clashes "subdomain" subdomain-claims;
     in [
       { assertion = contested-ports == { };
@@ -917,5 +1040,6 @@ in {
         message = "site.apps: ${describe "subdomain" contested-subdomains}; "
                   + "subdomains share one domain, so give one of them a distinct name in site.nix";
       }
-    ];
+    ]);
+  };
 }

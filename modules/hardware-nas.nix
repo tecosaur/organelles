@@ -87,8 +87,9 @@
     useNetworkd = true;
     useDHCP = true;
     dhcpcd.enable = false;
-    firewall.allowedUDPPorts = [ 5353 ]; # mDNS
   };
+
+  site.ports.mdns.hosts = [ config.site.server.host ];
 
   systemd.network = {
     enable = true;

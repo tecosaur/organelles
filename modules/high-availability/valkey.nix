@@ -5,7 +5,8 @@
 
 let
   cfg = config.services.ha.valkey;
-  inherit (config.site.ha) primary members preference voters ports;
+  inherit (config.site.ha) primary members preference voters;
+  inherit (config.site) ports;
   this-host = config.site.server.host;
   package = pkgs.valkey;
   address = host: config.site.mesh.addresses.${host};
@@ -19,17 +20,17 @@ let
   current-master = pkgs.writeShellScript "valkey-ha-master" ''
     ask() { ${package}/bin/valkey-cli -t 2 --raw -h "$1" -p "$2" "''${@:3}" 2>/dev/null; }
     for host in ${toString (map address voters)}; do
-      master=$(ask "$host" ${toString ports.sentinel} SENTINEL get-master-addr-by-name ha | paste -sd' ')
+      master=$(ask "$host" ${toString ports.sentinel.port} SENTINEL get-master-addr-by-name ha | paste -sd' ')
       [ -n "$master" ] && { echo "$master"; exit; }
     done
     for host in ${toString (map address (lib.unique (preference ++ members)))}; do
-      [ "$(ask "$host" ${toString ports.valkey} ROLE | head -1)" = master ] && { echo "$host ${toString ports.valkey}"; exit; }
+      [ "$(ask "$host" ${toString ports.valkey-ha.port} ROLE | head -1)" = master ] && { echo "$host ${toString ports.valkey-ha.port}"; exit; }
     done
-    echo "${address primary} ${toString ports.valkey}"
+    echo "${address primary} ${toString ports.valkey-ha.port}"
   '';
   valkey-conf = pkgs.writeText "valkey-ha.conf" ''
     bind ${address this-host} 127.0.0.1
-    port ${toString ports.valkey}
+    port ${toString ports.valkey-ha.port}
     dir /var/lib/valkey-ha
     appendonly yes
     replica-announce-ip ${address this-host}
@@ -131,7 +132,6 @@ in {
           StateDirectoryMode = "0700";
         };
       };
-      networking.firewall.interfaces.wg0.allowedTCPPorts = [ ports.valkey ];
       site.status.units = [ { id = "valkey-ha"; name = "Replicated Valkey"; unit = "valkey-ha.service"; } ];
     })
     (lib.mkIf (lib.elem this-host preference) {
@@ -144,15 +144,15 @@ in {
           cli() { valkey-cli -t 2 --raw "$@" 2>/dev/null; }
           sentinel() {
             for host in ${toString (map address voters)}; do
-              cli -h "$host" -p ${toString ports.sentinel} SENTINEL "$@" && return
+              cli -h "$host" -p ${toString ports.sentinel.port} SENTINEL "$@" && return
             done
           }
           stray=0
           while :; do
             serving=$(sed -n 's/^HA_SERVING=//p' ${config.services.ha.postgres.primary-env} 2>/dev/null)
             if [ "$serving" = ${this-host} ]; then want=1; else want=${toString (priority this-host)}; fi
-            [ "$(cli -p ${toString ports.valkey} CONFIG GET replica-priority | tail -1)" = "$want" ] ||
-              cli -p ${toString ports.valkey} CONFIG SET replica-priority "$want" >/dev/null || true
+            [ "$(cli -p ${toString ports.valkey-ha.port} CONFIG GET replica-priority | tail -1)" = "$want" ] ||
+              cli -p ${toString ports.valkey-ha.port} CONFIG SET replica-priority "$want" >/dev/null || true
             master=$(sentinel get-master-addr-by-name ha | head -1)
             if [ "$serving" = ${this-host} ] && [ -n "$master" ] && [ "$master" != ${address this-host} ]; then
               if [ $((++stray)) -ge 6 ]; then
@@ -179,7 +179,7 @@ in {
           read -r master port < <(${current-master})
           cat > "$STATE_DIRECTORY/sentinel.conf" <<EOF
           bind ${address this-host} 127.0.0.1
-          port ${toString ports.sentinel}
+          port ${toString ports.sentinel.port}
           sentinel announce-ip ${address this-host}
           requirepass $VALKEYCLI_AUTH
           sentinel sentinel-pass $VALKEYCLI_AUTH
@@ -196,7 +196,6 @@ in {
           StateDirectoryMode = "0700";
         };
       };
-      networking.firewall.interfaces.wg0.allowedTCPPorts = [ ports.sentinel ];
       site.status.units = [ { id = "valkey-ha-sentinel"; name = "Valkey Sentinel"; unit = "valkey-ha-sentinel.service"; } ];
     })
   ]);

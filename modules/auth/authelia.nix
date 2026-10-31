@@ -4,9 +4,10 @@ let
   auth-domain = "${config.site.apps.authelia.subdomain}.${config.site.domain}";
   authelia-port = config.site.apps.authelia.port;
   authelia-user = "authelia";
-  inherit (config.site.ha) members voters ports;
+  inherit (config.site.ha) members voters;
+  inherit (config.site) ports;
   this-host = config.site.server.host;
-  sentinels = map (host: { host = "${host}.internal"; port = ports.sentinel; })
+  sentinels = map (host: { host = "${host}.internal"; port = ports.sentinel.port; })
     (lib.optional (lib.elem this-host voters) this-host ++ lib.remove this-host voters);
   # for the status page's anonymous probes; a path of / is the app itself
   health-rules = lib.concatMap (app: lib.optional (app.health != null && lib.elem app.health.path [ null "/" ] == false) {
@@ -144,8 +145,8 @@ in {
       };
       # PGTARGETSESSIONATTRS passes over hosts that can't take writes
       storage.postgres = {
-        address = "unix://${config.services.ha.postgres.socket-dir}/.s.PGSQL.${toString ports.postgres}";
-        servers = map (host: { address = "tcp://${host}.internal:${toString ports.postgres}"; })
+        address = "unix://${config.services.ha.postgres.socket-dir}/.s.PGSQL.${toString ports.postgres-ha.port}";
+        servers = map (host: { address = "tcp://${host}.internal:${toString ports.postgres-ha.port}"; })
           (lib.remove this-host members);
         database = authelia-user;
         username = authelia-user;
@@ -201,8 +202,6 @@ in {
       '')
     ];
   };
-
-  networking.firewall.interfaces.wg0.allowedTCPPorts = [ authelia-port ];
 
   users.users.${authelia-user} = {
     group = authelia-user;

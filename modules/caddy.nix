@@ -1,9 +1,6 @@
 { config, lib, pkgs, ... }:
 
 {
-  networking.firewall.allowedTCPPorts = [ 80 443 ];
-  networking.firewall.allowedUDPPorts = [ 443 ];
-
   services.caddy = {
       enable = true;
       package = pkgs.caddy.withPlugins {

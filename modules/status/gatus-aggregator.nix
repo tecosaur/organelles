@@ -53,9 +53,6 @@ let
   };
 in {
   age.secrets.gatus-push.file = ../../secrets/keys/gatus-push.age;
-  # peers tell each other's boards of planned transitions over the mesh
-  networking.firewall.interfaces.wg0.allowedTCPPorts = [ status.conditions-port ]
-    ++ lib.optional config.site.ha.may-lead status.announcement-port;
   age.secrets.status-alert-topic.file = ../../secrets/keys/status-alert-topic.age;
 
   systemd.services.gatus-aggregator-report = service "report" "Status reports to Gatus";

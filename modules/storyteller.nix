@@ -36,7 +36,7 @@ in {
       NODE_ENV = "production";
       PORT = toString storyteller.port;
       HOSTNAME = "0.0.0.0";
-      READIUM_PORT = toString storyteller.readium-port;
+      READIUM_PORT = toString storyteller.ports.readium.port;
       STORYTELLER_DATA_DIR = storyteller.dir;
       STORYTELLER_LOG_LEVEL = "info";
       STORYTELLER_SECRET_KEY_FILE = "${storyteller.dir}/secret_key";

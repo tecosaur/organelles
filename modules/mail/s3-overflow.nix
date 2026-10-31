@@ -3,20 +3,21 @@
 # The S3 gateway beside each Stalwart; gateways share locks (Postgres) and heat (Valkey).
 
 let
-  inherit (config.site.ha) members voters ports;
+  inherit (config.site.ha) members voters;
+  inherit (config.site) ports;
   this-host = config.site.server.host;
   package = pkgs.callPackage ../../packages/s3-overflow.nix { };
   garage = config.site.mail.garage;
   user = "s3-overflow";
-  mail-ports = config.site.mail.ports;
+  mail-ports = config.site.apps.mail.ports;
   inherit (config.site.mail) storage;
-  status-listen = "127.0.0.1:${toString mail-ports.gateway-status}";
+  status-listen = "127.0.0.1:${toString mail-ports.s3-gateway-status.port}";
   max-object-bytes = 268435456;
   store-timeouts = { connect-seconds = 10; stall-seconds = 30; };
   # The slowest link a blob may cross
   slowest-link-bytes-per-second = 2000000;
   gateway = {
-    endpoint = "http://127.0.0.1:${toString mail-ports.gateway}";
+    endpoint = "http://127.0.0.1:${toString mail-ports.s3-gateway.port}";
     bucket = "mail";
     inherit (garage.primary) region;
     access-key-id = lib.removeSuffix "\n" (builtins.readFile ../../secrets/keys/s3-overflow-client.id);
@@ -64,13 +65,13 @@ let
     coordination = {
       postgres = lib.concatStringsSep " " [
         "host=${lib.concatMapStringsSep "," (host: "${host}.internal") members}"
-        "port=${toString ports.postgres}"
+        "port=${toString ports.postgres-ha.port}"
         "dbname=${user}"
         "user=${user}"
         "target_session_attrs=read-write"
       ];
       valkey = {
-        sentinels = map (host: "${host}.internal:${toString ports.sentinel}") voters;
+        sentinels = map (host: "${host}.internal:${toString ports.sentinel.port}") voters;
         master = "ha";
         username = user;
         password_file = "valkey-password";

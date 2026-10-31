@@ -3,7 +3,7 @@
 let
   headscale-domain = "${config.site.apps.headscale.subdomain}.${config.site.domain}";
   headscale-port = config.site.apps.headscale.port;
-  headplane-port = config.site.apps.headscale.headplane-port;
+  headplane-port = config.site.apps.headscale.ports.headplane.port;
   magicdns-domain = "${config.site.apps.headscale.magicdns-subdomain}.${config.site.domain}";
   headscale-config-copy = (pkgs.formats.yaml { }).generate "headscale.yaml" config.services.headscale.settings;
 in {
@@ -19,8 +19,6 @@ in {
       file = ../secrets/oidc/headplane-secret.age;
     };
   };
-
-  networking.firewall.allowedUDPPorts = [ 41641 3478 ];
 
   services.headscale = {
       enable = true;

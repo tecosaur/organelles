@@ -114,7 +114,7 @@ in {
           ]) config.site.ha.preference)} {
               lb_policy first
               health_uri /serving
-              health_port ${toString config.site.ha.ports.serving}
+              health_port ${toString config.site.ports.ha-serving.port}
               health_interval 2s
               lb_try_duration 5s
           }

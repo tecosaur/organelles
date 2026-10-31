@@ -4,7 +4,8 @@
 
 let
   cfg = config.services.ha.postgres;
-  inherit (config.site.ha) primary members preference voters ports;
+  inherit (config.site.ha) primary members preference voters;
+  inherit (config.site) ports;
   this-host = config.site.server.host;
   package = pkgs.postgresql_18;
   data-dir = "/var/lib/postgresql-ha/${package.psqlSchema}";
@@ -28,7 +29,7 @@ let
     REVOKE CONNECT, TEMPORARY ON DATABASE "${db}" FROM PUBLIC;
     ALTER ROLE "${db}" SET synchronous_commit = ${if lib.elem db cfg.local-commits then "local" else "remote_write"};
   '') cfg.databases);
-  patroni-api = "http://${address this-host}:${toString ports.patroni}";
+  patroni-api = "http://${address this-host}:${toString ports.patroni.port}";
   serves = pkgs.writeShellScript "postgresql-ha-serves" ''
     grep -qx 'HA_SERVING=${this-host}' ${primary-env}
   '';
@@ -97,7 +98,7 @@ in {
       id = "postgresql-ha";
       name = "Replicated Postgres";
       unit = "patroni.service";
-      command = [ "${package}/bin/pg_isready" "--quiet" "--host=${cfg.socket-dir}" "--port=${toString ports.postgres}" "--dbname=postgres" ];
+      command = [ "${package}/bin/pg_isready" "--quiet" "--host=${cfg.socket-dir}" "--port=${toString ports.postgres-ha.port}" "--dbname=postgres" ];
     } ];
 
     age.secrets.postgresql-ha-replication.file = ../../secrets/keys/postgresql-ha-replication.age;
@@ -122,10 +123,6 @@ in {
       groups.postgres.gid = config.ids.gids.postgres;
     };
 
-    # 113 for ident
-    networking.firewall.interfaces.wg0.allowedTCPPorts = [ ports.postgres ports.patroni 113 ]
-      ++ lib.optional (lib.elem this-host preference) ports.serving;
-
     systemd.tmpfiles.settings."10-postgresql-ha" = {
       "/var/lib/patroni".d = { user = "postgres"; group = "postgres"; mode = "0700"; };
       "/var/lib/postgresql-ha".d = { user = "postgres"; group = "postgres"; mode = "0700"; };
@@ -143,11 +140,11 @@ in {
       nodeIp = address this-host;
       postgresqlPackage = package;
       postgresqlDataDir = data-dir;
-      postgresqlPort = ports.postgres;
-      restApiPort = ports.patroni;
+      postgresqlPort = ports.postgres-ha.port;
+      restApiPort = ports.patroni.port;
       softwareWatchdog = true;
       settings = {
-        etcd3.hosts = map (host: "${address host}:${toString ports.etcd}") voters;
+        etcd3.hosts = map (host: "${address host}:${toString ports.etcd.port}") voters;
         # only read once; later changes go through `patronictl edit-config`
         bootstrap.dcs = {
           ttl = 60;
@@ -170,7 +167,7 @@ in {
           };
         };
         postgresql = {
-          listen = lib.mkForce "*:${toString ports.postgres}";
+          listen = lib.mkForce "*:${toString ports.postgres-ha.port}";
           use_unix_socket = true;
           remove_data_directory_on_diverged_timelines = true;
           remove_data_directory_on_rewind_failure = true;
@@ -250,7 +247,7 @@ in {
             if ($leader | IN($preference[])) then $leader
             else first($preference[] as $p | .members[] | select(.name == $p and (.state == "streaming" or .state == "running")) | .name) // "" end' <<<"$cluster")
           if [ -n "$primary" ]; then
-            env=$(printf 'HA_PRIMARY=%s\nHA_SERVING=%s\nPGHOST=%s.internal\nPGPORT=%s' "$primary" "$serving" "$primary" ${toString ports.postgres})
+            env=$(printf 'HA_PRIMARY=%s\nHA_SERVING=%s\nPGHOST=%s.internal\nPGPORT=%s' "$primary" "$serving" "$primary" ${toString ports.postgres-ha.port})
             if [ "$env" != "$(cat ${primary-env} 2>/dev/null)" ]; then
               moved=$(grep -qx "HA_PRIMARY=$primary" ${primary-env} 2>/dev/null || echo 1)
               echo "$env" > ${primary-env}
@@ -297,7 +294,7 @@ in {
     # Caddy's primary-proxy health check, on members that may serve
     services.caddy.virtualHosts = lib.mkIf (lib.elem this-host preference) {
       # Any Host, since a health check names the upstream; reachable on the mesh alone
-      "http://:${toString ports.serving}" = {
+      "http://:${toString ports.ha-serving.port}" = {
         listenAddresses = [ config.site.mesh.addresses.${this-host} ];
         # every host's Caddy asks every two seconds
         logFormat = null;
@@ -339,7 +336,6 @@ in {
   in {
     # site.apps' followsPrimary, every Caddy proxying to wherever it runs
     services.ha.postgres.follow-primary = map (app: app.service) here;
-    networking.firewall.interfaces.wg0.allowedTCPPorts = map (app: app.port) here;
     assertions = map (app: {
       assertion = lib.all (host: lib.elem host app.hosts) preference;
       message = "${app.name} runs beside the primary, so must be on every host in site.ha.preference (${toString preference}), not only ${toString app.hosts}";

@@ -10,7 +10,6 @@ let
   auth-domain = "${config.site.apps.authelia.subdomain}.${config.site.domain}";
   # Lowercase and quote-free, so values drop straight into Stalwart's and Authelia's expressions
   login = types.strMatching "[a-z0-9][a-z0-9_-]*";
-  port = default: description: mkOption { type = types.port; inherit default description; };
   capacities = description: mkOption { type = types.attrsOf types.ints.positive; inherit description; };
   domain.options = {
     users = mkOption {
@@ -132,16 +131,6 @@ in {
         at <selector>._domainkey.<domain>.
       '';
     };
-    ports = {
-      bulwark = port 3480 "Bulwark, the web client, on loopback";
-      recovery = port 8461 "The recovery-mode Stalwart that applies the settings before each start, open on no interface";
-      gateway = port 3920 "The S3 gateway Stalwart keeps blobs through, on loopback";
-      gateway-status = port 3921 "The S3 gateway's status page, on loopback";
-      garage-primary-s3 = port 3900 "The primary Garage's S3 API";
-      garage-primary-rpc = port 3901 "The primary Garage's RPC, on loopback while it has one node";
-      garage-overflow-s3 = port 3910 "The overflow Garage's S3 API";
-      garage-overflow-rpc = port 3911 "The overflow Garage's RPC, on the mesh";
-    };
     storage = {
       primary = capacities "The primary Garage's hosts, by the bytes each offers. Each holds every blob.";
       overflow = capacities ''
@@ -151,6 +140,14 @@ in {
       overflow-quota-bytes = mkOption {
         type = types.ints.positive;
         description = "The most the overflow bucket holds";
+      };
+      heads = mkOption {
+        type = types.attrsOf types.str;
+        readOnly = true;
+        default = lib.mapAttrs (_: capacity-bytes:
+          lib.findFirst (host: capacity-bytes ? ${host}) (lib.head (lib.attrNames capacity-bytes)) config.site.ha.preference)
+          { inherit (config.site.mail.storage) primary overflow; };
+        description = "Each cluster's head, which serves its S3 to the mesh and applies layouts: the member likeliest to run a gateway";
       };
       cache-bytes = mkOption {
         type = types.attrsOf types.ints.positive;

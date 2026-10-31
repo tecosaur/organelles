@@ -41,8 +41,6 @@ in {
     ExecStart = lib.mkForce sftpgo-exec;
   };
 
-  networking.firewall.allowedTCPPorts = [ config.site.apps.sftpgo.sftpd-port ];
-
   site.unfree = [ "sftpgo" ];
 
   services.sftpgo = {
@@ -74,7 +72,7 @@ in {
       webdavd.bindings = [
         {
           address = "127.0.0.1";
-          port = config.site.apps.sftpgo.webdavd-port;
+          port = config.site.apps.sftpgo.ports.webdav.port;
           prefix = webdav-prefix;
           client_ip_proxy_header = "X-Forwarded-For";
           proxy_allowed = [ "127.0.0.1" ];
@@ -82,7 +80,7 @@ in {
       ];
       sftpd.bindings = [
         {
-          port = config.site.apps.sftpgo.sftpd-port;
+          port = config.site.apps.sftpgo.ports.sftp.port;
           client_ip_proxy_header = "X-Forwarded-For";
           address = "0.0.0.0";
         }
@@ -157,7 +155,7 @@ in {
     }
     @webdav path ${webdav-prefix} ${webdav-prefix}/*
     handle @webdav {
-        reverse_proxy :${toString config.site.apps.sftpgo.webdavd-port}
+        reverse_proxy :${toString config.site.apps.sftpgo.ports.webdav.port}
     }
     reverse_proxy * :${toString config.site.apps.sftpgo.port} {
         header_up Host {http.request.host}

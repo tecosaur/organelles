@@ -3,6 +3,7 @@
 let
   immich-domain = "${config.site.apps.immich.subdomain}.${config.site.domain}";
   immich-data = "/data/immich";
+  ml-port = config.site.apps.immich.ports.machine-learning.port;
 in {
   site.apps.immich.enabled = true;
 
@@ -75,9 +76,12 @@ in {
         };
       };
     };
+    # nixpkgs fixes the machine-learning port
+    environment.IMMICH_MACHINE_LEARNING_URL = lib.mkForce "http://localhost:${toString ml-port}";
     machine-learning = {
       enable = true;
       environment = {
+        IMMICH_PORT = lib.mkForce (toString ml-port);
         # HSA_OVERRIDE_GFX_VERSION = "11.0.0";
         # HSA_USE_SVM = "0";
         # MACHINE_LEARNING_DEVICE_IDS = "0";

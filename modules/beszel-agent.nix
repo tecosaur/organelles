@@ -14,7 +14,7 @@
       HUB_URL = "https://${config.site.apps.beszel.subdomain}.${config.site.domain}";
       KEY = config.site.apps.beszel.publicKey;
       TOKEN_FILE = config.age.secrets.beszel-token.path;
-      PORT = toString config.site.apps.beszel.agent-port;
+      PORT = toString config.site.apps.beszel.ports.agent.port;
       EXTRA_FILESYSTEMS = lib.concatStringsSep "," config.site.apps.beszel.extra-filesystems;
     };
   };

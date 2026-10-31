@@ -6,7 +6,8 @@
 # master key never leaves the Meilisearch host.
 
 let
-  inherit (config.site.meilisearch) host port url keys;
+  inherit (config.site.meilisearch) host url keys;
+  inherit (config.site.ports.meilisearch) port;
   uid = name: lib.removeSuffix "\n" (builtins.readFile (../secrets/keys + "/meilisearch-${name}.uid"));
   # Named site:<name>, so keys no longer declared are recognised and removed
   wanted = lib.mapAttrsToList (name: indexes: {
@@ -46,11 +47,6 @@ in {
       type = lib.types.str;
       example = "nucleus";
       description = "The host that runs Meilisearch";
-    };
-    port = lib.mkOption {
-      type = lib.types.port;
-      default = 7700;
-      description = "The port Meilisearch serves the mesh on";
     };
     url = lib.mkOption {
       type = lib.types.str;
@@ -103,7 +99,6 @@ in {
         DynamicUser = true;
       };
     };
-    networking.firewall.interfaces.wg0.allowedTCPPorts = [ port ];
     site.status.units = [ { id = "meilisearch"; name = "Meilisearch"; unit = "meilisearch.service"; } ];
   };
 }

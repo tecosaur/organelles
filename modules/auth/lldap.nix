@@ -29,6 +29,8 @@ in {
     enable = true;
     settings = {
       ldap_base_dn = lldap-base-dn;
+      ldap_port = config.site.apps.lldap.ports.ldap.port;
+      http_port = config.site.apps.lldap.port;
       ldap_user_dn = "admin";
       ldap_user_email = "lldap-admin@${config.site.domain}";
       ldap_user_pass_file = config.age.secrets.lldap-admin-password.path;
@@ -44,12 +46,11 @@ in {
   services.ha.postgres.databases = [ lldap-user ];
 
   # for Authelia on every node
-  networking.firewall.interfaces.wg0.allowedTCPPorts = [ config.services.lldap.settings.ldap_port ];
 
   systemd.services.lldap = {
     # The primary, from primary-env: LLDAP's ORM needs a host in the URL, so PGHOST cannot supply it
     script = lib.mkBefore ''
-      export LLDAP_DATABASE_URL="postgresql://${lldap-user}@$HA_PRIMARY.internal:${toString config.site.ha.ports.postgres}/${lldap-user}"
+      export LLDAP_DATABASE_URL="postgresql://${lldap-user}@$HA_PRIMARY.internal:${toString config.site.ports.postgres-ha.port}/${lldap-user}"
     '';
     serviceConfig = {
       # started before it listens, which Authelia's startup check would beat

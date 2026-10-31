@@ -6,7 +6,7 @@ let
   hostname = "${app.subdomain}.${domain}";
   credentials = "/run/credentials/bulwark.service";
   stalwart = "127.0.0.1:${toString app.port}";
-  bulwark-port = config.site.mail.ports.bulwark;
+  bulwark-port = app.ports.bulwark.port;
   # Next.js spells any loopback address localhost in a middleware rewrite, and proxies one not
   # at its own origin, which behind Caddy means to itself over https: so it listens as localhost
   bulwark = "localhost:${toString bulwark-port}";

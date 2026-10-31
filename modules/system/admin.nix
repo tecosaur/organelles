@@ -1,8 +1,11 @@
 { config, pkgs, ... }:
 
 {
-  networking.firewall.allowedTCPPorts = [ 22 ];
-  services.openssh.enable = true;
+  services.openssh = {
+    enable = true;
+    ports = [ config.site.ports.ssh.port ];
+    openFirewall = false;
+  };
 
   users.users.admin = {
     name = "admin";

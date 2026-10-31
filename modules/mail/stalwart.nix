@@ -5,8 +5,8 @@
 
 let
   app = config.site.apps.mail;
-  inherit (config.site) domain;
-  inherit (config.site.ha) ports voters;
+  inherit (config.site) domain ports;
+  inherit (config.site.ha) voters;
   inherit (config.site.mail) gateway oidc relay smtp2go;
   this-host = config.site.server.host;
   package = pkgs.callPackage ../../packages/stalwart.nix { };
@@ -16,7 +16,7 @@ let
   inherit (config.services.ha.postgres) primary-env;
   credentials = "/run/credentials/stalwart.service";
   log-dir = "/var/log/stalwart";
-  public-ports = { smtp = 25; submissions = 465; submission = 587; imaps = 993; sieve = 4190; };
+  public-ports = lib.mapAttrs (_: listener: listener.port) (lib.filterAttrs (_: listener: listener.exposure == "public") app.ports);
   # Stalwart's default
   max-message-bytes = 104857600;
   addressing = import ./addressing.nix { inherit lib; } { inherit (config.site.mail) domains admins; };
@@ -60,7 +60,7 @@ let
     acme = { contact = "postmaster@${domain}"; bunny-key = "${credentials}/bunny-key"; };
     in-memory-store = {
       "@type" = "RedisSentinel";
-      urls = lib.genAttrs (map (host: "redis://${host}.internal:${toString ports.sentinel}") voters) (_: true);
+      urls = lib.genAttrs (map (host: "redis://${host}.internal:${toString ports.sentinel.port}") voters) (_: true);
       serviceName = "ha";
       authUsername = user;
       authSecret = file "valkey-password";
@@ -91,7 +91,7 @@ let
   provision = import ./stalwart-provision.nix { inherit lib pkgs; } {
     inherit package cli addressing filing-script;
     http-port = app.port;
-    recovery-port = config.site.mail.ports.recovery;
+    recovery-port = app.ports.stalwart-recovery.port;
   };
   start = pkgs.writeShellApplication {
     name = "stalwart-start";
@@ -111,10 +111,10 @@ let
       await "postgresql-ha-role to name the HA primary" grep -qs '^HA_PRIMARY=.' ${primary-env}
       primary=$(sed -n 's/^HA_PRIMARY=//p' ${primary-env})
       # The leader creates the roles its own generation lists, so a host deployed before it waits
-      has_database() { PGCONNECT_TIMEOUT=5 psql -w -h "$primary.internal" -p ${toString ports.postgres} -d ${user} -Atqc 'SELECT 1' >/dev/null 2>&1; }
+      has_database() { PGCONNECT_TIMEOUT=5 psql -w -h "$primary.internal" -p ${toString ports.postgres-ha.port} -d ${user} -Atqc 'SELECT 1' >/dev/null 2>&1; }
       await "$primary to create the ${user} database, as it does once it runs this generation" has_database
       jq -n --arg host "$primary.internal" '{
-        "@type": "PostgreSql", host: $host, port: ${toString ports.postgres},
+        "@type": "PostgreSql", host: $host, port: ${toString ports.postgres-ha.port},
         database: "${user}", authUsername: "${user}", authSecret: {"@type": "None"}
       }' >"$RUNTIME_DIRECTORY/config.json"
       # The previous generation's settings, which the provisioner retracts against until it has its own record
@@ -244,9 +244,6 @@ in {
       # Unmet prerequisites are retried for as long as they last
       startLimitIntervalSec = 0;
     };
-    networking.firewall.allowedTCPPorts = lib.attrValues public-ports;
-    # The HTTP listener, which trusts X-Forwarded-For, for the other hosts' Caddy alone
-    networking.firewall.interfaces.wg0.allowedTCPPorts = [ app.port ];
     site.status.units = lib.mapAttrsToList (name: port: {
       id = "stalwart-${name}";
       name = "Mail, ${name} on ${toString port}";

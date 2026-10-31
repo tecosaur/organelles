@@ -3,7 +3,7 @@
 # With thanks to <https://github.com/xddxdd/nixos-config/blob/master/nixos/server-apps/crowdsec.nix>
 
 let
-  crowdsec-port = 8057;
+  crowdsec-port = config.site.ports.crowdsec-api.port;
   data-dir = config.services.crowdsec.settings.config.config_paths.data_dir;
   caddy-logs = config.services.caddy.logDir;
 in {

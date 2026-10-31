@@ -14,11 +14,11 @@ let
   # and the announcement the aggregator keeps beside it
   config-dir = "/var/lib/gatus/config";
   # each reporter's board of planned transitions, on the mesh
-  conditions-port = 9435;
+  conditions-port = config.site.ports.status-conditions.port;
   # the aggregator's answer to the page's /api/v1/config, its announcement, on the mesh
-  announcement-port = 9436;
+  announcement-port = config.site.ports.status-announcement.port;
   # dns-pooler.nix's loopback status listener
-  dns-pooler-status = "http://127.0.0.1:9434/status";
+  dns-pooler-status = "http://127.0.0.1:${toString config.site.ports.dns-pooler-status.port}/status";
   # Alerts go to a secret topic on ntfy.sh: the site's own ntfy runs on one
   # host and refuses anonymous publishing, and an alert about that host
   # must still arrive.
