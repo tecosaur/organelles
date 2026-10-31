@@ -25,6 +25,7 @@ let
       WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '${db}') \gexec
     SELECT 'CREATE DATABASE "${db}" OWNER "${db}"'
       WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '${db}') \gexec
+    REVOKE CONNECT, TEMPORARY ON DATABASE "${db}" FROM PUBLIC;
     ALTER ROLE "${db}" SET synchronous_commit = ${if lib.elem db cfg.local-commits then "local" else "remote_write"};
   '') cfg.databases);
   patroni-api = "http://${address this-host}:${toString ports.patroni}";
@@ -171,14 +172,21 @@ in {
             replication.username = "replicator";
             rewind.username = "replicator";
           };
+          # Each app's role reaches only its own database, and ident is
+          # believed only from the hosts that run apps, whose setup
+          # provisions as the superuser: root on any other member could
+          # otherwise vouch for any role
           pg_hba = [
-            "local all all peer"
+            "local all postgres peer"
+            "local sameuser all peer"
+          ] ++ map (role: "local postgres \"${role}\" peer") cfg.probe-roles ++ [
             "host replication replicator ::1/128 scram-sha-256"
             "host replication replicator 127.0.0.1/32 scram-sha-256"
             "host replication replicator ${config.site.mesh.subnet}/64 scram-sha-256"
             "host postgres replicator ${config.site.mesh.subnet}/64 scram-sha-256"
-            "host all all ${config.site.mesh.subnet}/64 ident"
-          ];
+          ] ++ map (host: "host all postgres ${config.site.mesh.addresses.${host}}/128 ident") preference ++ [
+            "host all postgres all reject"
+          ] ++ map (host: "host sameuser all ${config.site.mesh.addresses.${host}}/128 ident") preference;
           parameters = {
             unix_socket_directories = cfg.socket-dir;
             shared_buffers = "32MB";
@@ -293,7 +301,8 @@ in {
       script = lib.mkForce "${pkgs.oidentd}/sbin/oidentd -u oidentd -g nogroup -a ${config.site.mesh.addresses.${this-host}}";
     };
 
-    systemd.services.postgresql-ha-setup = {
+    # where the apps it provisions for run
+    systemd.services.postgresql-ha-setup = lib.mkIf (lib.elem this-host preference) {
       description = "Roles and databases of the replicated PostgreSQL";
       wantedBy = [ "multi-user.target" ];
       wants = [ "postgresql-ha-role.service" "oidentd.service" ];
