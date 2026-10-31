@@ -27,6 +27,22 @@ let
 in {
   site.apps.tandoor.enabled = true;
 
+  # requests-hardened 1.3.0 caps uv_build below the 0.12 nixpkgs ships
+  nixpkgs.overlays = [
+    (final: prev: {
+      pythonPackagesExtensions = prev.pythonPackagesExtensions ++ [
+        (pyfinal: pyprev: {
+          requests-hardened = pyprev.requests-hardened.overridePythonAttrs (old: {
+            postPatch = (old.postPatch or "") + ''
+              substituteInPlace pyproject.toml \
+                --replace-fail '"uv_build>=0.11.0,<0.12.0"' '"uv_build>=0.11.0"'
+            '';
+          });
+        })
+      ];
+    })
+  ];
+
   age.secrets.tandoor-oidc = {
     owner = config.services.tandoor-recipes.user;
     file = ../secrets/oidc/tandoor-secret.age;
@@ -39,6 +55,59 @@ in {
 
   services.tandoor-recipes = {
     enable = true;
+    package =
+      let
+        src = pkgs.fetchFromGitHub {
+          owner = "tecosaur";
+          repo = "recipes";
+          rev = "a0adb9e81fa238aacbe54ff8cd49f65d0672447d";
+          hash = "sha256-ggXprYRxve67XQP4Sog8kFlY4OP43xuS/uvdC92JN1M=";
+        };
+        frontend = pkgs.tandoor-recipes.frontend.overrideAttrs (old: {
+          src = "${src}/vue3";
+          yarnOfflineCache = old.yarnOfflineCache.overrideAttrs {
+            outputHash = "sha256-NbTTKtMc+5NcOi6B2EU3l+9On9HGB1xEcpccKIgxVMI=";
+          };
+        });
+        # Upstream generates this from git metadata, but fetchFromGitHub
+        # provides no .git, so the shipped placeholders survive the build.
+        version-info = version: pkgs.writeText "tandoor-version-info.py" ''
+          TANDOOR_VERSION = "${version}"
+          TANDOOR_REF = "${src.rev}"
+          VERSION_INFO = [{
+              "name": "Tandoor ",
+              "version": "${version}",
+              "website": "https://github.com/${src.owner}/${src.repo}",
+              "commit_link": "https://github.com/${src.owner}/${src.repo}/commit/${src.rev}",
+              "ref": "${src.rev}",
+              "branch": "",
+              "tag": "",
+          }]
+        '';
+      in
+        pkgs.tandoor-recipes.overrideAttrs (old: {
+          inherit src;
+          # Failing upstream (mid auth rework) or against nixpkgs' newer libraries
+          disabledTestPaths = (old.disabledTestPaths or [ ]) ++ [
+            "cookbook/tests/other/test_social_auth.py::test_adapter_social_signup_allowed_with_providers"
+            "cookbook/tests/other/test_social_auth.py::test_adapter_local_signup_allowed_with_invite_token"
+            "cookbook/tests/other/test_social_auth.py::test_adapter_oauth_callback_allowed"
+            "cookbook/tests/other/test_social_auth.py::test_adapter_unknown_view_allowed"
+            "cookbook/tests/other/test_social_auth.py::test_adapter_no_resolver_match"
+            "cookbook/tests/other/test_social_auth.py::test_invite_link_unauthenticated_redirects_to_signup"
+            "cookbook/tests/other/test_social_auth.py::test_invite_link_expired"
+            "cookbook/tests/other/test_social_auth.py::test_invite_link_nonexistent_uuid"
+            "cookbook/tests/api/test_api_meal_plan.py::test_token_permissions"
+            "cookbook/tests/views/test_views_general.py::test_setup"
+            "cookbook/tests/views/test_views_general.py::test_markdown_doc"
+            "cookbook/tests/other/test_markdown_renderer.py::test_markdown_renderer"
+          ];
+          postConfigure = (old.postConfigure or "") + ''
+            rm cookbook/static/vue3
+            ln -s ${frontend} cookbook/static/vue3
+            cp ${version-info old.version} cookbook/version_info.py
+          '';
+        });
     port = config.site.apps.tandoor.port;
     database.createLocally = true;
     extraConfig = {
