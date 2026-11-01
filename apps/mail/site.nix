@@ -162,8 +162,7 @@ in {
     } // lib.optionalAttrs (config.site.mail.relay != null) {
       stalwart-relay = { kind = "credential"; description = "Stalwart's password at its relay, ${config.site.mail.relay.host}"; };
     } // (let
-      addressing = import ./addressing.nix { inherit lib; } { inherit (config.site.mail) domains admins; };
-      inherit (config.site.mail) storage;
+      inherit (config.site.mail) addressing storage;
       clusters = { inherit (storage) primary overflow; };
       # a cluster of several nodes meshes over RPC, each node with a key of its own
       meshed = lib.filterAttrs (_: capacity: lib.length (lib.attrNames capacity) > 1) clusters;
@@ -195,6 +194,23 @@ in {
       description = ''
         Logins whose accounts administer the mail server. A group member's
         account gets the role at the first start after their first sign-in.
+      '';
+    };
+    addressing = mkOption {
+      type = types.attrs;
+      readOnly = true;
+      default = import ./addressing.nix { inherit lib; } { inherit (config.site.mail) domains admins; };
+      defaultText = lib.literalMD "addressing.nix's model of `domains` and `admins`";
+      description = "The accounts, domains and sign-in rules Stalwart and Authelia are configured from";
+    };
+    contact = mkOption {
+      type = types.str;
+      default = "admin@${config.site.domain}";
+      defaultText = lib.literalExpression ''"admin@''${config.site.domain}"'';
+      description = ''
+        Where mail to an app's noreply@<subdomain> address is pointed: the
+        refusal of anything but a reply names it, and a reply is answered
+        with it.
       '';
     };
     oidc = mkOption {

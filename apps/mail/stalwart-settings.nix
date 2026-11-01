@@ -35,6 +35,8 @@ addressing:
   submission-port,
   # The addresses apps may send as from it
   app-senders ? [ ],
+  # Where mail to an app's noreply@<subdomain> is pointed
+  contact,
 }:
 let
   inherit (lib) concatStringsSep filter optional optionals;
@@ -63,8 +65,15 @@ let
   dkim-domains = by-specificity (map (d: d.name) (filter (d: d.signs) hosted));
   # Routing: a result without "@" leaves the recipient alone, and mail domains keep their own addresses
   label = "split_once(rcpt_domain, '.')[0]";
-  rewrite = optionals (filing ++ subdomain-catchers != [ ]) [ { condition = "is_local_domain(rcpt_domain)"; value = "false"; } ]
-    ++ map (d: {
+  rewrite = [
+    { condition = "is_local_domain(rcpt_domain)"; value = "false"; }
+    # noreply@{app}.{domain} becomes noreply+{app}@{domain}: the noreply account's, keeping
+    # the address as ORCPT for the noreply script
+    {
+      condition = "email_part(rcpt, 'local') == 'noreply' && split_once(rcpt_domain, '.')[1] == ${quote domain}";
+      value = "'noreply+' + split_once(rcpt_domain, '.')[0] + ${quote "@${domain}"}";
+    }
+  ] ++ map (d: {
       # {location}@{user}.{domain} files for whoever has {user}@{domain}
       condition = "split_once(rcpt_domain, '.')[1] == ${quote d} && is_local_address(${label} + ${quote "@${d}"})";
       value = "${label} + '+' + email_part(rcpt, 'local') + ${quote "@${d}"}";
@@ -91,6 +100,49 @@ let
   from-apps = "local_port == ${toString submission-port}";
   app-sender = if app-senders == [ ] then "false"
     else concatStringsSep " || " (map (address: "sender == ${quote address}") app-senders);
+  # Mail to the noreply account, which receives none: a reply to an app's mail, addressed to it
+  # alone from a sender passing DMARC, is answered at most once a week per sender and dropped;
+  # anything else is refused whole, so no copy is kept.
+  noreply-script = "noreply";
+  noreply-interval-seconds = 604800;
+  noreply-sieve = ''
+    require ["envelope", "envelope-dsn", "variables", "enotify", "reject", "vnd.stalwart.expressions"];
+    # The envelope test reads several recipients as one string, so lists go through expressions
+    if eval "contains(envelope.to, 'noreply@${domain}')" {
+      set "address" "noreply@${domain}";
+      set "alone" "no";
+      if eval "count(envelope.to) == 1" {
+        set "alone" "yes";
+        if envelope :matches "orcpt" ["noreply+*@${domain}", "rfc822;noreply+*@${domain}"] {
+          set "address" "noreply@''${1}.${domain}";
+        }
+      }
+      if allof (string :is "''${alone}" "yes",
+                anyof (exists "in-reply-to", exists "references"),
+                string :is "''${env.dmarc.result}" "pass",
+                not envelope :is "from" "",
+                anyof (not exists "auto-submitted", header :is "auto-submitted" "no"),
+                not exists ["list-id", "list-unsubscribe"],
+                not header :is "precedence" ["bulk", "list", "junk"]) {
+        if not eval "key_exists(''', 'noreply-answered:' + envelope.from)" {
+          eval "key_set(''', 'noreply-answered:' + envelope.from, '1', ${toString noreply-interval-seconds})";
+          set "subject" "";
+          if header :matches "subject" "*" { set "subject" "''${1}"; }
+          set "id" "";
+          if header :matches "message-id" "*" { set "id" "''${1}"; }
+          set :encodeurl "to" "''${envelope.from}";
+          set :encodeurl "id" "''${id}";
+          set :encodeurl "body" "''${address} only sends notifications, and nobody reads what is sent to it, so your message was not delivered. To reach a person, write to ${contact}.
+
+    This is an automated reply, which you will not receive again for a week.";
+          notify :message "Not delivered: ''${subject}" "mailto:''${to}?In-Reply-To=''${id}&body=''${body}";
+        }
+        discard;
+      } else {
+        reject "550 5.7.1 ''${address} does not receive mail; write to ${contact} instead";
+      }
+    }
+  '';
   # Delivery to {user}+{location}@{domain} keeps that address only as ORCPT. What follows
   # its first +, less any further +tag, is split on dots (:detail would take the last +).
   filing-sieve = ''
@@ -213,9 +265,25 @@ let
       };
     })
     (upsert "Account" [ "name" "domainId" ]
-      (lib.listToAttrs (map (a: lib.nameValuePair "account-${a.login}" (account-of a)) accounts)))
+      (lib.listToAttrs (map (a: lib.nameValuePair "account-${a.login}" (account-of a)) accounts) // {
+        # no credentials: what reaches it is the noreply script's
+        account-noreply = {
+          "@type" = "User";
+          name = "noreply";
+          domainId = domain-ref domain;
+          roles."@type" = "User";
+        };
+      }))
     (upsert "SieveUserScript" [ "name" ] {
       filing = { name = filing-script; contents = filing-sieve; isActive = true; };
+    })
+    (upsert "SieveSystemScript" [ "name" ] {
+      noreply = { name = noreply-script; contents = noreply-sieve; isActive = true; };
+    })
+    # What the noreply script sends comes from the site's own noreply address
+    (update "SieveSystemInterpreter" {
+      defaultFromAddress."else" = quote "noreply@${domain}";
+      defaultFromName."else" = quote domain;
     })
     # Each else is Stalwart's default
     (update "MtaStageAuth" {
@@ -249,6 +317,7 @@ let
     })
     (update "MtaStageData" {
       maxMessageSize."else" = toString max-message-bytes;
+      script = expression [ { condition = "local_port == 25"; value = quote noreply-script; } ] "false";
       enableSpamFilter = expression [ { condition = from-apps; value = "false"; } ] "is_empty(authenticated_as)";
       dkimSignDomain = expression (map (name: {
         condition = "(!is_empty(authenticated_as) || ${from-apps}) && (sender_domain == ${quote name} || ends_with(sender_domain, ${quote ".${name}"}))";

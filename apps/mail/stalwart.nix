@@ -19,7 +19,7 @@ let
   public-ports = lib.mapAttrs (_: listener: listener.port) (lib.filterAttrs (_: listener: listener.exposure == "public") app.ports);
   # Stalwart's default
   max-message-bytes = 104857600;
-  addressing = import ./addressing.nix { inherit lib; } { inherit (config.site.mail) domains admins; };
+  inherit (config.site.mail) addressing;
   filing-script = "filing";
   dkim-domains = map (d: d.name) (lib.filter (d: d.signs) addressing.domains);
   dkim-secrets = map (name: "dkim-${name}") dkim-domains;
@@ -87,6 +87,7 @@ let
     http-port = app.port;
     submission-port = app.ports.submission-mesh.port;
     inherit app-senders;
+    inherit (config.site.mail) contact;
     web-ui = { bundle = "file://${package.webui}"; client-id = oidc.web-ui-client; };
     relay = if relay == null then null else {
       inherit (relay) host port username;
