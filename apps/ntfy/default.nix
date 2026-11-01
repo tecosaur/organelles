@@ -6,12 +6,6 @@ let
 in {
   site.apps.ntfy.enabled = true;
 
-  age.secrets.webpush-keys-env = {
-    owner = ntfy-user;
-    group = "users";
-    file = config.site.apps.ntfy.secrets.webpush-keys-env.file;
-  };
-
   services.ntfy-sh = {
     enable = true;
     settings = {
@@ -43,7 +37,7 @@ in {
       DynamicUser = lib.mkForce false;
       User = ntfy-user;
       Group = ntfy-user;
-      EnvironmentFile = config.age.secrets.webpush-keys-env.path;
+      EnvironmentFile = config.site.apps.ntfy.secrets.webpush-keys-env.decrypted;
       StateDirectory = lib.mkForce "${baseNameOf config.site.apps.ntfy.dir}";
     };
   };

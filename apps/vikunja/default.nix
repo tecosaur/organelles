@@ -10,13 +10,6 @@ let
 in {
   site.apps.vikunja.enabled = true;
 
-  age.secrets.vikunja-oidc = {
-    owner = vikunja-user;
-    group = vikunja-user;
-    file = config.site.apps.vikunja.auth.clients.vikunja.secret.file;
-  };
-
-
   services.vikunja = {
     enable = true;
     package = pkgs.callPackage ./package.nix {
@@ -41,7 +34,7 @@ in {
               name = "Authelia";
               authurl = "https://${config.site.apps.authelia.subdomain}.${config.site.domain}";
               clientid = "vikunja";
-              clientsecret.file = config.age.secrets.vikunja-oidc.path;
+              clientsecret.file = config.site.apps.vikunja.auth.clients.vikunja.secret.credential;
             };
           };
         };

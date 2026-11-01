@@ -20,13 +20,6 @@ let
 in {
   site.apps.warracker.enabled = true;
 
-  age.secrets = {
-    warracker-oidc = {
-      owner = warracker-user;
-      file = config.site.apps.warracker.auth.clients.warracker.secret.file;
-    };
-  };
-
   systemd.services.warracker = {
     description = "Warracker Flask App";
     after = [ "network-online.target" "postgresql.service" ];
@@ -48,7 +41,7 @@ in {
       DB_PASSWORD = "";
       UPLOAD_FOLDER = "${warracker-dir}/uploads";
       WARRACKER_FIXED_CONFIG = (pkgs.formats.json {}).generate "warracker.json" warracker-config;
-      OIDC_CLIENT_SECRET_FILE = config.age.secrets.warracker-oidc.path;
+      OIDC_CLIENT_SECRET_FILE = config.site.apps.warracker.auth.clients.warracker.secret.credential;
       SMTP_HOST = config.site.mail.connections.warracker.host;
       SMTP_PORT = toString config.site.mail.connections.warracker.port;
       SMTP_USE_TLS = "false";

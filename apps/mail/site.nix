@@ -152,26 +152,30 @@ in {
     };
     # Its files keep the names of what holds them, Stalwart's, Bulwark's and the
     # gateway's, rather than the app's
-    secrets = lib.mapAttrs (name: secret: secret // { file-name = name; }) ({
+    # Stalwart and the gateway run where the primary may
+    secrets = let
+      stalwart.stalwart = config.site.ha.preference;
+      gateway.s3-overflow = config.site.ha.preference;
+    in lib.mapAttrs (name: secret: secret // { file-name = name; }) ({
       bulwark-session = { kind = "key"; generate = "rand"; units = [ "bulwark" ]; };
-      s3-overflow-client = { kind = "key"; generate = "s3-key"; };
-      meilisearch-stalwart = { kind = "key"; generate = "meilisearch"; };
+      s3-overflow-client = { kind = "key"; generate = "s3-key"; units = stalwart // gateway; };
+      meilisearch-stalwart = { kind = "key"; generate = "meilisearch"; units = stalwart; };
       # each Valkey member defines its users with them
-      valkey-stalwart = { kind = "key"; generate = "rand"; units.valkey-ha = config.site.ha.members; };
-      valkey-s3-overflow = { kind = "key"; generate = "rand"; units.valkey-ha = config.site.ha.members; };
+      valkey-stalwart = { kind = "key"; generate = "rand"; units = { valkey-ha = config.site.ha.members; } // stalwart; };
+      valkey-s3-overflow = { kind = "key"; generate = "rand"; units = { valkey-ha = config.site.ha.members; } // gateway; };
     } // lib.optionalAttrs (config.site.mail.relay != null) {
-      stalwart-relay = { kind = "credential"; description = "Stalwart's password at its relay, ${config.site.mail.relay.host}"; };
+      stalwart-relay = { kind = "credential"; description = "Stalwart's password at its relay, ${config.site.mail.relay.host}"; units = stalwart; };
     } // (let
       inherit (config.site.mail) addressing storage;
       clusters = { inherit (storage) primary overflow; };
       # a cluster of several nodes meshes over RPC, each node with a key of its own
       meshed = lib.filterAttrs (_: capacity: lib.length (lib.attrNames capacity) > 1) clusters;
     in lib.listToAttrs (
-      map (domain: lib.nameValuePair "dkim-${domain.name}" { kind = "key"; generate = "dkim"; })
+      map (domain: lib.nameValuePair "dkim-${domain.name}" { kind = "key"; generate = "dkim"; units = stalwart; })
         (lib.filter (domain: domain.signs) addressing.domains)
-      # its head sets each cluster up with its key
+      # its head sets each cluster up with its key, which the gateway uses
       ++ lib.mapAttrsToList (cluster: _: lib.nameValuePair "garage-mail-${cluster}" {
-        kind = "key"; generate = "s3-key"; units.garage-mail-setup = [ storage.heads.${cluster} ];
+        kind = "key"; generate = "s3-key"; units = { garage-mail-setup = [ storage.heads.${cluster} ]; } // gateway;
       }) clusters
       # Garage refuses a secret its owner alone cannot read, so not systemd's 0440 credential copy
       ++ lib.mapAttrsToList (cluster: capacity: lib.nameValuePair "garage-${cluster}-rpc" {

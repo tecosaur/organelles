@@ -38,12 +38,9 @@ in {
     ensure_file "$config_dir/scenes.yaml" '[]'
   '';
 
-  age.secrets.home-assistant-secrets = {
-    owner = "hass";
-    group = "users";
-    file = config.site.apps.home-assistant.secrets.secrets.file;
-    path = "/var/lib/hass/secrets.yaml";
-  };
+  systemd.tmpfiles.rules = [
+    "L+ ${config.services.home-assistant.configDir}/secrets.yaml - - - - ${config.site.apps.home-assistant.secrets.secrets.decrypted}"
+  ];
 
   services.home-assistant = {
     enable = true;

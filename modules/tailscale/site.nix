@@ -7,6 +7,10 @@ in {
     tailscale = public 41641 "tailscaled" // { protocols = [ "udp" ]; };
   };
   config.site.secrets = {
-    tailscale-preauth = { kind = "credential"; description = "Tailscale pre-auth key"; };
+    tailscale-preauth = {
+      kind = "credential";
+      description = "Tailscale pre-auth key";
+      units = lib.optional config.site.apps.headscale.enabled "tailscaled-autoconnect";
+    };
   };
 }

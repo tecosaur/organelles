@@ -134,7 +134,7 @@ in {
       inherit (c) bucket quota-bytes;
       inherit region;
       access-key-id = c.key.id;
-      secret-file = config.site.apps.mail.secrets."garage-${c.key.name}".file;
+      secret = config.site.apps.mail.secrets."garage-${c.key.name}";
       endpoint = host: if lib.elem host (hosts-of c)
         then "http://127.0.0.1:${toString c.ports.s3}"
         else "http://${c.head-host}.internal:${toString c.ports.s3}";

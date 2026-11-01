@@ -43,11 +43,6 @@ in lib.mkMerge [
 
     site.apps.llm.enabled = true;
 
-    age.secrets.llm-api-key = {
-      owner = "caddy";
-      file = config.site.apps.llm.secrets.api-key.file;
-    };
-
     services.caddy.virtualHosts."${llm-domain}".extraConfig =
       ''
       @authenticated header Authorization "Bearer {file.{$LLM_API_KEY_PATH}}"
@@ -60,7 +55,7 @@ in lib.mkMerge [
       }
       '';
 
-    systemd.services.caddy.environment.LLM_API_KEY_PATH = config.age.secrets.llm-api-key.path;
+    systemd.services.caddy.environment.LLM_API_KEY_PATH = llm.secrets.api-key.credentials.caddy;
   }
 
   (lib.mkIf (llm.local || llm.embedding.enable) {

@@ -24,8 +24,14 @@
     auth = {
       policy = { };
       clients = {
-        headscale.redirects = [ "oidc/callback" ];
-        headplane.redirects = [ "admin/oidc/callback" ];
+        headscale = {
+          redirects = [ "oidc/callback" ];
+          secret.owner = "headscale";
+        };
+        headplane = {
+          redirects = [ "admin/oidc/callback" ];
+          secret.owner = "headscale";
+        };
       };
     };
   };

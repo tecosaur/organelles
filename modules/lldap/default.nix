@@ -7,24 +7,6 @@ let
 in {
   site.apps.lldap.enabled = true;
 
-  age.secrets = {
-    lldap-jwt = {
-      owner = lldap-user;
-      group = "users";
-      file = config.site.apps.lldap.secrets.jwt.file;
-    };
-    lldap-key-seed = {
-      owner = lldap-user;
-      group = "users";
-      file = config.site.apps.lldap.secrets.key-seed.file;
-    };
-    lldap-admin-password = {
-      owner = lldap-user;
-      group = "users";
-      file = config.site.apps.lldap.secrets.admin-password.file;
-    };
-  };
-
   services.lldap = {
     enable = true;
     settings = {
@@ -33,12 +15,12 @@ in {
       http_port = config.site.apps.lldap.port;
       ldap_user_dn = "admin";
       ldap_user_email = "lldap-admin@${config.site.domain}";
-      ldap_user_pass_file = config.age.secrets.lldap-admin-password.path;
+      ldap_user_pass_file = config.site.apps.lldap.secrets.admin-password.credentials.lldap;
       force_ldap_user_pass_reset = "always";
     };
     environment = {
-      LLDAP_JWT_SECRET_FILE = config.age.secrets.lldap-jwt.path;
-      LLDAP_KEY_SEED_FILE = config.age.secrets.lldap-key-seed.path;
+      LLDAP_JWT_SECRET_FILE = config.site.apps.lldap.secrets.jwt.credential;
+      LLDAP_KEY_SEED_FILE = config.site.apps.lldap.secrets.key-seed.credential;
     };
   };
 

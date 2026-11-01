@@ -9,7 +9,10 @@
     port = 3456;
     auth = {
       policy.users = "two_factor";
-      clients.vikunja.redirects = [ "auth/openid/authelia" ];
+      clients.vikunja = {
+        redirects = [ "auth/openid/authelia" ];
+        secret.units = [ "vikunja" ];
+      };
     };
     mail = { sender = "noreply"; units = [ "vikunja" ]; };
   };

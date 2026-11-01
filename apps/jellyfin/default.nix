@@ -20,12 +20,6 @@ in {
 
   site.apps.jellyfin.enabled = true;
 
-  age.secrets.jellyfin-oidc = {
-    owner = "jellyfin";
-    group = "users";
-    file = config.site.apps.jellyfin.auth.clients.jellyfin.secret.file;
-  };
-
   services.declarative-jellyfin = {
     enable = true;
     package = pkgs.jellyfin;
@@ -164,12 +158,8 @@ in {
     };
   };
 
-  age.secrets.jellyfin-multi-scrobbler = lib.mkIf config.site.apps.multi-scrobbler.enabled {
-    owner = "jellyfin";
-    file = config.site.apps.multi-scrobbler.secrets.jellyfin.file;
-  };
   services.declarative-jellyfin.apikeys = lib.mkIf config.site.apps.multi-scrobbler.enabled {
-    multi-scrobbler.keyPath = config.age.secrets.jellyfin-multi-scrobbler.path;
+    multi-scrobbler.keyPath = config.site.apps.multi-scrobbler.secrets.jellyfin.credentials.jellyfin;
   };
 
   # Declarative Jellyfin replaces the `ExecStart` of the `jellyfin`
@@ -197,7 +187,7 @@ in {
     fi
     mkdir -p "$(dirname '${sso-path}')"
     install -m 600 '${sso-file}' '${sso-path}'
-    ${replaceSecretBin} '#oidc_secret#' '${config.age.secrets.jellyfin-oidc.path}' '${sso-path}'
+    ${replaceSecretBin} '#oidc_secret#' '${config.site.apps.jellyfin.auth.clients.jellyfin.secret.credential}' '${sso-path}'
     sed -i '/#enabled_folders#/{
       r /dev/stdin
       d

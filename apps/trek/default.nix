@@ -16,7 +16,7 @@ let
       id = "flight-tracker";
       src = "fbnlrz/trek-track@v2.0.0";
       hash = "sha256-r++zNN+tzjKLSLIvSSlc8jKRPCA6jRIEYfhe25r9MO0=";
-      settings.aerodatabox_key = config.age.secrets.trek-aerodatabox-key.path;
+      settings.aerodatabox_key = config.site.apps.trek.secrets.aerodatabox-key.credential;
     }
   ];
   trek-fetch-plugin = { id, src, hash, settings ? { } }:
@@ -129,29 +129,6 @@ let
 in {
   site.apps.trek.enabled = true;
 
-  age.secrets = {
-    trek-oidc = {
-      owner = "trek";
-      file = config.site.apps.trek.auth.clients.trek.secret.file;
-    };
-    trek-aerodatabox-key = {
-      owner = "trek";
-      file = config.site.apps.trek.secrets.aerodatabox-key.file;
-    };
-    trek-maps-key = {
-      owner = "trek";
-      file = config.site.apps.trek.secrets.maps-key.file;
-    };
-    trek-mapbox-token = {
-      owner = "trek";
-      file = config.site.apps.trek.secrets.mapbox-token.file;
-    };
-    trek-unsplash-key = {
-      owner = "trek";
-      file = config.site.apps.trek.secrets.unsplash-key.file;
-    };
-  };
-
   systemd.services.trek = {
     description = "TREK collaborative travel planner";
     after = [ "network-online.target" ];
@@ -215,10 +192,10 @@ in {
       [ -s ${trek-encryption-key} ] || ${lib.getExe pkgs.openssl} rand -hex 32 > ${trek-encryption-key}
       # Env vars, not the database: TREK reads these ahead of any stored key.
       { echo "ENCRYPTION_KEY=$(cat ${trek-encryption-key})"
-        echo "OIDC_CLIENT_SECRET=$(cat ${config.age.secrets.trek-oidc.path})"
-        echo "UNSPLASH_ACCESS_KEY=$(cat ${config.age.secrets.trek-unsplash-key.path})"
-        echo "PLACES_API_KEY=$(cat ${config.age.secrets.trek-maps-key.path})"
-        echo "MAPBOX_ACCESS_TOKEN=$(cat ${config.age.secrets.trek-mapbox-token.path})"
+        echo "OIDC_CLIENT_SECRET=$(cat ${config.site.apps.trek.auth.clients.trek.secret.credential})"
+        echo "UNSPLASH_ACCESS_KEY=$(cat ${config.site.apps.trek.secrets.unsplash-key.credential})"
+        echo "PLACES_API_KEY=$(cat ${config.site.apps.trek.secrets.maps-key.credential})"
+        echo "MAPBOX_ACCESS_TOKEN=$(cat ${config.site.apps.trek.secrets.mapbox-token.credential})"
       } > ${trek-secrets-env}
 
       ${lib.getExe pkgs.nodejs} ${trek-reconcile} ${trek-secrets-env}

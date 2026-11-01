@@ -35,35 +35,6 @@ in {
     }
   ];
 
-  age.secrets = {
-    koito-admin-password = {
-      owner = "koito";
-      file = config.site.apps.koito.secrets.admin-password.file;
-    };
-    multi-scrobbler-endpoint-token = {
-      owner = "multi-scrobbler";
-      file = config.site.apps.multi-scrobbler.secrets.endpoint-token.file;
-    };
-    multi-scrobbler-koito = {
-      owner = "koito";
-      group = "multi-scrobbler";
-      mode = "0440";
-      file = config.site.apps.multi-scrobbler.secrets.koito.file;
-    };
-    multi-scrobbler-jellyfin = {
-      owner = "multi-scrobbler";
-      file = config.site.apps.multi-scrobbler.secrets.jellyfin.file;
-    };
-    deezer-arl = lib.mkIf has-deezer-arl {
-      owner = "multi-scrobbler";
-      file = config.site.apps.multi-scrobbler.secrets.deezer-arl.file;
-    };
-    listenbrainz-token = lib.mkIf has-listenbrainz-token {
-      owner = "multi-scrobbler";
-      file = config.site.apps.multi-scrobbler.secrets.listenbrainz-token.file;
-    };
-  };
-
   services.koito = {
     enable = true;
     # Titles are strung together inside the client, and it serves its chunks and
@@ -115,7 +86,7 @@ in {
     path = [ pkgs.curl pkgs.sqlite ];
     preStart = ''
       umask 077
-      echo "KOITO_DEFAULT_PASSWORD=$(cat ${config.age.secrets.koito-admin-password.path})" \
+      echo "KOITO_DEFAULT_PASSWORD=$(cat ${koito.secrets.admin-password.credential})" \
         > ${koito-env}
     '';
     # Koito makes the database and user on first run, so the key goes in after.
@@ -129,7 +100,7 @@ in {
         echo "koito: not ready after 60s; multi-scrobbler's key not installed" >&2
         exit 0
       }
-      token="$(cat ${config.age.secrets.multi-scrobbler-koito.path})"
+      token="$(cat ${scrobbler.secrets.koito.credentials.koito})"
       installed="$(sqlite3 -cmd '.timeout 10000' ${koito.dir}/koito.db \
         "DELETE FROM api_keys WHERE label = 'multi-scrobbler' AND key != '$token';
          INSERT OR IGNORE INTO api_keys (key, user_id, created_at, label)
@@ -202,13 +173,13 @@ in {
             }; };
       })} ${scrobbler.dir}/config.json
       umask 077
-      { echo "SECRET_JELLYFIN_KEY=$(cat ${config.age.secrets.multi-scrobbler-jellyfin.path})"
-        echo "SECRET_ENDPOINT_TOKEN=$(cat ${config.age.secrets.multi-scrobbler-endpoint-token.path})"
-        echo "SECRET_KOITO_KEY=$(cat ${config.age.secrets.multi-scrobbler-koito.path})"
+      { echo "SECRET_JELLYFIN_KEY=$(cat ${scrobbler.secrets.jellyfin.credentials.multi-scrobbler})"
+        echo "SECRET_ENDPOINT_TOKEN=$(cat ${scrobbler.secrets.endpoint-token.credential})"
+        echo "SECRET_KOITO_KEY=$(cat ${scrobbler.secrets.koito.credentials.multi-scrobbler})"
         ${lib.optionalString has-deezer-arl
-          ''echo "SECRET_DEEZER_ARL=$(cat ${config.age.secrets.deezer-arl.path})"''}
+          ''echo "SECRET_DEEZER_ARL=$(cat ${scrobbler.secrets.deezer-arl.credential})"''}
         ${lib.optionalString has-listenbrainz-token
-          ''echo "SECRET_LISTENBRAINZ_TOKEN=$(cat ${config.age.secrets.listenbrainz-token.path})"''}
+          ''echo "SECRET_LISTENBRAINZ_TOKEN=$(cat ${scrobbler.secrets.listenbrainz-token.credential})"''}
       } > ${scrobbler-secrets-env}
     '';
     serviceConfig = {

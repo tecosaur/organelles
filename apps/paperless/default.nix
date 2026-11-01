@@ -54,21 +54,6 @@ let
 in {
   site.apps.paperless.enabled = true;
 
-  age.secrets.paperless-oidc = {
-    owner = "paperless";
-    file = config.site.apps.paperless.auth.clients.paperless.secret.file;
-  };
-
-  age.secrets.paperless-admin-password = {
-    owner = "paperless";
-    file = config.site.apps.paperless.secrets.admin-password.file;
-  };
-
-  age.secrets.paperless-llm-api-key = lib.mkIf config.site.apps.llm.enabled {
-    owner = "paperless";
-    file = config.site.apps.llm.secrets.api-key.file;
-  };
-
   # configureTika's gotenberg exports metrics and traces over OTLP by default, to a collector
   # nothing runs
   systemd.services.gotenberg.environment = {
@@ -84,7 +69,7 @@ in {
     port = config.site.apps.paperless.port;
     dataDir = "/data/paperless";
     configureTika = true;
-    passwordFile = config.age.secrets.paperless-admin-password.path;
+    passwordFile = config.site.apps.paperless.secrets.admin-password.decrypted;
     settings = {
       PAPERLESS_APP_TITLE = "Paperless";
       PAPERLESS_URL = "https://${config.site.apps.paperless.subdomain}.${config.site.domain}";
@@ -121,9 +106,9 @@ in {
       chown -R ${config.services.paperless.user}:${config.services.paperless.user} /run/paperless-secrets
       chmod -R 700 /run/paperless-secrets
       cp ${secret-env} /run/paperless-secrets/env-file
-      ${lib.getExe pkgs.replace-secret} '##oidc_secret##' '${config.age.secrets.paperless-oidc.path}' /run/paperless-secrets/env-file
+      ${lib.getExe pkgs.replace-secret} '##oidc_secret##' '${config.site.apps.paperless.auth.clients.paperless.secret.decrypted}' /run/paperless-secrets/env-file
       ${lib.optionalString config.site.apps.llm.enabled
-        "${lib.getExe pkgs.replace-secret} '##llm_api_key##' '${config.age.secrets.paperless-llm-api-key.path}' /run/paperless-secrets/env-file"}
+        "${lib.getExe pkgs.replace-secret} '##llm_api_key##' '${config.site.apps.llm.secrets.api-key.decrypted}' /run/paperless-secrets/env-file"}
       chmod 400 /run/paperless-secrets/env-file
     '';
   };

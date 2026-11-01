@@ -9,17 +9,6 @@ let
 in {
   site.apps.headscale.enabled = true;
 
-  age.secrets = {
-    headscale-oidc = {
-      owner = "headscale";
-      file = config.site.apps.headscale.auth.clients.headscale.secret.file;
-    };
-    headplane-oidc = {
-      owner = "headscale";
-      file = config.site.apps.headscale.auth.clients.headplane.secret.file;
-    };
-  };
-
   services.headscale = {
       enable = true;
       port = headscale-port;
@@ -33,7 +22,8 @@ in {
         oidc = {
           issuer = "https://${config.site.apps.authelia.subdomain}.${config.site.domain}";
           client_id = "headscale";
-          client_secret_path = config.age.secrets.headscale-oidc.path;
+          # a file, not a credential: its CLI and Headplane read this config too
+          client_secret_path = config.site.apps.headscale.auth.clients.headscale.secret.decrypted;
           scope = [ "openid" "profile" "email" "groups" ];
           allowed_groups = [ "headscale" ];
           pkce = {
@@ -83,7 +73,7 @@ in {
       oidc = {
         issuer = "https://${config.site.apps.authelia.subdomain}.${config.site.domain}";
         client_id = "headplane";
-        client_secret_path = config.age.secrets.headplane-oidc.path;
+        client_secret_path = config.site.apps.headscale.auth.clients.headplane.secret.decrypted;
         disable_api_key_login = true;
         token_endpoint_auth_method = "client_secret_basic";
         use_pkce = true;

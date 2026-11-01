@@ -14,6 +14,8 @@
         redirects = [ "auth/callback" ];
         pkce = false;
         settings.token_endpoint_auth_method = "client_secret_post";
+        # entered in its web UI
+        secret.hosts = [ ];
       };
     };
   };

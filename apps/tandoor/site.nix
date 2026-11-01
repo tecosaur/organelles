@@ -10,10 +10,13 @@
     port = 7203;
     auth = {
       policy.admins = "one_factor";
-      clients.tandoor.redirects = [ "accounts/oidc/authelia/login/callback/" ];
+      clients.tandoor = {
+        redirects = [ "accounts/oidc/authelia/login/callback/" ];
+        secret.units = [ "tandoor-recipes" ];
+      };
     };
     secrets = {
-      fdc-api-key = { kind = "credential"; description = "USDA FoodData Central API key"; };
+      fdc-api-key = { kind = "credential"; description = "USDA FoodData Central API key"; units = [ "tandoor-recipes" ]; };
     };
   };
 }

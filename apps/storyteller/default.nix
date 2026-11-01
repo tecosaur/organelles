@@ -10,17 +10,6 @@ let
 in {
   site.apps.storyteller.enabled = true;
 
-  age.secrets.storyteller-oidc = {
-    owner = "storyteller";
-    file = config.site.apps.storyteller.auth.clients.storyteller.secret.file;
-  };
-
-
-  age.secrets.storyteller-hardcover = lib.mkIf has-hardcover-token {
-    owner = "storyteller";
-    file = config.site.apps.storyteller.secrets.hardcover-token.file;
-  };
-
   systemd.services.storyteller = {
     description = "Storyteller synced audiobook platform";
     after = [ "network-online.target" ];
@@ -53,7 +42,7 @@ in {
           name = "Authelia";
           issuer = "https://${config.site.apps.authelia.subdomain}.${config.site.domain}";
           clientId = "storyteller";
-          clientSecret_file = config.age.secrets.storyteller-oidc.path;
+          clientSecret_file = config.site.apps.storyteller.auth.clients.storyteller.secret.credential;
           type = "oidc";
           allowRegistration = true;
           groupPermissions = {
@@ -72,7 +61,7 @@ in {
         smtpSsl = false;
         smtpRejectUnauthorized = true;
       } // lib.optionalAttrs has-hardcover-token {
-        hardcoverApiToken_file = config.age.secrets.storyteller-hardcover.path;
+        hardcoverApiToken_file = config.site.apps.storyteller.secrets.hardcover-token.credential;
       });
       ENABLE_WEB_READER = "true";
       HOME = storyteller.dir;

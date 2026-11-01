@@ -3,11 +3,6 @@
 {
   site.apps.dawarich.enabled = true;
 
-  age.secrets.dawarich-oidc = {
-    owner = "dawarich";
-    file = config.site.apps.dawarich.auth.clients.dawarich.secret.file;
-  };
-
   services.dawarich = {
     enable = true;
     localDomain = "${config.site.apps.dawarich.subdomain}.${config.site.domain}";
@@ -28,7 +23,7 @@
       PHOTON_API_USE_HTTPS = "true";
       STORE_GEODATA = "true";
     };
-    extraEnvFiles = [ config.age.secrets.dawarich-oidc.path ];
+    extraEnvFiles = [ config.site.apps.dawarich.auth.clients.dawarich.secret.decrypted ];
   };
 
   services.caddy.virtualHosts."${config.site.apps.dawarich.subdomain}.${config.site.domain}".extraConfig =

@@ -115,6 +115,18 @@ in {
     # root's patronictl reads it too
     patroni-restapi = { kind = "key"; generate = "rand"; units = { patroni = members; postgresql-ha-role = members; }; };
     postgresql-ha-replication = { kind = "key"; generate = "rand"; units = { patroni = members; postgresql-ha-setup = preference; }; };
-    valkey-ha = { kind = "key"; generate = "rand"; units = { valkey-ha = members; valkey-ha-sentinel = voters; valkey-ha-follow = preference; }; };
+    # the default user's: Authelia's sessions use it, and Stalwart and the gateway reach Sentinel with it
+    valkey-ha = {
+      kind = "key";
+      generate = "rand";
+      units = {
+        valkey-ha = members;
+        valkey-ha-sentinel = voters;
+        valkey-ha-follow = preference;
+        authelia-main = on "authelia";
+        stalwart = preference;
+        s3-overflow = preference;
+      };
+    };
   };
 }

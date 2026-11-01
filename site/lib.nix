@@ -63,7 +63,11 @@ rec {
       hosts = lib.mkOption {
         type = lib.types.nullOr (lib.types.listOf lib.types.str);
         default = null;
-        description = "For a secret of no app, the hosts holding it; null for every host";
+        description = ''
+          The hosts holding it; null for its units', else those it is
+          encrypted to, else its app's, else every host; [ ] for none, as for
+          a secret entered by hand in its app.
+        '';
       };
       owner = lib.mkOption {
         type = lib.types.str;

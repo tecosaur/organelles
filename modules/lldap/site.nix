@@ -16,9 +16,14 @@
       clients = { authelia-main = config.site.apps.authelia.hosts; lldap = config.site.apps.lldap.hosts; syncthing = config.site.apps.syncthing.hosts; };
     };
     secrets = {
-      jwt = { kind = "key"; generate = "rand"; };
-      key-seed = { kind = "key"; generate = "rand"; };
-      admin-password = { kind = "password"; description = "LLDAP admin login, used at its web UI"; };
+      jwt = { kind = "key"; generate = "rand"; units = [ "lldap" ]; };
+      key-seed = { kind = "key"; generate = "rand"; units = [ "lldap" ]; };
+      admin-password = {
+        kind = "password";
+        description = "LLDAP admin login, used at its web UI";
+        # Authelia binds with it
+        units = { lldap = config.site.apps.lldap.hosts; authelia-main = config.site.apps.authelia.hosts; };
+      };
     };
   };
 }

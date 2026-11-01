@@ -18,7 +18,7 @@
       };
     };
     secrets = {
-      admin-password = { kind = "password"; description = "Koito admin login"; };
+      admin-password = { kind = "password"; description = "Koito admin login"; units = [ "koito" ]; };
     };
   };
   options.site.apps.multi-scrobbler = site-lib.mkAppOption {
@@ -44,11 +44,20 @@
     };
     auth.access.subject = [ "group:${config.site.apps.multi-scrobbler.groups.admin}" ];
     secrets = {
-      deezer-arl = { kind = "credential"; description = "Deezer arl login cookie, for multi-scrobbler"; optional = true; file-name = "deezer-arl"; };
-      listenbrainz-token = { kind = "credential"; description = "ListenBrainz user token, for multi-scrobbler"; optional = true; file-name = "listenbrainz-token"; };
-      jellyfin = { kind = "key"; generate = "rand"; };
-      koito = { kind = "key"; generate = "rand"; };
-      endpoint-token = { kind = "password"; description = "Token Lyrion's AudioScrobbler plugin presents to multi-scrobbler's ListenBrainz endpoint"; };
+      deezer-arl = { kind = "credential"; description = "Deezer arl login cookie, for multi-scrobbler"; optional = true; file-name = "deezer-arl"; units = [ "multi-scrobbler" ]; };
+      listenbrainz-token = { kind = "credential"; description = "ListenBrainz user token, for multi-scrobbler"; optional = true; file-name = "listenbrainz-token"; units = [ "multi-scrobbler" ]; };
+      # Jellyfin installs it as an API key
+      jellyfin = {
+        kind = "key";
+        generate = "rand";
+        units = {
+          multi-scrobbler = config.site.apps.multi-scrobbler.hosts;
+          jellyfin = lib.optionals config.site.apps.multi-scrobbler.enabled config.site.apps.jellyfin.hosts;
+        };
+      };
+      # Koito installs it as an API key
+      koito = { kind = "key"; generate = "rand"; units = [ "koito" "multi-scrobbler" ]; };
+      endpoint-token = { kind = "password"; description = "Token Lyrion's AudioScrobbler plugin presents to multi-scrobbler's ListenBrainz endpoint"; units = [ "multi-scrobbler" ]; };
     };
   };
 }

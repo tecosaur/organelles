@@ -200,9 +200,10 @@ in {
 
   config = {
     site.ports.wireguard = site-lib.public 51820 "systemd-networkd" // { protocols = [ "udp" ]; };
-    # each host's mesh key, for it alone
+    # each host's mesh key, for it alone, readable by networkd as systemd.netdev(5) asks
     site.secrets = lib.listToAttrs (map (host: lib.nameValuePair "wg-${host}" {
       kind = "key"; generate = "wireguard"; recipients = [ host ];
+      group = "systemd-network"; mode = "0640";
     }) config.site.hosts);
     assertions = let
       subdomains = lib.mapAttrsToList (name: app: { inherit name; inherit (app) subdomain; })

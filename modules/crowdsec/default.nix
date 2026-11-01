@@ -19,8 +19,6 @@ in {
   };
 
   config = {
-    age.secrets.crowdsec-enroll-key.file = config.site.secrets.crowdsec-enroll-key.file;
-
     services.crowdsec = {
       enable = true;
       autoUpdateService = true;
@@ -71,7 +69,8 @@ in {
                      "${config.site.mesh.subnet}/64" ];
           };
         } ];
-        console.enrollKeyFile = config.age.secrets.crowdsec-enroll-key.path;
+        # the crowdsec module loads it as a credential itself
+        console.enrollKeyFile = config.site.secrets.crowdsec-enroll-key.decrypted;
         config.api.server = {
           listen_uri = "127.0.0.1:${toString crowdsec-port}";
           online_client.credentials_path = "${data-dir}/online_api_credentials.yaml";

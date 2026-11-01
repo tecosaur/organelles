@@ -6,19 +6,13 @@ let
 in {
   site.status.units = [ { id = "tailscale"; name = "Tailscale"; unit = "tailscaled.service"; } ];
 
-  age.secrets.tailscale-preauth = {
-    owner = "root";
-    group = "root";
-    file = config.site.secrets.tailscale-preauth.file;
-  };
-
   services.tailscale = {
     enable = true;
     port = config.site.ports.tailscale.port;
     openFirewall = false;
     useRoutingFeatures = "server";
     # key generated with: `headscale preauthkeys create -u 1 -e 99y --reusable --tags tag:sys-relay`
-    authKeyFile = lib.mkIf config.site.apps.headscale.enabled config.age.secrets.tailscale-preauth.path;
+    authKeyFile = lib.mkIf config.site.apps.headscale.enabled config.site.secrets.tailscale-preauth.credential;
     extraUpFlags = [
       "--reset"
       "--accept-dns=false" # No need for MagicDNS

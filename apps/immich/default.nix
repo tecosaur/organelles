@@ -7,13 +7,6 @@ let
 in {
   site.apps.immich.enabled = true;
 
-  age.secrets = {
-    immich-oidc = {
-      owner = "immich";
-      file = config.site.apps.immich.auth.clients.immich.secret.file;
-    };
-  };
-
   services.immich = {
     enable = true;
     openFirewall = false;
@@ -27,7 +20,8 @@ in {
         autoRegister = true;
         buttonText = "Login";
         clientId = "immich";
-        clientSecret._secret = config.age.secrets.immich-oidc.path;
+        # the immich module loads it as a credential itself
+        clientSecret._secret = config.site.apps.immich.auth.clients.immich.secret.decrypted;
         issuerUrl = "https://${config.site.apps.authelia.subdomain}.${config.site.domain}/.well-known/openid-configuration";
         scope = "openid email profile";
         signingAlgorithm = "RS256";

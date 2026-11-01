@@ -14,9 +14,10 @@
     auth.clients.storyteller = {
       redirects = [ "api/v2/auth/callback/authelia" ];
       settings.authorization_policy = "one_factor";
+      secret.units = [ "storyteller" ];
     };
     secrets = {
-      hardcover-token = { kind = "credential"; description = "Hardcover API token, for Storyteller metadata import"; optional = true; file-name = "hardcover-token"; };
+      hardcover-token = { kind = "credential"; description = "Hardcover API token, for Storyteller metadata import"; optional = true; file-name = "hardcover-token"; units = [ "storyteller" ]; };
     };
     mail = { sender = "noreply"; units = [ "storyteller" ]; };
   };

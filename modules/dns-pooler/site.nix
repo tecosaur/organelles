@@ -14,8 +14,8 @@ in {
     bunny-dns-key = {
       kind = "credential";
       description = "Bunny API key, for dns-pooler; it also keys the peer channel, so every node needs the same one";
-      # Caddy answers ACME's DNS challenges with it
-      units = [ "dns-pooler" "caddy" ];
+      # Caddy answers ACME's DNS challenges with it, as Stalwart does for its own certificate
+      units = { dns-pooler = config.site.hosts; caddy = config.site.hosts; stalwart = config.site.ha.preference; };
     };
   };
 }

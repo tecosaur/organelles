@@ -24,53 +24,17 @@ in {
 
   site.apps.authelia.enabled = true;
 
-  age.secrets = {
-    authelia-session = {
-      owner = authelia-user;
-      group = "users";
-      file = config.site.apps.authelia.secrets.session.file;
-    };
-    authelia-storage = {
-      owner = authelia-user;
-      group = "users";
-      file = config.site.apps.authelia.secrets.storage.file;
-    };
-    authelia-jwt = {
-      owner = authelia-user;
-      group = "users";
-      file = config.site.apps.authelia.secrets.jwt.file;
-    };
-    authelia-oidc-hmac = {
-      owner = authelia-user;
-      group = "users";
-      file = config.site.apps.authelia.secrets.oidc-hmac.file;
-    };
-    authelia-oidc-issuer-key = {
-      owner = authelia-user;
-      group = "users";
-      file = config.site.apps.authelia.secrets."oidc-issuer.pem".file;
-    };
-    authelia-lldap-admin-password = {
-      owner = authelia-user;
-      group = "users";
-      file = config.site.apps.lldap.secrets.admin-password.file;
-    };
-    authelia-valkey = {
-      owner = authelia-user;
-      file = config.site.secrets.valkey-ha.file;
-    };
-  };
-
   services.authelia.instances.main = {
     enable = true;
     user = authelia-user;
     group = authelia-user;
-    secrets =  {
-      jwtSecretFile = config.age.secrets.authelia-jwt.path;
-      oidcHmacSecretFile = config.age.secrets.authelia-oidc-hmac.path;
-      oidcIssuerPrivateKeyFile = config.age.secrets.authelia-oidc-issuer-key.path;
-      sessionSecretFile = config.age.secrets.authelia-session.path;
-      storageEncryptionKeyFile = config.age.secrets.authelia-storage.path;
+    # loaded as credentials by the authelia module itself
+    secrets = let secrets = config.site.apps.authelia.secrets; in {
+      jwtSecretFile = secrets.jwt.decrypted;
+      oidcHmacSecretFile = secrets.oidc-hmac.decrypted;
+      oidcIssuerPrivateKeyFile = secrets."oidc-issuer.pem".decrypted;
+      sessionSecretFile = secrets.session.decrypted;
+      storageEncryptionKeyFile = secrets.storage.decrypted;
     };
     settings = {
       theme = "auto";
@@ -179,9 +143,10 @@ in {
       server.endpoints.authz.forward-auth.implementation = "ForwardAuth";
     };
     environmentVariables = {
-      AUTHELIA_AUTHENTICATION_BACKEND_LDAP_PASSWORD_FILE = config.age.secrets.authelia-lldap-admin-password.path;
-      AUTHELIA_SESSION_REDIS_PASSWORD_FILE = config.age.secrets.authelia-valkey.path;
-      AUTHELIA_SESSION_REDIS_HIGH_AVAILABILITY_SENTINEL_PASSWORD_FILE = config.age.secrets.authelia-valkey.path;
+      AUTHELIA_AUTHENTICATION_BACKEND_LDAP_PASSWORD_FILE = config.site.apps.lldap.secrets.admin-password.credentials.authelia-main;
+      AUTHELIA_SESSION_REDIS_PASSWORD_FILE = config.site.secrets.valkey-ha.credentials.authelia-main;
+      AUTHELIA_SESSION_REDIS_HIGH_AVAILABILITY_SENTINEL_PASSWORD_FILE = config.site.secrets.valkey-ha.credentials.authelia-main;
+      # passes over hosts that can't take writes
       PGTARGETSESSIONATTRS = "read-write";
       X_AUTHELIA_CONFIG_FILTERS = "template";
     };

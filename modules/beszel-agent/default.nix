@@ -1,10 +1,6 @@
 { config, lib, pkgs, ... }:
 
 {
-  age.secrets.beszel-token = {
-    owner = "beszel-agent";
-    file = config.site.apps.beszel.secrets.token.file;
-  };
 
   services.beszel.agent = {
     enable = true;
@@ -13,7 +9,7 @@
     environment = {
       HUB_URL = "https://${config.site.apps.beszel.subdomain}.${config.site.domain}";
       KEY = config.site.apps.beszel.publicKey;
-      TOKEN_FILE = config.age.secrets.beszel-token.path;
+      TOKEN_FILE = config.site.apps.beszel.secrets.token.credential;
       PORT = toString config.site.apps.beszel.ports.agent.port;
       EXTRA_FILESYSTEMS = lib.concatStringsSep "," config.site.apps.beszel.extra-filesystems;
     };

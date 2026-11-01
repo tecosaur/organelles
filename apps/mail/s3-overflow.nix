@@ -35,20 +35,20 @@ let
   }) storage.cache-bytes;
   cache = lib.mapNullable (c: c // { budget-bytes = garage.overflow.quota-bytes + c.target-bytes + c.reserve-bytes; })
     (caches.${this-host} or null);
-  age-path = name: config.age.secrets.${name}.path;
-  credentials = {
-    client-secret = age-path "s3-overflow-client";
-    primary-secret = age-path "s3-overflow-primary";
-    overflow-secret = age-path "s3-overflow-overflow";
-    valkey-password = age-path "valkey-s3-overflow";
+  # its settings name each secret by credential
+  secrets = {
+    client = config.site.apps.mail.secrets.s3-overflow-client;
+    primary = garage.primary.secret;
+    overflow = garage.overflow.secret;
+    valkey = config.site.apps.mail.secrets.valkey-s3-overflow;
     # Sentinel takes the shared password, as the default user
-    sentinel-password = age-path "valkey-ha";
+    sentinel = config.site.secrets.valkey-ha;
   };
   store = name: {
     endpoint = garage.${name}.endpoint this-host;
     inherit (garage.${name}) bucket region;
     access_key_id = garage.${name}.access-key-id;
-    secret_access_key_file = "${name}-secret";
+    secret_access_key_file = secrets.${name}.credential-name;
     connect_timeout_seconds = store-timeouts.connect-seconds;
     stall_timeout_seconds = store-timeouts.stall-seconds;
   };
@@ -57,7 +57,7 @@ let
     status_listen = status-listen;
     inherit (gateway) bucket region;
     access_key_id = gateway.access-key-id;
-    secret_access_key_file = "client-secret";
+    secret_access_key_file = secrets.client.credential-name;
     max_object_bytes = max-object-bytes;
     primary = store "primary";
     # Without this the bound is budget − reserve, beyond the bucket's quota
@@ -74,8 +74,8 @@ let
         sentinels = map (host: "${host}.internal:${toString ports.ha-sentinel.port}") voters;
         master = "ha";
         username = user;
-        password_file = "valkey-password";
-        sentinel_password_file = "sentinel-password";
+        password_file = secrets.valkey.credential-name;
+        sentinel_password_file = secrets.sentinel.credential-name;
       };
     };
     cache = if cache == null then { target_bytes = 0; } else {
@@ -94,7 +94,7 @@ let
     cp ${pkgs.writeText "s3-overflow.json" (builtins.toJSON settings)} $out
     export CREDENTIALS_DIRECTORY=$PWD/credentials
     mkdir $CREDENTIALS_DIRECTORY
-    for name in ${toString (lib.attrNames credentials)}; do
+    for name in ${toString (lib.mapAttrsToList (_: secret: secret.credential-name) secrets)}; do
       echo placeholder > $CREDENTIALS_DIRECTORY/$name
     done
     s3-overflow -config $out check
@@ -112,11 +112,6 @@ in {
     '';
   };
   config = lib.mkIf config.site.ha.may-lead {
-    age.secrets = {
-      s3-overflow-client.file = config.site.apps.mail.secrets.s3-overflow-client.file;
-      s3-overflow-primary.file = garage.primary.secret-file;
-      s3-overflow-overflow.file = garage.overflow.secret-file;
-    };
     users.users.${user} = {
       isSystemUser = true;
       group = user;
@@ -136,7 +131,6 @@ in {
         Group = user;
         Restart = "always";
         RestartSec = "5s";
-        LoadCredential = lib.mapAttrsToList (name: file: "${name}:${file}") credentials;
         # Large bodies spool here
         RuntimeDirectory = "s3-overflow";
         RuntimeDirectoryMode = "0700";

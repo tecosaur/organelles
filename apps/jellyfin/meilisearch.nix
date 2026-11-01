@@ -11,10 +11,6 @@ let
   index = lib.replaceStrings [ " " ] [ "-" ] config.services.declarative-jellyfin.system.serverName;
 in {
   site.meilisearch.keys.jellyfin = [ "${index}*" ];
-  age.secrets.meilisearch-jellyfin = {
-    owner = config.services.jellyfin.user;
-    file = config.site.apps.jellyfin.secrets.meilisearch.file;
-  };
 
   services.declarative-jellyfin.system.pluginRepositories = [
     {
@@ -37,7 +33,7 @@ in {
     environment.MEILI_URL = config.site.meilisearch.url;
     preStart = ''
       umask 077
-      echo "MEILI_MASTER_KEY=$(cat '${config.age.secrets.meilisearch-jellyfin.path}')" > '${jellyfin-env}'
+      echo "MEILI_MASTER_KEY=$(cat '${config.site.apps.jellyfin.secrets.meilisearch.credential}')" > '${jellyfin-env}'
     '';
     serviceConfig = {
       RuntimeDirectory = "jellyfin";

@@ -27,10 +27,14 @@
     };
     auth = {
       policy = { };
-      clients.beszel.redirects = [ "api/oauth2-redirect" ];
+      clients.beszel = {
+        redirects = [ "api/oauth2-redirect" ];
+        # entered in its web UI
+        secret.hosts = [ ];
+      };
     };
     secrets = {
-      token = { kind = "credential"; description = "Beszel hub token"; };
+      token = { kind = "credential"; description = "Beszel hub token"; units.beszel-agent = config.site.hosts; };
     };
   };
 }

@@ -38,14 +38,6 @@ in
     }
   ];
 
-  age.secrets."wg-${this-host}" = {
-    file = config.site.secrets."wg-${this-host}".file;
-    # Ownership systemd.netdev(5) asks for.
-    owner = "root";
-    group = "systemd-network";
-    mode = "0640";
-  };
-
   # the mesh has no unit of its own; dns-pooler's view of its peers stands in
   site.status.units = [ { id = "mesh"; name = "Mesh"; kind = "mesh"; } ];
 
@@ -62,7 +54,7 @@ in
       };
       wireguardConfig = {
         ListenPort = port;
-        PrivateKeyFile = config.age.secrets."wg-${this-host}".path;
+        PrivateKeyFile = config.site.secrets."wg-${this-host}".decrypted;
       };
       wireguardPeers = map mkPeer (lib.filter (n: n != this-host) hosts);
     };

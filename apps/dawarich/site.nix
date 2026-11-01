@@ -11,7 +11,11 @@
     port = 6805;
     auth = {
       policy = { };
-      clients.dawarich.redirects = [ "users/auth/openid_connect/callback" ];
+      clients.dawarich = {
+        redirects = [ "users/auth/openid_connect/callback" ];
+        # sourced by its rails wrapper, as its user
+        secret.owner = "dawarich";
+      };
     };
   };
 }

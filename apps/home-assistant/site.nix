@@ -11,7 +11,7 @@
     port = 8123;
     stateSubdirs = [ "state" ".storage" "blueprints" ];
     secrets = {
-      secrets = { kind = "credential"; description = "Home Assistant secrets.yaml"; };
+      secrets = { kind = "credential"; description = "Home Assistant secrets.yaml"; owner = "hass"; };
     };
   };
 }

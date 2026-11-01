@@ -28,17 +28,6 @@ let
 in {
   site.apps.mealie.enabled = true;
 
-  age.secrets.mealie-credentials = {
-    owner = mealie-user;
-    group = "users";
-    file = config.site.apps.mealie.secrets.credentials-env.file;
-  };
-
-  age.secrets.mealie-llm-api-key = {
-    owner = mealie-user;
-    file = config.site.apps.llm.secrets.api-key.file;
-  };
-
   services.mealie = {
     enable = true;
     port = config.site.apps.mealie.port;
@@ -69,10 +58,10 @@ in {
     } // (if config.site.apps.llm.enabled then {
       OPENAI_BASE_URL = "https://${config.site.apps.llm.subdomain}.${config.site.domain}/v1";
       OPENAI_MODEL = "llm";
-      OPENAI_API_KEY_FILE = config.age.secrets.mealie-llm-api-key.path;
+      OPENAI_API_KEY_FILE = config.site.apps.llm.secrets.api-key.credentials.mealie;
       OPENAI_WORKERS = "1";
     } else {});
-    credentialsFile = config.age.secrets.mealie-credentials.path;
+    credentialsFile = config.site.apps.mealie.secrets.credentials-env.decrypted;
   };
 
   systemd.services.mealie = let

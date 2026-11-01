@@ -14,7 +14,6 @@ let
   user = "stalwart";
   hostname = "${app.subdomain}.${domain}";
   inherit (config.services.ha.postgres) primary-env;
-  credentials = "/run/credentials/stalwart.service";
   log-dir = "/var/log/stalwart";
   public-ports = lib.mapAttrs (_: listener: listener.port) (lib.filterAttrs (_: listener: listener.exposure == "public") app.ports);
   # Stalwart's default
@@ -22,23 +21,14 @@ let
   inherit (config.site.mail) addressing;
   filing-script = "filing";
   dkim-domains = map (d: d.name) (lib.filter (d: d.signs) addressing.domains);
-  dkim-secrets = map (name: "dkim-${name}") dkim-domains;
   dkim-selector = "stalwart";
   dkim-record = name:
     let record = ../../secrets/keys + "/dkim-${name}.txt";
     in if builtins.pathExists record then lib.removeSuffix "\n" (builtins.readFile record)
        else throw "mail: no DKIM key for ${name}; add dkim-${name}:dkim to secrets/scripts/init-keys.sh and run it";
-  age-path = name: config.age.secrets.${name}.path;
-  credential-files = {
-    valkey-password = age-path "valkey-stalwart";
-    # Sentinel takes the shared password, as the default user
-    sentinel-password = age-path "valkey-ha";
-    s3-secret = age-path "s3-overflow-client";
-    meilisearch-key = age-path "meilisearch-stalwart";
-    bunny-key = age-path "bunny-dns-key";
-  } // lib.genAttrs dkim-secrets age-path
-    // lib.optionalAttrs (relay != null) { relay-password = age-path "stalwart-relay"; };
-  file = name: { "@type" = "File"; filePath = "${credentials}/${name}"; };
+  # each secret Stalwart reads, as its credential
+  credential = secret: secret.credentials.stalwart;
+  file = secret: { "@type" = "File"; filePath = credential secret; };
   auth-domain = lib.removePrefix "https://" oidc.issuer;
   mail-host = "${hostname}.";
   record = name: type: value: { inherit name type value; };
@@ -60,30 +50,31 @@ let
     (lib.filterAttrs (_: app: app.mail != null && app.mail.sender != null) config.site.apps);
   settings = pkgs.writeText "stalwart-settings.ndjson" (import ./stalwart-settings.nix { inherit lib; } addressing {
     inherit domain hostname public-ports dkim-selector max-message-bytes filing-script log-dir;
-    acme = { contact = "postmaster@${domain}"; bunny-key = "${credentials}/bunny-key"; };
+    acme = { contact = "postmaster@${domain}"; bunny-key = credential config.site.secrets.bunny-dns-key; };
     in-memory-store = {
       "@type" = "RedisSentinel";
       urls = lib.genAttrs (map (host: "redis://${host}.internal:${toString ports.ha-sentinel.port}") voters) (_: true);
       serviceName = "ha";
       authUsername = user;
-      authSecret = file "valkey-password";
-      sentinelSecret = file "sentinel-password";
+      authSecret = file app.secrets.valkey-stalwart;
+      # Sentinel takes the shared password, as the default user
+      sentinelSecret = file config.site.secrets.valkey-ha;
     };
     blob-store = {
       "@type" = "S3";
       inherit (gateway) bucket;
       region = { "@type" = "Custom"; url = gateway.endpoint; inherit (gateway) region; };
       accessKeyId = { "@type" = "Value"; value = gateway.access-key-id; };
-      secretKey = file "s3-secret";
+      secretKey = file app.secrets.s3-overflow-client;
       timeout = gateway.timeout-seconds * 1000;
     };
     search-store = {
       "@type" = "Meilisearch";
       inherit (config.site.meilisearch) url;
-      httpAuth = { "@type" = "Bearer"; bearerToken = file "meilisearch-key"; };
+      httpAuth = { "@type" = "Bearer"; bearerToken = file app.secrets.meilisearch-stalwart; };
     };
     inherit oidc;
-    dkim-keys = lib.genAttrs dkim-domains (name: "${credentials}/dkim-${name}");
+    dkim-keys = lib.genAttrs dkim-domains (name: credential app.secrets."dkim-${name}");
     http-port = app.port;
     submission-port = app.ports.submission-mesh.port;
     inherit app-senders;
@@ -91,7 +82,7 @@ let
     web-ui = { bundle = "file://${package.webui}"; client-id = oidc.web-ui-client; };
     relay = if relay == null then null else {
       inherit (relay) host port username;
-      secret-file = "${credentials}/relay-password";
+      secret-file = credential app.secrets.stalwart-relay;
     };
   });
   provision = import ./stalwart-provision.nix { inherit lib pkgs; } {
@@ -193,10 +184,6 @@ in {
     };
     site.apps.mail.enabled = true;
     site.unfree = [ "stalwart" ];
-    age.secrets = {
-      meilisearch-stalwart.file = config.site.apps.mail.secrets.meilisearch-stalwart.file;
-    } // lib.genAttrs dkim-secrets (name: { file = config.site.apps.mail.secrets.${name}.file; })
-      // lib.optionalAttrs (relay != null) { stalwart-relay.file = app.secrets.stalwart-relay.file; };
     users.users.${user} = {
       isSystemUser = true;
       group = user;
@@ -234,7 +221,6 @@ in {
         Restart = "always";
         RestartSec = "10s";
         LimitNOFILE = 65536;
-        LoadCredential = lib.mapAttrsToList (name: source: "${name}:${source}") credential-files;
         RuntimeDirectory = "stalwart";
         RuntimeDirectoryMode = "0700";
         CacheDirectory = "stalwart";

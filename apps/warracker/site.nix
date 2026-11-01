@@ -13,6 +13,7 @@
       clients.warracker = {
         redirects = [ "api/oidc/callback" ];
         pkce = false;
+        secret.units = [ "warracker" ];
       };
     };
     mail = { sender = "noreply"; units = [ "warracker" ]; };

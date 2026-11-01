@@ -27,16 +27,6 @@ let
 in {
   site.apps.tandoor.enabled = true;
 
-  age.secrets.tandoor-oidc = {
-    owner = config.services.tandoor-recipes.user;
-    file = config.site.apps.tandoor.auth.clients.tandoor.secret.file;
-  };
-
-  age.secrets.fdc-api-key = {
-    owner = config.services.tandoor-recipes.user;
-    file = config.site.apps.tandoor.secrets.fdc-api-key.file;
-  };
-
   services.tandoor-recipes = {
     enable = true;
     package =
@@ -111,14 +101,14 @@ in {
     preStart = ''
       install -m 0600 '${oidc-secret-file}' "$RUNTIME_DIRECTORY/oidc.json"
       ${lib.getExe pkgs.replace-secret} '##oidc_secret##' \
-        '${config.age.secrets.tandoor-oidc.path}' "$RUNTIME_DIRECTORY/oidc.json"
+        '${config.site.apps.tandoor.auth.clients.tandoor.secret.credential}' "$RUNTIME_DIRECTORY/oidc.json"
       chmod 0400 "$RUNTIME_DIRECTORY/oidc.json"
-      cp '${config.age.secrets.fdc-api-key.path}' "$RUNTIME_DIRECTORY/fdc-api-key"
+      cp '${config.site.apps.tandoor.secrets.fdc-api-key.credential}' "$RUNTIME_DIRECTORY/fdc-api-key"
     '';
     serviceConfig = {
       UMask = lib.mkForce "0027";
       ExecStart = lib.mkForce tandoor-start;
-      BindReadOnlyPaths = [ config.age.secrets.tandoor-oidc.path oidc-secret-file ];
+      BindReadOnlyPaths = [ oidc-secret-file ];
     };
   };
 
