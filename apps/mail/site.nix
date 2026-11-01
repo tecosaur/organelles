@@ -159,7 +159,8 @@ in {
       # each Valkey member defines its users with them
       valkey-stalwart = { kind = "key"; generate = "rand"; units.valkey-ha = config.site.ha.members; };
       valkey-s3-overflow = { kind = "key"; generate = "rand"; units.valkey-ha = config.site.ha.members; };
-      smtp2go = { kind = "credential"; description = "SMTP2GO SMTP user's password, for Stalwart's relay"; };
+    } // lib.optionalAttrs (config.site.mail.relay != null) {
+      stalwart-relay = { kind = "credential"; description = "Stalwart's password at its relay, ${config.site.mail.relay.host}"; };
     } // (let
       addressing = import ./addressing.nix { inherit lib; } { inherit (config.site.mail) domains admins; };
       inherit (config.site.mail) storage;
@@ -235,14 +236,24 @@ in {
             type = types.str;
             description = "The user Stalwart authenticates to the relay as";
           };
-          credential-file = mkOption {
-            type = types.path;
-            description = "The age file of the relay's password";
+          spf = mkOption {
+            type = types.str;
+            example = "include:spf.smtp2go.com";
+            description = "The SPF mechanism that authorises the relay to send for the domain";
+          };
+          records = mkOption {
+            inherit (options.site.dns.records) type;
+            default = [ ];
+            example = [ { name = "em123456"; type = "CNAME"; value = "return.smtp2go.net."; } ];
+            description = "The relay's verification and return-path records, as its provider gives them";
           };
         };
       });
       default = null;
-      description = "The smarthost all outbound mail goes through, or null to deliver directly";
+      description = ''
+        The smarthost all outbound mail goes through, or null to deliver
+        directly. Its password is secrets/credentials/stalwart-relay.age.
+      '';
     };
     connections = mkOption {
       type = types.attrsOf types.attrs;
@@ -255,15 +266,16 @@ in {
           port = config.site.apps.mail.ports.submission-local.port;
           security = "none";
           from = "${app.mail.sender}@${app.subdomain}.${config.site.domain}";
+          inherit (app.mail) reply-to;
         } else {
           inherit (app.mail.smtp) host port security username;
-          inherit (app.mail) from;
+          inherit (app.mail) from reply-to;
           password = app.secrets.smtp.credential;
         }) (lib.filterAttrs (_: app: app.mail != null) config.site.apps);
       description = ''
-        Each sending app's connection: { host; port; security; from; }, and
-        through another server also { username; password; }, the password a
-        credential path in its unit.
+        Each sending app's connection: { host; port; security; from; reply-to; },
+        and through another server also { username; password; }, the password
+        a credential path in its unit. reply-to may be null.
       '';
     };
     dkim = mkOption {
@@ -297,12 +309,6 @@ in {
         default = { };
         description = "The hosts whose gateway caches blobs, by the bytes each cache aims for";
       };
-    };
-    smtp2go.records = mkOption {
-      inherit (options.site.dns.records) type;
-      default = [ ];
-      example = [ { name = "em123456"; type = "CNAME"; value = "return.smtp2go.net."; } ];
-      description = "SMTP2GO's verification and return-path records, as its dashboard gives them";
     };
   };
 }

@@ -478,9 +478,17 @@ rec {
               type = lib.types.listOf lib.types.str;
               description = "The units that send, each loading the smtp credential when it has one";
             };
+            reply-to = lib.mkOption {
+              type = lib.types.nullOr lib.types.str;
+              default = null;
+              example = "contact@example.org";
+              description = "Where replies to its mail go, if its modules set a Reply-To";
+            };
           };
+          # field by field, so the site's settings may add to them
+          config = lib.mapAttrs (_: lib.mkDefault) (if mail == null then { } else mail);
         });
-        default = mail;
+        default = if mail == null then null else { };
         description = ''
           How the ${name} app sends mail, by one of two forms: `sender`,
           through the site's Stalwart, or `smtp` and `from`, through

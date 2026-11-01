@@ -62,7 +62,7 @@ in {
       notifications.smtp = {
         enabled = true;
         from = "Immich on ${config.site.domain} <${config.site.mail.connections.immich.from}>";
-        replyTo = "contact.immich@${config.site.domain}";
+        replyTo = lib.mkIf (config.site.mail.connections.immich.reply-to != null) config.site.mail.connections.immich.reply-to;
         transport = {
           ignoreCert = false;
           inherit (config.site.mail.connections.immich) host port;

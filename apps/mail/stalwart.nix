@@ -7,7 +7,7 @@ let
   app = config.site.apps.mail;
   inherit (config.site) domain ports;
   inherit (config.site.ha) voters;
-  inherit (config.site.mail) gateway oidc relay smtp2go;
+  inherit (config.site.mail) gateway oidc relay;
   this-host = config.site.server.host;
   package = pkgs.callPackage ./packages/stalwart.nix { };
   cli = pkgs.callPackage ./packages/stalwart-cli.nix { };
@@ -145,12 +145,12 @@ in {
     site.dns.records =
       map (name: record name "MX" "10 ${mail-host}") mx-names
       ++ [
-        (record "@" "TXT" "v=spf1 include:spf.smtp2go.com ?all")
+        (record "@" "TXT" "v=spf1 ${if relay == null then "mx" else relay.spf} ?all")
         (record "_dmarc" "TXT" "v=DMARC1; p=none")
       ]
       ++ stalwart-dkim
       ++ client-srv
-      ++ smtp2go.records;
+      ++ lib.optionals (relay != null) relay.records;
   } (lib.mkIf config.site.ha.may-lead {
     assertions = [
       {
@@ -195,7 +195,7 @@ in {
     age.secrets = {
       meilisearch-stalwart.file = config.site.apps.mail.secrets.meilisearch-stalwart.file;
     } // lib.genAttrs dkim-secrets (name: { file = config.site.apps.mail.secrets.${name}.file; })
-      // lib.optionalAttrs (relay != null) { stalwart-relay.file = relay.credential-file; };
+      // lib.optionalAttrs (relay != null) { stalwart-relay.file = app.secrets.stalwart-relay.file; };
     users.users.${user} = {
       isSystemUser = true;
       group = user;

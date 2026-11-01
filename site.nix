@@ -31,16 +31,16 @@
       overflow-quota-bytes = 2000000000;
       cache-bytes = { golgi = 4000000000; };
     };
-    smtp2go.records = [
-      { name = "mailbounces"; type = "CNAME"; value = "return.smtp2go.net."; }
-      { name = "s766060._domainkey"; type = "CNAME"; value = "dkim.smtp2go.net."; }
-      { name = "mailtrack"; type = "CNAME"; value = "track.smtp2go.net."; }
-    ];
     relay = {
       host = "mail-au.smtp2go.com";
       port = 465;
       username = "stalwart.tecosaur.net";
-      credential-file = ./secrets/credentials/smtp2go.age;
+      spf = "include:spf.smtp2go.com";
+      records = [
+        { name = "mailbounces"; type = "CNAME"; value = "return.smtp2go.net."; }
+        { name = "s766060._domainkey"; type = "CNAME"; value = "dkim.smtp2go.net."; }
+        { name = "mailtrack"; type = "CNAME"; value = "track.smtp2go.net."; }
+      ];
     };
   };
   accent = {
@@ -98,7 +98,10 @@
     sftpgo.groups.extra = [ "family" ];
     storyteller.groups.extra = [ "family" ];
     tandoor.groups.extra = [ "family" ];
-    immich.groups.extra = [ "family" ];
+    immich = {
+      groups.extra = [ "family" ];
+      mail.reply-to = "contact.immich@tecosaur.net";
+    };
     jellyfin.groups.extra = [ "family" ];
     koito = {
       title = "Listens";
