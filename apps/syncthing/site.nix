@@ -11,4 +11,5 @@
     port = 8384;
     clients = [ "syncthing-init" ];
   };
+  config.site.apps.lldap.ports.ldap.clients.syncthing = config.site.apps.syncthing.hosts;
 }

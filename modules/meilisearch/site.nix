@@ -4,7 +4,6 @@ let
   inherit (config.site.meilisearch) host;
   inherit (config.site.ports.meilisearch) port;
   inherit (site-lib) mesh;
-  on = app: config.site.apps.${app}.hosts;
 in {
   options.site.meilisearch = {
     host = lib.mkOption {
@@ -32,8 +31,6 @@ in {
 
   config.site.ports = {
     meilisearch = mesh 7700 "meilisearch" {
-      stalwart = on "mail";
-      jellyfin = on "jellyfin";
       meilisearch-keys = [ config.site.meilisearch.host ];
     } // { hosts = [ config.site.meilisearch.host ]; };
   };

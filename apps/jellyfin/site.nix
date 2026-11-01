@@ -20,4 +20,9 @@
       meilisearch = { kind = "key"; generate = "meilisearch"; file-name = "meilisearch-jellyfin"; units = [ "jellyfin" ]; };
     };
   };
+  config.site = {
+    ports.meilisearch.clients.jellyfin = config.site.apps.jellyfin.hosts;
+    apps.multi-scrobbler.secrets.jellyfin.units.jellyfin =
+      lib.mkIf config.site.apps.multi-scrobbler.enabled config.site.apps.jellyfin.hosts;
+  };
 }

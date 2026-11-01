@@ -18,4 +18,6 @@
       credentials-env = { kind = "credential"; description = "Mealie OIDC/SMTP environment"; };
     };
   };
+  config.site.apps.llm.secrets.api-key.units.mealie =
+    lib.mkIf config.site.apps.llm.enabled config.site.apps.mealie.hosts;
 }

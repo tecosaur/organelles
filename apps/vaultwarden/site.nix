@@ -24,4 +24,5 @@
     };
     mail = { sender = "noreply"; units = [ "vaultwarden" ]; };
   };
+  config.site.ports.ha-postgres.clients.vaultwarden = config.site.apps.vaultwarden.hosts;
 }

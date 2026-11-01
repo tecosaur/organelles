@@ -29,6 +29,7 @@ in {
     };
   };
   config.site.ports = {
+    ha-postgres.clients.gatus = config.site.apps.gatus.hosts;
     status-conditions = mesh 9435 "gatus-aggregator-report" { gatus-aggregator-report = hosts; gatus-aggregator-aggregate = preference; };
     status-announcement = mesh 9436 "gatus-aggregator-aggregate" { caddy = preference; };
   };

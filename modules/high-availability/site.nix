@@ -5,15 +5,7 @@ let
   ha = config.site.ha;
   inherit (ha) preference members voters;
   inherit (site-lib) mesh local;
-  on = app: config.site.apps.${app}.hosts;
-  valkey-clients = {
-    valkey-ha = members;
-    valkey-ha-sentinel = voters;
-    valkey-ha-follow = preference;
-    authelia-main = on "authelia";
-    stalwart = on "mail";
-    s3-overflow = on "mail";
-  };
+  valkey-units = { valkey-ha = members; valkey-ha-sentinel = voters; valkey-ha-follow = preference; };
 in {
   options.site.ha = {
     voters = lib.mkOption {
@@ -89,12 +81,6 @@ in {
     ha-postgres = mesh 5433 "patroni" {
       patroni = members;
       postgresql-ha-setup = preference;
-      authelia-main = on "authelia";
-      lldap = on "lldap";
-      gatus = on "gatus";
-      vaultwarden = on "vaultwarden";
-      stalwart = on "mail";
-      s3-overflow = on "mail";
     };
     # Postgres asks each client's host on 113, which it can't be told otherwise
     ident = mesh 113 "oidentd" { patroni = members; };
@@ -105,24 +91,13 @@ in {
     patroni = mesh 8008 "patroni" { patroni = members; postgresql-ha-role = members; };
     # /serving answers 200 only on the serving member, for Caddy's health checks
     ha-serving = mesh 8009 "caddy" { caddy = hosts; } // { hosts = preference; };
-    ha-valkey = mesh 6380 "valkey-ha" valkey-clients;
-    ha-sentinel = mesh 26379 "valkey-ha-sentinel" valkey-clients;
+    ha-valkey = mesh 6380 "valkey-ha" valkey-units;
+    ha-sentinel = mesh 26379 "valkey-ha-sentinel" config.site.ports.ha-valkey.clients;
   };
   config.site.secrets = {
     # root's patronictl reads it too
     patroni-restapi = { kind = "key"; generate = "rand"; units = { patroni = members; postgresql-ha-role = members; }; };
     postgresql-ha-replication = { kind = "key"; generate = "rand"; units = { patroni = members; postgresql-ha-setup = preference; }; };
-    valkey-ha = {
-      kind = "key";
-      generate = "rand";
-      units = {
-        valkey-ha = members;
-        valkey-ha-sentinel = voters;
-        valkey-ha-follow = preference;
-        authelia-main = on "authelia";
-        stalwart = preference;
-        s3-overflow = preference;
-      };
-    };
+    valkey-ha = { kind = "key"; generate = "rand"; units = valkey-units; };
   };
 }

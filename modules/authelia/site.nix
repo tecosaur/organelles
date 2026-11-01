@@ -23,4 +23,15 @@
     };
     mail = { sender = "noreply"; units = [ "authelia-main" ]; };
   };
+  config.site = let hosts = config.site.apps.authelia.hosts; in {
+    ports = {
+      ha-postgres.clients.authelia-main = hosts;
+      ha-valkey.clients.authelia-main = hosts;
+    };
+    secrets.valkey-ha.units.authelia-main = hosts;
+    apps.lldap = {
+      ports.ldap.clients.authelia-main = hosts;
+      secrets.admin-password.units.authelia-main = hosts;
+    };
+  };
 }

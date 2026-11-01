@@ -321,4 +321,15 @@ in {
       };
     };
   };
+  config.site = let hosts = config.site.ha.preference; in {
+    ports = {
+      ha-postgres.clients = { stalwart = hosts; s3-overflow = hosts; };
+      ha-valkey.clients = { stalwart = hosts; s3-overflow = hosts; };
+      meilisearch.clients.stalwart = hosts;
+    };
+    secrets = {
+      valkey-ha.units = { stalwart = hosts; s3-overflow = hosts; };
+      bunny-dns-key.units.stalwart = hosts;
+    };
+  };
 }

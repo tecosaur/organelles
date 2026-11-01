@@ -48,10 +48,7 @@
       jellyfin = {
         kind = "key";
         generate = "rand";
-        units = {
-          multi-scrobbler = config.site.apps.multi-scrobbler.hosts;
-          jellyfin = lib.optionals config.site.apps.multi-scrobbler.enabled config.site.apps.jellyfin.hosts;
-        };
+        units.multi-scrobbler = config.site.apps.multi-scrobbler.hosts;
       };
       koito = { kind = "key"; generate = "rand"; units = [ "koito" "multi-scrobbler" ]; };
       endpoint-token = { kind = "password"; description = "Token Lyrion's AudioScrobbler plugin presents to multi-scrobbler's ListenBrainz endpoint"; units = [ "multi-scrobbler" ]; };

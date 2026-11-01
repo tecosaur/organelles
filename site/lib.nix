@@ -61,9 +61,9 @@ rec {
         type = lib.types.nullOr (lib.types.listOf lib.types.str);
         default = null;
         description = ''
-          The hosts holding it; null for its units', else those it is
-          encrypted to, else its app's, else every host; [ ] for none, as for
-          a secret entered by hand in its app.
+          The hosts holding it besides its units'; null for its units', else
+          those it is encrypted to, else its app's, else every host; [ ] for
+          none, as for a secret entered by hand in its app.
         '';
       };
       owner = lib.mkOption {
@@ -122,6 +122,14 @@ rec {
       };
     };
   });
+  # The named things an app declares, each its own option, so other modules add to one
+  # rather than replace them all
+  declared = type: values: lib.types.submodule {
+    options = lib.mapAttrs (_: value: lib.mkOption {
+      type = type.substSubModules (type.getSubModules ++ [ { config = value; } ]);
+      default = { };
+    }) values;
+  };
   clients-type = with lib.types; either (listOf str) (attrsOf (listOf str));
   # The shape every listener is declared in, so the firewall, the port-clash
   # check and confinement read them all alike
@@ -282,11 +290,12 @@ rec {
         '';
       };
       ports = lib.mkOption {
-        type = lib.types.attrsOf (listener { unit = service; });
-        default = ports;
+        type = declared (listener { unit = service; }) ports;
+        default = { };
         description = ''
           The ${name} app's other listeners, its helpers' included, by name.
           Nothing of the app listens on a port not declared here or as `port`.
+          Another app's units reaching one add themselves to its `clients`.
         '';
       };
       followsPrimary = lib.mkOption {
@@ -507,14 +516,14 @@ rec {
         '';
       };
       secrets = lib.mkOption {
-        type = lib.types.attrsOf (secret { prefix = id-of name; });
-        default = secrets // lib.optionalAttrs (mail != null && mail ? smtp) {
+        type = declared (secret { prefix = id-of name; }) (secrets // lib.optionalAttrs (mail != null && mail ? smtp) {
           smtp = { kind = "credential"; description = "${name}'s password at ${mail.smtp.host}"; inherit (mail) units; };
-        };
+        });
+        default = { };
         description = ''
           The secrets the ${name} app holds, by name, each a file named
-          ${id-of name}-<name> unless it says otherwise. Other apps reading one
-          refer to it here, so where it belongs stays plain.
+          ${id-of name}-<name> unless it says otherwise. Another app's units
+          reading one add themselves to its `units`.
         '';
       };
     } // extraOptions;

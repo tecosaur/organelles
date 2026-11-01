@@ -14,7 +14,7 @@ in {
     bunny-dns-key = {
       kind = "credential";
       description = "Bunny API key, for dns-pooler; it also keys the peer channel, so every node needs the same one";
-      units = { dns-pooler = config.site.hosts; caddy = config.site.hosts; stalwart = config.site.ha.preference; };
+      units = { dns-pooler = config.site.hosts; caddy = config.site.hosts; };
     };
   };
 }

@@ -12,7 +12,7 @@
     ports.ldap = {
       port = 3890;
       exposure = "mesh";
-      clients = { authelia-main = config.site.apps.authelia.hosts; lldap = config.site.apps.lldap.hosts; syncthing = config.site.apps.syncthing.hosts; };
+      clients.lldap = config.site.apps.lldap.hosts;
     };
     secrets = {
       jwt = { kind = "key"; generate = "rand"; units = [ "lldap" ]; };
@@ -20,8 +20,9 @@
       admin-password = {
         kind = "password";
         description = "LLDAP admin login, used at its web UI";
-        units = { lldap = config.site.apps.lldap.hosts; authelia-main = config.site.apps.authelia.hosts; };
+        units.lldap = config.site.apps.lldap.hosts;
       };
     };
   };
+  config.site.ports.ha-postgres.clients.lldap = config.site.apps.lldap.hosts;
 }

@@ -23,4 +23,7 @@
       admin-password = { kind = "password"; description = "Paperless admin login"; };
     };
   };
+  # read as root as the system activates, outside any unit
+  config.site.apps.llm.secrets.api-key.hosts =
+    lib.mkIf config.site.apps.llm.enabled config.site.apps.paperless.hosts;
 }

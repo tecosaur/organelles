@@ -11,9 +11,10 @@ let
     config.site.apps);
   site-secrets = map (secret: { inherit secret; default-hosts = config.site.hosts; }) (lib.attrValues config.site.secrets);
   all-secrets = app-secrets ++ site-secrets;
-  hosts-of = { secret, default-hosts }:
-    if secret.hosts != null then secret.hosts
-    else if lib.isAttrs secret.units then lib.unique (lib.concatLists (lib.attrValues secret.units))
+  hosts-of = { secret, default-hosts }: let
+    unit-hosts = lib.optionals (lib.isAttrs secret.units) (lib.concatLists (lib.attrValues secret.units));
+  in if secret.hosts != null then lib.unique (secret.hosts ++ unit-hosts)
+    else if unit-hosts != [ ] then lib.unique unit-hosts
     else if secret.recipients != null then secret.recipients
     else default-hosts;
   # an optional secret whose file is missing turns off what uses it, so it is not installed
