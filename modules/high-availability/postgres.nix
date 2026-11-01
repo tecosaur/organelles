@@ -101,9 +101,9 @@ in {
       command = [ "${package}/bin/pg_isready" "--quiet" "--host=${cfg.socket-dir}" "--port=${toString ports.ha-postgres.port}" "--dbname=postgres" ];
     } ];
 
-    age.secrets.postgresql-ha-replication.file = ../../secrets/keys/postgresql-ha-replication.age;
+    age.secrets.postgresql-ha-replication.file = config.site.secrets.postgresql-ha-replication.file;
     # Required for the REST API's unsafe methods; reads stay open, for Caddy's health checks
-    age.secrets.patroni-restapi.file = ../../secrets/keys/patroni-restapi.age;
+    age.secrets.patroni-restapi.file = config.site.secrets.patroni-restapi.file;
 
     # Root's patronictl may switch over and edit the configuration; others only read
     environment.systemPackages = [ (lib.hiPrio (pkgs.writeShellScriptBin "patronictl" ''

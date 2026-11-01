@@ -159,7 +159,6 @@
       # One machine's site settings, everything but what is computed across
       # machines (global-enabled-apps, dns.served, status.fleet-units).
       machine-site = name: setup: {
-        hosts = builtins.attrNames machines;
         server = (setup.server or { }) // { host = name; };
         apps = setup.apps or { };
       };
@@ -169,7 +168,12 @@
       hosts = (builtins.mapAttrs
         (name: setup: {
           specialArgs = { inherit site-lib; };
-          modules = core-modules ++ setup.modules ++ [{
+          modules = core-modules ++ setup.modules ++ [ ({ config, ... }: {
+            assertions = [ {
+              assertion = nixpkgs.lib.sort (a: b: a < b) config.site.hosts == builtins.attrNames machines;
+              message = "flake.nix builds ${toString (builtins.attrNames machines)}, but site/settings.nix names the hosts ${toString config.site.hosts}";
+            } ];
+          }) {
             site = nixpkgs.lib.recursiveUpdate (machine-site name setup) {
               apps = nixpkgs.lib.recursiveUpdate global-enabled-apps
                 (machine-site name setup).apps;

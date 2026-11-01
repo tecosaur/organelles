@@ -10,11 +10,11 @@ in {
   age.secrets = {
     immich-oidc = {
       owner = "immich";
-      file = ../../secrets/oidc/immich-secret.age;
+      file = config.site.apps.immich.auth.clients.immich.file;
     };
     immich-smtp = {
       owner = "immich";
-      file = ../../secrets/credentials/fastmail.age;
+      file = config.site.secrets.fastmail.file;
     };
   };
 

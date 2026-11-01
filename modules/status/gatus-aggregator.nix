@@ -52,8 +52,8 @@ let
     };
   };
 in {
-  age.secrets.gatus-push.file = ../../secrets/keys/gatus-push.age;
-  age.secrets.status-alert-topic.file = ../../secrets/keys/status-alert-topic.age;
+  age.secrets.gatus-push.file = config.site.apps.gatus.secrets.push.file;
+  age.secrets.status-alert-topic.file = config.site.apps.gatus.secrets.alert-topic.file;
 
   systemd.services.gatus-aggregator-report = service "report" "Status reports to Gatus";
   services.ha.postgres.probe-roles = [ "gatus-aggregator-report" ];

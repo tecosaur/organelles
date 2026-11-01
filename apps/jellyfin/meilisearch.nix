@@ -13,7 +13,7 @@ in {
   site.meilisearch.keys.jellyfin = [ "${index}*" ];
   age.secrets.meilisearch-jellyfin = {
     owner = config.services.jellyfin.user;
-    file = ../../secrets/keys/meilisearch-jellyfin.age;
+    file = config.site.apps.jellyfin.secrets.meilisearch.file;
   };
 
   services.declarative-jellyfin.system.pluginRepositories = [

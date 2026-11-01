@@ -3,7 +3,7 @@
 {
   age.secrets.beszel-token = {
     owner = "beszel-agent";
-    file = ../../secrets/credentials/beszel-token.age;
+    file = config.site.apps.beszel.secrets.token.file;
   };
 
   services.beszel.agent = {

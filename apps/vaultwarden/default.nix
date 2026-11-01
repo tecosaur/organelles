@@ -13,9 +13,9 @@ in {
     site.apps.vaultwarden.enabled = true;
 
     age.secrets = {
-      vaultwarden-rsa.file = ../../secrets/keys/vaultwarden-rsa.pem.age;
-      vaultwarden-smtp.file = ../../secrets/credentials/fastmail.age;
-      vaultwarden-oidc.file = ../../secrets/oidc/vaultwarden-secret.age;
+      vaultwarden-rsa.file = config.site.apps.vaultwarden.secrets."rsa.pem".file;
+      vaultwarden-smtp.file = config.site.secrets.fastmail.file;
+      vaultwarden-oidc.file = config.site.apps.vaultwarden.auth.clients.vaultwarden.file;
     };
 
     services.ha.postgres.databases = [ "vaultwarden" ];

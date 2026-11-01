@@ -29,6 +29,9 @@
       policy = { };
       clients.beszel.redirects = [ "api/oauth2-redirect" ];
     };
+    secrets = {
+      token = { kind = "credential"; description = "Beszel hub token"; };
+    };
   };
   config.site.apps.beszel.publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIL6RP5omIbCzQsC/NizUg56JgpgMdl0/VXmCAE0VyJlq";
 }

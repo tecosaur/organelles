@@ -19,7 +19,7 @@ in {
   };
 
   config = {
-    age.secrets.crowdsec-enroll-key.file = ../../secrets/credentials/crowdsec-enroll-key.age;
+    age.secrets.crowdsec-enroll-key.file = config.site.secrets.crowdsec-enroll-key.file;
 
     services.crowdsec = {
       enable = true;

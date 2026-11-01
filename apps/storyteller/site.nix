@@ -15,6 +15,9 @@
       redirects = [ "api/v2/auth/callback/authelia" ];
       settings.authorization_policy = "one_factor";
     };
+    secrets = {
+      hardcover-token = { kind = "credential"; description = "Hardcover API token, for Storyteller metadata import"; optional = true; file-name = "hardcover-token"; };
+    };
   };
   config.site.apps.storyteller.groups.extra = [ "family" ];
 }

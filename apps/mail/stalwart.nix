@@ -188,8 +188,8 @@ in {
     site.apps.mail.enabled = true;
     site.unfree = [ "stalwart" ];
     age.secrets = {
-      meilisearch-stalwart.file = ../../secrets/keys/meilisearch-stalwart.age;
-    } // lib.genAttrs dkim-secrets (name: { file = ../../secrets/keys + "/${name}.age"; })
+      meilisearch-stalwart.file = config.site.apps.mail.secrets.meilisearch-stalwart.file;
+    } // lib.genAttrs dkim-secrets (name: { file = config.site.apps.mail.secrets.${name}.file; })
       // lib.optionalAttrs (relay != null) { stalwart-relay.file = relay.credential-file; };
     users.users.${user} = {
       isSystemUser = true;

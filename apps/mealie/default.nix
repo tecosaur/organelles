@@ -31,12 +31,12 @@ in {
   age.secrets.mealie-credentials = {
     owner = mealie-user;
     group = "users";
-    file = ../../secrets/credentials/mealie-credentials-env.age;
+    file = config.site.apps.mealie.secrets.credentials-env.file;
   };
 
   age.secrets.mealie-llm-api-key = {
     owner = mealie-user;
-    file = ../../secrets/passwords/llm-api-key.age;
+    file = config.site.apps.llm.secrets.api-key.file;
   };
 
   services.mealie = {

@@ -41,7 +41,7 @@ in {
   age.secrets.home-assistant-secrets = {
     owner = "hass";
     group = "users";
-    file = ../../secrets/credentials/home-assistant-secrets.age;
+    file = config.site.apps.home-assistant.secrets.secrets.file;
     path = "/var/lib/hass/secrets.yaml";
   };
 

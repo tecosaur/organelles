@@ -56,17 +56,17 @@ in {
 
   age.secrets.paperless-oidc = {
     owner = "paperless";
-    file = ../../secrets/oidc/paperless-secret.age;
+    file = config.site.apps.paperless.auth.clients.paperless.file;
   };
 
   age.secrets.paperless-admin-password = {
     owner = "paperless";
-    file = ../../secrets/passwords/paperless-admin-password.age;
+    file = config.site.apps.paperless.secrets.admin-password.file;
   };
 
   age.secrets.paperless-llm-api-key = lib.mkIf config.site.apps.llm.enabled {
     owner = "paperless";
-    file = ../../secrets/passwords/llm-api-key.age;
+    file = config.site.apps.llm.secrets.api-key.file;
   };
 
   # configureTika's gotenberg exports metrics and traces over OTLP by default, to a collector

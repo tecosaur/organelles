@@ -11,5 +11,8 @@
     subdomain = "ntfy";
     port = 2586;
     auth.access.policy = "two_factor";
+    secrets = {
+      webpush-keys-env = { kind = "credential"; description = "ntfy web push keys"; };
+    };
   };
 }

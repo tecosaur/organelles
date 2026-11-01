@@ -6,7 +6,7 @@ let
     secondary = config.site.accent.secondary;
   };
 in {
-  imports = [ ./network.nix ./settings.nix ];
+  imports = [ ./network.nix ./secrets.nix ./settings.nix ];
 
   options.site = {
     domain = lib.mkOption {
@@ -217,6 +217,10 @@ in {
 
   config = {
     site.ports.wireguard = site-lib.public 51820 "systemd-networkd" // { protocols = [ "udp" ]; };
+    # each host's mesh key, for it alone
+    site.secrets = lib.listToAttrs (map (host: lib.nameValuePair "wg-${host}" {
+      kind = "key"; generate = "wireguard"; recipients = [ host ];
+    }) config.site.hosts);
     assertions = let
       subdomains = lib.mapAttrsToList (name: app: { inherit name; inherit (app) subdomain; })
         (lib.filterAttrs (_: app: app.enabled) config.site.apps);

@@ -13,13 +13,13 @@ in {
   age.secrets.vikunja-oidc = {
     owner = vikunja-user;
     group = vikunja-user;
-    file = ../../secrets/oidc/vikunja-secret.age;
+    file = config.site.apps.vikunja.auth.clients.vikunja.file;
   };
 
   age.secrets.vikunja-fastmail = {
     owner = vikunja-user;
     group = vikunja-user;
-    file = ../../secrets/credentials/fastmail.age;
+    file = config.site.secrets.fastmail.file;
   };
 
   services.vikunja = {

@@ -10,6 +10,9 @@
     subdomain = "homeassistant";
     port = 8123;
     stateSubdirs = [ "state" ".storage" "blueprints" ];
+    secrets = {
+      secrets = { kind = "credential"; description = "Home Assistant secrets.yaml"; };
+    };
   };
   config.site.apps.home-assistant.subdomain = "doonan";
 }

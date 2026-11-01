@@ -126,7 +126,7 @@ let
       '{bucketId: $bucket, accessKeyId: "${cluster.key.id}", permissions: {read: true, write: true, owner: false}}' |
       api AllowBucketKey - >/dev/null
   '';
-  secret = name: { file = keys + "/garage-${name}.age"; };
+  secret = name: { file = config.site.apps.mail.secrets."garage-${name}".file; };
 in {
   options.site.mail.garage = lib.mkOption {
     type = lib.types.attrsOf lib.types.raw;

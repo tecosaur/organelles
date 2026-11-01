@@ -127,6 +127,7 @@ in {
       };
       ${oidc.web-ui-client} = {
         redirects = [ "admin/oauth/callback" "account/oauth/callback" ];
+        holds-secret = false;
         settings = stalwart-client {
           client_secret = "";
           public = true;
@@ -137,6 +138,29 @@ in {
         };
       };
     };
+    # Its files keep the names of what holds them, Stalwart's, Bulwark's and the
+    # gateway's, rather than the app's
+    secrets = lib.mapAttrs (name: secret: secret // { file-name = name; }) ({
+      bulwark-session = { kind = "key"; generate = "rand"; };
+      s3-overflow-client = { kind = "key"; generate = "s3-key"; };
+      meilisearch-stalwart = { kind = "key"; generate = "meilisearch"; };
+      valkey-stalwart = { kind = "key"; generate = "rand"; };
+      valkey-s3-overflow = { kind = "key"; generate = "rand"; };
+      smtp2go = { kind = "credential"; description = "SMTP2GO SMTP user's password, for Stalwart's relay"; };
+    } // (let
+      addressing = import ./addressing.nix { inherit lib; } { inherit (config.site.mail) domains admins; };
+      inherit (config.site.mail) storage;
+      clusters = { inherit (storage) primary overflow; };
+      # a cluster of several nodes meshes over RPC, each node with a key of its own
+      meshed = lib.filterAttrs (_: capacity: lib.length (lib.attrNames capacity) > 1) clusters;
+    in lib.listToAttrs (
+      map (domain: lib.nameValuePair "dkim-${domain.name}" { kind = "key"; generate = "dkim"; })
+        (lib.filter (domain: domain.signs) addressing.domains)
+      ++ lib.mapAttrsToList (cluster: _: lib.nameValuePair "garage-mail-${cluster}" { kind = "key"; generate = "s3-key"; }) clusters
+      ++ lib.mapAttrsToList (cluster: _: lib.nameValuePair "garage-${cluster}-rpc" { kind = "key"; generate = "hex"; }) meshed
+      ++ lib.concatLists (lib.mapAttrsToList (_: capacity: map (host: lib.nameValuePair "garage-node-${host}" {
+        kind = "key"; generate = "garage-node"; recipients = [ host ];
+      }) (lib.attrNames capacity)) meshed))));
   };
   options.site.mail = {
     domains = mkOption {
@@ -265,7 +289,7 @@ in {
       host = "mail-au.smtp2go.com";
       port = 465;
       username = "stalwart.tecosaur.net";
-      credential-file = ../../secrets/credentials/smtp2go.age;
+      credential-file = config.site.apps.mail.secrets.smtp2go.file;
     };
   };
 }

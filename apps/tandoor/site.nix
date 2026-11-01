@@ -12,6 +12,9 @@
       policy.admins = "one_factor";
       clients.tandoor.redirects = [ "accounts/oidc/authelia/login/callback/" ];
     };
+    secrets = {
+      fdc-api-key = { kind = "credential"; description = "USDA FoodData Central API key"; };
+    };
   };
   config.site.apps.tandoor.groups.extra = [ "family" ];
 }

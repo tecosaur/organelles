@@ -45,7 +45,7 @@ in lib.mkMerge [
 
     age.secrets.llm-api-key = {
       owner = "caddy";
-      file = ../../secrets/passwords/llm-api-key.age;
+      file = config.site.apps.llm.secrets.api-key.file;
     };
 
     services.caddy.virtualHosts."${llm-domain}".extraConfig =

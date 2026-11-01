@@ -132,23 +132,23 @@ in {
   age.secrets = {
     trek-oidc = {
       owner = "trek";
-      file = ../../secrets/oidc/trek-secret.age;
+      file = config.site.apps.trek.auth.clients.trek.file;
     };
     trek-aerodatabox-key = {
       owner = "trek";
-      file = ../../secrets/credentials/trek-aerodatabox-key.age;
+      file = config.site.apps.trek.secrets.aerodatabox-key.file;
     };
     trek-maps-key = {
       owner = "trek";
-      file = ../../secrets/credentials/trek-maps-key.age;
+      file = config.site.apps.trek.secrets.maps-key.file;
     };
     trek-mapbox-token = {
       owner = "trek";
-      file = ../../secrets/credentials/trek-mapbox-token.age;
+      file = config.site.apps.trek.secrets.mapbox-token.file;
     };
     trek-unsplash-key = {
       owner = "trek";
-      file = ../../secrets/credentials/trek-unsplash-key.age;
+      file = config.site.apps.trek.secrets.unsplash-key.file;
     };
   };
 

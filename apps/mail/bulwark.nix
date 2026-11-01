@@ -40,8 +40,8 @@ let
 in {
   config = lib.mkIf config.site.ha.may-lead {
     age.secrets = {
-      bulwark-oidc.file = ../../secrets/oidc/bulwark-secret.age;
-      bulwark-session.file = ../../secrets/keys/bulwark-session.age;
+      bulwark-oidc.file = config.site.apps.mail.auth.clients.${config.site.mail.oidc.bulwark-client}.file;
+      bulwark-session.file = config.site.apps.mail.secrets.bulwark-session.file;
     };
     services.bulwark = {
       enable = true;

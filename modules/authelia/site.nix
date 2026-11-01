@@ -14,5 +14,12 @@
     port = 9091;
     # the other hosts' Caddy proxy /api/* to it
     exposure = "mesh";
+    secrets = {
+      jwt = { kind = "key"; generate = "rand"; };
+      oidc-hmac = { kind = "key"; generate = "rand"; };
+      "oidc-issuer.pem" = { kind = "key"; generate = "rsa"; };
+      session = { kind = "key"; generate = "rand"; };
+      storage = { kind = "key"; generate = "rand"; };
+    };
   };
 }

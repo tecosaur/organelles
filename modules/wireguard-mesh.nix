@@ -39,7 +39,7 @@ in
   ];
 
   age.secrets."wg-${this-host}" = {
-    file = ../secrets/keys + "/wg-${this-host}.age";
+    file = config.site.secrets."wg-${this-host}".file;
     # Ownership systemd.netdev(5) asks for.
     owner = "root";
     group = "systemd-network";

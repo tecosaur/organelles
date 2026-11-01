@@ -45,5 +45,8 @@
         };
       };
     };
+    secrets = {
+      api-key = { kind = "password"; description = "Shared secret between the llama-server and its clients"; file-name = "llm-api-key"; };
+    };
   };
 }

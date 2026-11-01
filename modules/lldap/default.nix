@@ -11,17 +11,17 @@ in {
     lldap-jwt = {
       owner = lldap-user;
       group = "users";
-      file = ../../secrets/keys/lldap-jwt.age;
+      file = config.site.apps.lldap.secrets.jwt.file;
     };
     lldap-key-seed = {
       owner = lldap-user;
       group = "users";
-      file = ../../secrets/keys/lldap-key-seed.age;
+      file = config.site.apps.lldap.secrets.key-seed.file;
     };
     lldap-admin-password = {
       owner = lldap-user;
       group = "users";
-      file = ../../secrets/passwords/lldap-admin-password.age;
+      file = config.site.apps.lldap.secrets.admin-password.file;
     };
   };
 

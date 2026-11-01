@@ -112,4 +112,9 @@ in {
     ha-valkey = mesh 6380 "valkey-ha" valkey-clients;
     ha-sentinel = mesh 26379 "valkey-ha-sentinel" valkey-clients;
   };
+  config.site.secrets = {
+    patroni-restapi = { kind = "key"; generate = "rand"; };
+    postgresql-ha-replication = { kind = "key"; generate = "rand"; };
+    valkey-ha = { kind = "key"; generate = "rand"; };
+  };
 }

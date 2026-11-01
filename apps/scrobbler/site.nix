@@ -17,6 +17,9 @@
         description = "Title of the Koito app";
       };
     };
+    secrets = {
+      admin-password = { kind = "password"; description = "Koito admin login"; };
+    };
   };
   options.site.apps.multi-scrobbler = site-lib.mkAppOption {
     # the Koito client alone: the full check fails whenever any upstream
@@ -40,6 +43,13 @@
       };
     };
     auth.access.subject = [ "group:${config.site.apps.multi-scrobbler.groups.admin}" ];
+    secrets = {
+      deezer-arl = { kind = "credential"; description = "Deezer arl login cookie, for multi-scrobbler"; optional = true; file-name = "deezer-arl"; };
+      listenbrainz-token = { kind = "credential"; description = "ListenBrainz user token, for multi-scrobbler"; optional = true; file-name = "listenbrainz-token"; };
+      jellyfin = { kind = "key"; generate = "rand"; };
+      koito = { kind = "key"; generate = "rand"; };
+      endpoint-token = { kind = "password"; description = "Token Lyrion's AudioScrobbler plugin presents to multi-scrobbler's ListenBrainz endpoint"; };
+    };
   };
   config.site.apps.koito = {
     title = "Listens";

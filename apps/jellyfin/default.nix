@@ -23,7 +23,7 @@ in {
   age.secrets.jellyfin-oidc = {
     owner = "jellyfin";
     group = "users";
-    file = ../../secrets/oidc/jellyfin-secret.age;
+    file = config.site.apps.jellyfin.auth.clients.jellyfin.file;
   };
 
   services.declarative-jellyfin = {
@@ -166,7 +166,7 @@ in {
 
   age.secrets.jellyfin-multi-scrobbler = lib.mkIf config.site.apps.multi-scrobbler.enabled {
     owner = "jellyfin";
-    file = ../../secrets/keys/multi-scrobbler-jellyfin.age;
+    file = config.site.apps.multi-scrobbler.secrets.jellyfin.file;
   };
   services.declarative-jellyfin.apikeys = lib.mkIf config.site.apps.multi-scrobbler.enabled {
     multi-scrobbler.keyPath = config.age.secrets.jellyfin-multi-scrobbler.path;

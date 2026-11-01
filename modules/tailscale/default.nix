@@ -9,7 +9,7 @@ in {
   age.secrets.tailscale-preauth = {
     owner = "root";
     group = "root";
-    file = ../../secrets/credentials/tailscale-preauth.age;
+    file = config.site.secrets.tailscale-preauth.file;
   };
 
   services.tailscale = {

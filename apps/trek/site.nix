@@ -18,5 +18,11 @@
         settings.token_endpoint_auth_method = "client_secret_post";
       };
     };
+    secrets = {
+      aerodatabox-key = { kind = "credential"; description = "AeroDataBox RapidAPI key, for TREK flight tracking"; };
+      maps-key = { kind = "credential"; description = "Google Maps API key, for TREK place search"; };
+      mapbox-token = { kind = "credential"; description = "Mapbox access token (pk....), for TREK maps"; };
+      unsplash-key = { kind = "credential"; description = "Unsplash access key, for TREK trip covers"; };
+    };
   };
 }

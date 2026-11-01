@@ -10,4 +10,7 @@ in {
     dns-pooler-peer = mesh 9433 "dns-pooler" { dns-pooler = hosts; };
     dns-pooler-status = local 9434 "dns-pooler" { gatus-aggregator-report = hosts; gatus-aggregator-aggregate = preference; };
   };
+  config.site.secrets = {
+    bunny-dns-key = { kind = "credential"; description = "Bunny API key, for dns-pooler; it also keys the peer channel, so every node needs the same one"; };
+  };
 }

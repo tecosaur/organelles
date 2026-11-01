@@ -38,4 +38,7 @@ in {
       meilisearch-keys = [ config.site.meilisearch.host ];
     } // { hosts = [ config.site.meilisearch.host ]; };
   };
+  config.site.secrets = {
+    meilisearch-master = { kind = "key"; generate = "rand"; };
+  };
 }

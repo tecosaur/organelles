@@ -4,6 +4,59 @@
 # and the listener shape, and constructors for the common listeners.
 
 rec {
+  # an app's ID, for its OIDC policy and client and its secrets' files, from its name
+  id-of = name: lib.toLower (lib.replaceStrings [ " " ] [ "-" ] name);
+  secret-dirs = { key = "keys"; credential = "credentials"; password = "passwords"; oidc = "oidc"; };
+  # The shape every secret is declared in; an app's files are named after it unless they say
+  secret = { prefix ? null }: lib.types.submodule ({ name, config, ... }: {
+    options = {
+      kind = lib.mkOption {
+        type = lib.types.enum (lib.attrNames secret-dirs);
+        description = ''
+          Where it comes from, and so its directory under secrets/: a key
+          the scripts generate, a credential from elsewhere, a password set
+          by hand, or an OIDC client's secret beside its digest.
+        '';
+      };
+      generate = lib.mkOption {
+        type = lib.types.nullOr (lib.types.enum [ "rand" "hex" "rsa" "dkim" "s3-key" "garage-node" "meilisearch" "wireguard" ]);
+        default = null;
+        description = "How a key is generated; companion files sit beside it by name";
+      };
+      description = lib.mkOption {
+        type = lib.types.str;
+        default = "";
+        description = "What it is, and for a credential where to get it";
+      };
+      optional = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = "Whether its absence merely turns off what uses it";
+      };
+      recipients = lib.mkOption {
+        type = lib.types.nullOr (lib.types.listOf lib.types.str);
+        default = null;
+        description = "The hosts that may decrypt it, besides the admin; null for every host";
+      };
+      file-name = lib.mkOption {
+        type = lib.types.str;
+        default = if prefix == null then name else "${prefix}-${name}";
+        description = "Its file's name in its directory, less .age";
+      };
+      path = lib.mkOption {
+        type = lib.types.str;
+        readOnly = true;
+        default = "${secret-dirs.${config.kind}}/${config.file-name}.age";
+        description = "The encrypted file, under secrets/";
+      };
+      file = lib.mkOption {
+        type = lib.types.path;
+        readOnly = true;
+        default = ../secrets + "/${config.path}";
+        description = "The encrypted file";
+      };
+    };
+  });
   clients-type = with lib.types; either (listOf str) (attrsOf (listOf str));
   # The shape every listener is declared in, so the firewall, the port-clash
   # check and confinement read them all alike
@@ -55,7 +108,7 @@ rec {
                   subdomain, port, admin ? "admin", extra-groups ? [],
                   auth ? {}, cacheSubdirs ? [], stateSubdirs ? null, health ? null,
                   followsPrimary ? false, exposure ? (if followsPrimary then "mesh" else "local"),
-                  clients ? [], ports ? {}, extraOptions ? {} }:
+                  clients ? [], ports ? {}, secrets ? {}, extraOptions ? {} }:
     {
       name = lib.mkOption {
         type = lib.types.str;
@@ -266,8 +319,14 @@ rec {
           '';
         };
         clients = lib.mkOption {
-          type = lib.types.attrsOf (lib.types.submodule {
+          type = lib.types.attrsOf (lib.types.submodule ({ name, ... }: {
             options = {
+              file = lib.mkOption {
+                type = lib.types.path;
+                readOnly = true;
+                default = ../secrets + "/oidc/${name}-secret.age";
+                description = "The client's encrypted secret, where it holds one";
+              };
               redirects = lib.mkOption {
                 type = lib.types.listOf lib.types.str;
                 example = [ "oidc/callback" "app.example:///callback" ];
@@ -278,6 +337,15 @@ rec {
                 default = true;
                 description = "Whether the client must use PKCE";
               };
+              holds-secret = lib.mkOption {
+                type = lib.types.bool;
+                default = true;
+                description = ''
+                  Whether the app reads the client's secret from
+                  secrets/oidc/<id>-secret.age, rather than keeping it
+                  elsewhere (its own database, say) or being public.
+                '';
+              };
               settings = lib.mkOption {
                 type = lib.types.attrs;
                 default = { };
@@ -285,7 +353,7 @@ rec {
                 description = "Further Authelia client settings, over the defaults";
               };
             };
-          });
+          }));
           default = auth.clients or { };
           description = ''
             The ${name} app's OIDC clients, by client ID, each signing in under
@@ -314,6 +382,15 @@ rec {
             ${name} app's domain: those allowed pass, and others are denied.
           '';
         };
+      };
+      secrets = lib.mkOption {
+        type = lib.types.attrsOf (secret { prefix = id-of name; });
+        default = secrets;
+        description = ''
+          The secrets the ${name} app holds, by name, each a file named
+          ${id-of name}-<name> unless it says otherwise. Other apps reading one
+          refer to it here, so where it belongs stays plain.
+        '';
       };
     } // extraOptions;
   mesh = port: unit: clients: { inherit port unit clients; exposure = "mesh"; };

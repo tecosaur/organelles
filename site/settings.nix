@@ -1,6 +1,8 @@
 {
   # The site's own values; per-app ones are in each app's site.nix
   config.site = {
+    # each built by flake.nix's machines
+    hosts = [ "centrosome" "golgi" "nucleus" ];
     domain = "tecosaur.net";
     # mail's records are apps/mail/stalwart.nix's
     dns.records = [
@@ -18,5 +20,8 @@
       primary = "#239a58";
       secondary = "#67bc85";
     };
+  };
+  config.site.secrets = {
+    fastmail = { kind = "credential"; description = "Fastmail app password, for SMTP"; };
   };
 }

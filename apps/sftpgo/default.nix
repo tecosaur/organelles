@@ -21,15 +21,15 @@ in {
   age.secrets = {
     sftpgo-oidc = {
       owner = sftpgo-user;
-      file = ../../secrets/oidc/sftpgo-secret.age;
+      file = config.site.apps.sftpgo.auth.clients.sftpgo.file;
     };
     sftpgo-admin-password = {
       owner = sftpgo-user;
-      file = ../../secrets/passwords/sftpgo-admin-password.age;
+      file = config.site.apps.sftpgo.secrets.admin-password.file;
     };
     sftpgo-smtp-password = {
       owner = sftpgo-user;
-      file = ../../secrets/credentials/fastmail.age;
+      file = config.site.secrets.fastmail.file;
     };
   };
 

@@ -97,7 +97,7 @@ in {
       };
     }
     (lib.mkIf (lib.elem this-host (members ++ voters)) {
-      age.secrets.valkey-ha.file = ../../secrets/keys/valkey-ha.age;
+      age.secrets.valkey-ha.file = config.site.secrets.valkey-ha.file;
       environment.systemPackages = [ package ];
       users.users.valkey-ha = {
         isSystemUser = true;
@@ -107,7 +107,7 @@ in {
     })
     (lib.mkIf (lib.elem this-host members) {
       age.secrets = lib.mapAttrs' (name: _: lib.nameValuePair "valkey-${name}" {
-        file = ../../secrets/keys/valkey-${name}.age;
+        file = config.site.secret-files."keys/valkey-${name}.age".file;
       }) cfg.users;
       systemd.services.valkey-ha = lib.recursiveUpdate service {
         description = "Replicated Valkey";

@@ -18,6 +18,9 @@
       policy.users = "two_factor";
       clients.paperless.redirects = [ "accounts/oidc/authelia/login/callback/" ];
     };
+    secrets = {
+      admin-password = { kind = "password"; description = "Paperless admin login"; };
+    };
   };
   config.site.apps.paperless.groups.extra = [ "family" ];
 }

@@ -21,6 +21,9 @@
         settings.token_endpoint_auth_method = "client_secret_post";
       };
     };
+    secrets = {
+      admin-password = { kind = "password"; description = "SFTPGo admin login"; };
+    };
   };
   config.site.apps.sftpgo.groups.extra = [ "family" ];
 }

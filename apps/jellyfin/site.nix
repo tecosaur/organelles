@@ -14,6 +14,9 @@
       redirects = [ "sso/OID/redirect/authelia" ];
       settings = { authorization_policy = "one_factor"; token_endpoint_auth_method = "client_secret_post"; };
     };
+    secrets = {
+      meilisearch = { kind = "key"; generate = "meilisearch"; file-name = "meilisearch-jellyfin"; };
+    };
   };
   config.site.apps.jellyfin.groups.extra = [ "family" ];
 }

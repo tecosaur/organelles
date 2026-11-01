@@ -18,9 +18,9 @@ let
   scrobbler-domain = "${scrobbler.subdomain}.${config.site.domain}";
   scrobbler-secrets-env = "/run/multi-scrobbler/secrets.env";
   # A browser cookie only the user can supply, so it does not block a deploy.
-  has-deezer-arl = builtins.pathExists ../../secrets/credentials/deezer-arl.age;
+  has-deezer-arl = builtins.pathExists config.site.apps.multi-scrobbler.secrets.deezer-arl.file;
   # Likewise a user token from listenbrainz.org.
-  has-listenbrainz-token = builtins.pathExists ../../secrets/credentials/listenbrainz-token.age;
+  has-listenbrainz-token = builtins.pathExists config.site.apps.multi-scrobbler.secrets.listenbrainz-token.file;
   jellyfin = config.site.apps.jellyfin;
 in {
   site.apps.koito.enabled = true;
@@ -38,29 +38,29 @@ in {
   age.secrets = {
     koito-admin-password = {
       owner = "koito";
-      file = ../../secrets/passwords/koito-admin-password.age;
+      file = config.site.apps.koito.secrets.admin-password.file;
     };
     multi-scrobbler-endpoint-token = {
       owner = "multi-scrobbler";
-      file = ../../secrets/passwords/multi-scrobbler-endpoint-token.age;
+      file = config.site.apps.multi-scrobbler.secrets.endpoint-token.file;
     };
     multi-scrobbler-koito = {
       owner = "koito";
       group = "multi-scrobbler";
       mode = "0440";
-      file = ../../secrets/keys/multi-scrobbler-koito.age;
+      file = config.site.apps.multi-scrobbler.secrets.koito.file;
     };
     multi-scrobbler-jellyfin = {
       owner = "multi-scrobbler";
-      file = ../../secrets/keys/multi-scrobbler-jellyfin.age;
+      file = config.site.apps.multi-scrobbler.secrets.jellyfin.file;
     };
     deezer-arl = lib.mkIf has-deezer-arl {
       owner = "multi-scrobbler";
-      file = ../../secrets/credentials/deezer-arl.age;
+      file = config.site.apps.multi-scrobbler.secrets.deezer-arl.file;
     };
     listenbrainz-token = lib.mkIf has-listenbrainz-token {
       owner = "multi-scrobbler";
-      file = ../../secrets/credentials/listenbrainz-token.age;
+      file = config.site.apps.multi-scrobbler.secrets.listenbrainz-token.file;
     };
   };
 

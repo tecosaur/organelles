@@ -43,7 +43,7 @@ let
   };
 in {
   config = lib.mkIf (config.site.server.host == host) {
-    age.secrets.meilisearch-master.file = ../../secrets/keys/meilisearch-master.age;
+    age.secrets.meilisearch-master.file = config.site.secrets.meilisearch-master.file;
     services.meilisearch = {
       enable = true;
       listenAddress = "[${config.site.mesh.addresses.${host}}]";

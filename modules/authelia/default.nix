@@ -28,41 +28,41 @@ in {
     authelia-session = {
       owner = authelia-user;
       group = "users";
-      file = ../../secrets/keys/authelia-session.age;
+      file = config.site.apps.authelia.secrets.session.file;
     };
     authelia-storage = {
       owner = authelia-user;
       group = "users";
-      file = ../../secrets/keys/authelia-storage.age;
+      file = config.site.apps.authelia.secrets.storage.file;
     };
     authelia-jwt = {
       owner = authelia-user;
       group = "users";
-      file = ../../secrets/keys/authelia-jwt.age;
+      file = config.site.apps.authelia.secrets.jwt.file;
     };
     authelia-smtp = {
       owner = authelia-user;
       group = "users";
-      file = ../../secrets/credentials/fastmail.age;
+      file = config.site.secrets.fastmail.file;
     };
     authelia-oidc-hmac = {
       owner = authelia-user;
       group = "users";
-      file = ../../secrets/keys/authelia-oidc-hmac.age;
+      file = config.site.apps.authelia.secrets.oidc-hmac.file;
     };
     authelia-oidc-issuer-key = {
       owner = authelia-user;
       group = "users";
-      file = ../../secrets/keys/authelia-oidc-issuer.pem.age;
+      file = config.site.apps.authelia.secrets."oidc-issuer.pem".file;
     };
     authelia-lldap-admin-password = {
       owner = authelia-user;
       group = "users";
-      file = ../../secrets/passwords/lldap-admin-password.age;
+      file = config.site.apps.lldap.secrets.admin-password.file;
     };
     authelia-valkey = {
       owner = authelia-user;
-      file = ../../secrets/keys/valkey-ha.age;
+      file = config.site.secrets.valkey-ha.file;
     };
   };
 

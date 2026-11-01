@@ -113,7 +113,7 @@ in {
   };
   config = lib.mkIf config.site.ha.may-lead {
     age.secrets = {
-      s3-overflow-client.file = ../../secrets/keys/s3-overflow-client.age;
+      s3-overflow-client.file = config.site.apps.mail.secrets.s3-overflow-client.file;
       s3-overflow-primary.file = garage.primary.secret-file;
       s3-overflow-overflow.file = garage.overflow.secret-file;
     };

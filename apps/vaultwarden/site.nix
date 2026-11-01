@@ -15,5 +15,8 @@
       policy.users = "two_factor";
       clients.vaultwarden.redirects = [ "identity/connect/oidc-signin" ];
     };
+    secrets = {
+      "rsa.pem" = { kind = "key"; generate = "rsa"; };
+    };
   };
 }

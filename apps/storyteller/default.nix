@@ -6,23 +6,23 @@ let
   storyteller-pkg = pkgs.callPackage ./package.nix { whisper = pkgs.whisper-cpp-vulkan; };
   storyteller-import = "/data/media/books";
   # A user token from hardcover.app, so it does not block a deploy.
-  has-hardcover-token = builtins.pathExists ../../secrets/credentials/hardcover-token.age;
+  has-hardcover-token = builtins.pathExists config.site.apps.storyteller.secrets.hardcover-token.file;
 in {
   site.apps.storyteller.enabled = true;
 
   age.secrets.storyteller-oidc = {
     owner = "storyteller";
-    file = ../../secrets/oidc/storyteller-secret.age;
+    file = config.site.apps.storyteller.auth.clients.storyteller.file;
   };
 
   age.secrets.storyteller-smtp = {
     owner = "storyteller";
-    file = ../../secrets/credentials/fastmail.age;
+    file = config.site.secrets.fastmail.file;
   };
 
   age.secrets.storyteller-hardcover = lib.mkIf has-hardcover-token {
     owner = "storyteller";
-    file = ../../secrets/credentials/hardcover-token.age;
+    file = config.site.apps.storyteller.secrets.hardcover-token.file;
   };
 
   systemd.services.storyteller = {

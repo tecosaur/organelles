@@ -18,6 +18,10 @@ in {
     port = 3001;
     # every reporter pushes to it
     clients = { gatus-aggregator-report = config.site.hosts; gatus-aggregator-aggregate = config.site.ha.preference; };
+    secrets = {
+      push = { kind = "key"; generate = "rand"; };
+      alert-topic = { kind = "key"; generate = "rand"; file-name = "status-alert-topic"; };
+    };
   };
   config.site.ports = {
     # each reporter's board of planned transitions

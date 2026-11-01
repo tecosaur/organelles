@@ -29,12 +29,12 @@ in {
 
   age.secrets.tandoor-oidc = {
     owner = config.services.tandoor-recipes.user;
-    file = ../../secrets/oidc/tandoor-secret.age;
+    file = config.site.apps.tandoor.auth.clients.tandoor.file;
   };
 
   age.secrets.fdc-api-key = {
     owner = config.services.tandoor-recipes.user;
-    file = ../../secrets/credentials/tandoor-fdc-api-key.age;
+    file = config.site.apps.tandoor.secrets.fdc-api-key.file;
   };
 
   services.tandoor-recipes = {

@@ -101,7 +101,7 @@ in {
   } ];
 
   # shared with Caddy, which answers ACME DNS challenges with it
-  age.secrets.bunny-dns-key.file = ../../secrets/credentials/bunny-dns-key.age;
+  age.secrets.bunny-dns-key.file = config.site.secrets.bunny-dns-key.file;
 
   environment.etc."dns-pooler/config.toml".source = config-file;
 
