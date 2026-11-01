@@ -15,45 +15,17 @@ tool_name="init-keys"
 # shellcheck source=lib.sh
 . "$secrets_dir/scripts/lib.sh"
 
-# name:kind. Every node holds this material: instances must share it to accept
-# each other's tokens. A garage-node key is one node's identity, held by it alone.
-# A meilisearch key derives from meilisearch-master, so follows it.
-readonly service_keys=(
-    "authelia-jwt:rand"
-    "authelia-oidc-hmac:rand"
-    "authelia-oidc-issuer.pem:rsa"
-    "authelia-session:rand"
-    "authelia-storage:rand"
-    "bulwark-session:rand"
-    "dkim-tecosaur.net:dkim"
-    "garage-mail-overflow:s3-key"
-    "garage-mail-primary:s3-key"
-    "garage-node-centrosome:garage-node"
-    "garage-node-golgi:garage-node"
-    "garage-overflow-rpc:hex"
-    "gatus-push:rand"
-    "lldap-jwt:rand"
-    "lldap-key-seed:rand"
-    "meilisearch-master:rand"
-    "meilisearch-jellyfin:meilisearch"
-    "meilisearch-stalwart:meilisearch"
-    "multi-scrobbler-jellyfin:rand"
-    "multi-scrobbler-koito:rand"
-    "patroni-restapi:rand"
-    "postgresql-ha-replication:rand"
-    "s3-overflow-client:s3-key"
-    "status-alert-topic:rand"
-    "valkey-ha:rand"
-    "valkey-s3-overflow:rand"
-    "valkey-stalwart:rand"
-    "vaultwarden-rsa.pem:rsa"
-)
+# name:generator for every declared key but the WireGuard ones, which
+# init-wireguard.sh makes with their public halves. A meilisearch key derives from
+# meilisearch-master, so follows it.
+mapfile -t service_keys < <(generated_keys | grep -v ':wireguard$' | sort)
 
 function usage() {
     printf '\e[1mUsage:\e[0m init-keys.sh [\e[36m--list\e[0m]
 
-Generate any key in secrets/keys/ that does not yet exist, and register it in
-secrets.nix. Existing keys are left untouched and reported as present.
+Generate any declared key in secrets/keys/ that does not yet exist; each is
+declared in the site.nix of what uses it (site.secrets). Existing keys are left
+untouched and reported as present.
 
   \e[36m--list\e[0m   show each key and whether it exists, without generating anything
   \e[36m--help\e[0m   show this help
@@ -158,19 +130,18 @@ function list_keys() {
 }
 
 function init_key() {
-    local name="$1" kind="$2" group="$3"
+    local name="$1" kind="$2"
     local age_file="keys/$name.age"
     if [ -e "$keys_dir/$name.age" ]; then
         return 1
     fi
     echo "$name:"
-    # agenix reads secrets.nix for the recipients, so the entry must exist first.
-    register_secret "$age_file" "$group"
+    # agenix reads secrets.nix for the recipients, so the declaration must exist first
+    register_secret "$age_file"
     # A non-interactive stdin makes agenix use `cp /dev/stdin` as its editor.
     generate "$kind" "$name" |
         (cd "$secrets_dir" && nix_run github:ryantm/agenix -- -e "$age_file") ||
-        die "agenix failed to encrypt $age_file;" \
-            "secrets.nix now names $age_file, which does not exist yet"
+        die "agenix failed to encrypt $age_file"
     printf '  %s %s\n' "$mark_wrote" "$age_file"
     return 0
 }
@@ -187,17 +158,9 @@ read_rules
 mkdir -p "$keys_dir"
 
 created=0
-# Word-split deliberately: node_names emits one name per line.
-# shellcheck disable=SC2046
-group="$(recipients_to_group "$(local_binding)" $(node_names))"
 for spec in "${service_keys[@]}"; do
     IFS=: read -r name kind <<<"$spec"
-    if [ "$kind" = garage-node ]; then
-        key_group="$(recipients_to_group "$(local_binding)" "${name#garage-node-}")"
-    else
-        key_group="$group"
-    fi
-    init_key "$name" "$kind" "$key_group" && created=$((created + 1)) || true
+    init_key "$name" "$kind" && created=$((created + 1)) || true
 done
 
 [ "$created" -gt 0 ] || exit 2
