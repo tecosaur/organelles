@@ -1,6 +1,7 @@
 { config, lib, site-lib, ... }:
 
 {
+  imports = [ ./online.nix ];
   options.site.apps.authelia = site-lib.mkAppOption {
     health.path = "/api/health";
     name = "Authelia";

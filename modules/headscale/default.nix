@@ -36,10 +36,10 @@ in {
     };
   };
 
-  systemd.services.headscale = lib.mkIf (config.services.authelia.instances ? main
-                                         && config.services.authelia.instances.main.enable) {
-    after = lib.mkAfter [ "authelia-main.target" ];
-    wants = lib.mkAfter [ "authelia-main.target" ];
+  # it exits when the discovery fetch fails
+  systemd.services.headscale = {
+    wants = [ "authelia-online.service" ];
+    after = [ "authelia-online.service" ];
   };
 
   services.headplane = {

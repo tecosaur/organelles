@@ -87,16 +87,21 @@ let
 in {
   site.apps.forgejo.enabled = true;
 
-  # the sign-in source lives in Forgejo's database, so its secret is set there
-  systemd.services.forgejo.preStart = lib.mkAfter ''
-    source=$(${lib.getExe config.services.forgejo.package} admin auth list | ${lib.getExe pkgs.gawk} '$2 == "authelia" { print $1 }')
-    if [ -n "$source" ]; then
-      ${lib.getExe config.services.forgejo.package} admin auth update-oauth --id "$source" \
-        --secret "$(< ${app.auth.clients.forgejo.secret.credential})"
-    else
-      echo "forgejo: no authentication source named authelia, so no client secret to set" >&2
-    fi
-  '';
+  # the sign-in source lives in Forgejo's database, so its secret is set there,
+  # and updating it fetches Authelia's discovery
+  systemd.services.forgejo = {
+    wants = [ "authelia-online.service" ];
+    after = [ "authelia-online.service" ];
+    preStart = lib.mkAfter ''
+      source=$(${lib.getExe config.services.forgejo.package} admin auth list | ${lib.getExe pkgs.gawk} '$2 == "authelia" { print $1 }')
+      if [ -n "$source" ]; then
+        ${lib.getExe config.services.forgejo.package} admin auth update-oauth --id "$source" \
+          --secret "$(< ${app.auth.clients.forgejo.secret.credential})"
+      else
+        echo "forgejo: no authentication source named authelia, so no client secret to set" >&2
+      fi
+    '';
+  };
 
   services.forgejo = {
     enable = true;
