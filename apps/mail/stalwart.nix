@@ -26,7 +26,6 @@ let
     let record = ../../secrets/keys + "/dkim-${name}.txt";
     in if builtins.pathExists record then lib.removeSuffix "\n" (builtins.readFile record)
        else throw "mail: no DKIM key for ${name}; add dkim-${name}:dkim to secrets/scripts/init-keys.sh and run it";
-  # each secret Stalwart reads, as its credential
   credential = secret: secret.credentials.stalwart;
   file = secret: { "@type" = "File"; filePath = credential secret; };
   auth-domain = lib.removePrefix "https://" oidc.issuer;
@@ -45,7 +44,6 @@ let
     "_submissions._tcp" = 465;
     "_jmap._tcp" = 443;
   };
-  # The address each app sending through Stalwart sends as
   app-senders = lib.mapAttrsToList (name: _: config.site.mail.connections.${name}.from)
     (lib.filterAttrs (_: app: app.mail != null && app.mail.sender != null) config.site.apps);
   settings = pkgs.writeText "stalwart-settings.ndjson" (import ./stalwart-settings.nix { inherit lib; } addressing {

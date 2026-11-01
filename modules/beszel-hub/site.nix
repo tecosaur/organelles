@@ -9,7 +9,6 @@
     service = "beszel-hub";
     subdomain = "systems";
     port = 8090;
-    # beszel-agent is a core module, beside the hub or not
     ports.agent = { port = 45876; unit = "beszel-agent"; hosts = config.site.hosts; };
     admin = null;
     extra-groups = [ "admin" ];

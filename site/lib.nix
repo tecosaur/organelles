@@ -4,16 +4,13 @@
 # and the listener shape, and constructors for the common listeners.
 
 rec {
-  # an app's ID, for its OIDC policy and client and its secrets' files, from its name
   id-of = name: lib.toLower (lib.replaceStrings [ " " ] [ "-" ] name);
   # Each site.nix in a folder under the roots: every app's and module's metadata
   site-modules = roots: lib.concatMap (root: lib.concatMap (name:
       lib.optional (builtins.pathExists (root + "/${name}/site.nix")) (root + "/${name}/site.nix"))
     (lib.attrNames (builtins.readDir root))) roots;
   secret-dirs = { key = "keys"; credential = "credentials"; password = "passwords"; oidc = "oidc"; };
-  # The shape every secret is declared in. It is decrypted once, root's alone, on the hosts
-  # that hold it, and each unit reading it loads it as a credential; an app's files are
-  # named after it unless they say.
+  # The shape every secret is declared in
   secret = { prefix ? null, kind ? null, file-name ? null, as ? null }: lib.types.submodule ({ name, config, ... }: {
     options = {
       kind = lib.mkOption ({
@@ -502,7 +499,6 @@ rec {
       };
       secrets = lib.mkOption {
         type = lib.types.attrsOf (secret { prefix = id-of name; });
-        # the password it sends mail with through another server
         default = secrets // lib.optionalAttrs (mail != null && mail ? smtp) {
           smtp = { kind = "credential"; description = "${name}'s password at ${mail.smtp.host}"; inherit (mail) units; };
         };

@@ -1,8 +1,5 @@
-# The site's settings: everything particular to this site, which the apps and modules
-# leave generic. flake.nix gives them to every machine, and site/manifest.nix reads them
-# for the secrets' rules.
+# Everything particular to this site; the apps and modules stay generic
 {
-  # each built by flake.nix's machines
   hosts = [ "centrosome" "golgi" "nucleus" ];
   domain = "tecosaur.net";
   ha.preference = [ "nucleus" "golgi" ];

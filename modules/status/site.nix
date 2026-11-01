@@ -16,10 +16,8 @@ in {
     usesStateDir = false;
     subdomain = "status";
     port = 3001;
-    # every reporter pushes to it
     clients = { gatus-aggregator-report = config.site.hosts; gatus-aggregator-aggregate = config.site.ha.preference; };
     secrets = let
-      # Gatus beside the primary, a reporter on every host, the aggregator where Gatus may run
       units = {
         gatus = config.site.apps.gatus.hosts;
         gatus-aggregator-report = config.site.hosts;
@@ -31,9 +29,7 @@ in {
     };
   };
   config.site.ports = {
-    # each reporter's board of planned transitions
     status-conditions = mesh 9435 "gatus-aggregator-report" { gatus-aggregator-report = hosts; gatus-aggregator-aggregate = preference; };
-    # the aggregator's answer to the page's /api/v1/config
     status-announcement = mesh 9436 "gatus-aggregator-aggregate" { caddy = preference; };
   };
 }

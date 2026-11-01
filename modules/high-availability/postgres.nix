@@ -103,7 +103,6 @@ in {
 
     # Required for the REST API's unsafe methods; reads stay open, for Caddy's health checks
 
-    # Root's patronictl may switch over and edit the configuration; others only read
     environment.systemPackages = [ (lib.hiPrio (pkgs.writeShellScriptBin "patronictl" ''
       if [ -r ${config.site.secrets.patroni-restapi.decrypted} ]; then
         export PATRONI_RESTAPI_USERNAME=patroni PATRONI_RESTAPI_PASSWORD="$(< ${config.site.secrets.patroni-restapi.decrypted})"
@@ -174,10 +173,8 @@ in {
             replication.username = "replicator";
             rewind.username = "replicator";
           };
-          # Each app's role reaches only its own database, and ident is
-          # believed only from the hosts that run apps, whose setup
-          # provisions as the superuser: root on any other member could
-          # otherwise vouch for any role
+          # ident is believed only from the hosts that run apps: root on any other
+          # member could otherwise vouch for any role
           pg_hba = [
             "local all postgres peer"
             "local sameuser all peer"
@@ -305,7 +302,6 @@ in {
       script = lib.mkForce "${pkgs.oidentd}/sbin/oidentd -u oidentd -g nogroup -a ${config.site.mesh.addresses.${this-host}}";
     };
 
-    # where the apps it provisions for run
     systemd.services.postgresql-ha-setup = lib.mkIf (lib.elem this-host preference) {
       description = "Roles and databases of the replicated PostgreSQL";
       wantedBy = [ "multi-user.target" ];

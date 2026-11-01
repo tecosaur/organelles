@@ -55,7 +55,6 @@ function init_node() {
         die "could not generate a private key for $node"
     public="$(printf '%s' "$private" | nix_run 'nixpkgs#wireguard-tools' -- pubkey)" ||
         die "could not derive the public key for $node"
-    # agenix reads secrets.nix for the recipients, so the declaration must exist first
     register_secret "$age_file"
     # A non-interactive stdin makes agenix use `cp /dev/stdin` as its editor.
     printf '%s' "$private" |

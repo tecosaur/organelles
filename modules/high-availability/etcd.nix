@@ -26,7 +26,6 @@ in {
         ELECTION_TIMEOUT = "5000";
         # A read waits on the leader, a WAN round trip away, so the default 100 ms warns on every one
         WARNING_APPLY_DURATION = "1s";
-        # health alone, for the status probe, which so needs no client access
         LISTEN_METRICS_URLS = metrics-url;
       };
     };

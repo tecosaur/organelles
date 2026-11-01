@@ -1,9 +1,7 @@
 # Shared helpers for the secret generators. Sourced, not executed.
 #
-# Secrets are declared in the site.nix of whatever uses them (site.secrets), and
-# secrets.nix derives agenix's rules from those declarations, so the generators
-# only read: which secrets exist from the rules, and who the recipients are from
-# recipients.nix beside them.
+# Which secrets exist comes from secrets.nix's rules, derived from the declarations,
+# and who they are encrypted to from recipients.nix.
 
 : "${rules:?lib.sh: \$rules must name a secrets.nix}"
 : "${tool_name:=secrets}"

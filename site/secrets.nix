@@ -1,15 +1,10 @@
 { config, lib, site-lib, ... }:
 
-# Every secret the site holds, declared by what holds it: an app in site.apps.<app>.secrets,
-# its OIDC clients' in their auth, and anything else in site.secrets. secrets/secrets.nix and
-# the scripts in secrets/scripts read the resolved site.secret-files. Each is installed on
-# its hosts: decrypted once, root's alone unless it names an owner, and loaded by each of its
-# units as a credential.
+# Every declared secret, installed on its hosts and loaded by each of its units as a credential
 
 let
   this-host = config.site.server.host;
-  # each secret with the hosts that hold it by default: its units', else those it is encrypted
-  # to, else its app's
+  # each secret with its app's hosts, the last default for where it is installed
   app-secrets = lib.concatLists (lib.mapAttrsToList (_: app: map (secret: { inherit secret; default-hosts = app.hosts; })
     (lib.attrValues app.secrets
      ++ lib.filter (secret: secret != null) (lib.mapAttrsToList (_: client: client.secret) app.auth.clients)))
@@ -26,7 +21,6 @@ let
       lib.elem this-host (hosts-of entry)
       && (!entry.secret.optional || builtins.pathExists entry.secret.file))
     all-secrets);
-  # the units here that read a secret
   units-here = secret: if lib.isList secret.units then secret.units
     else lib.attrNames (lib.filterAttrs (_: hosts: lib.elem this-host hosts) secret.units);
 in {

@@ -65,12 +65,10 @@ in {
     port = 8460;
     # for the other hosts' Caddy alone, since it trusts X-Forwarded-For
     exposure = "mesh";
-    # its provisioner calls the management API
     clients = [ "stalwart" ];
     ports = let
       inherit (config.site.mail.storage) heads;
       cluster-hosts = cluster: lib.attrNames config.site.mail.storage.${cluster};
-      # the head sets up its cluster
       setup = cluster: { garage-mail-setup = [ heads.${cluster} ]; };
       s3 = cluster: port: {
         inherit port;
@@ -79,7 +77,6 @@ in {
         exposure = "mesh";
         clients = setup cluster // { s3-overflow = config.site.apps.mail.hosts; };
       };
-      # a lone node keeps its RPC to itself
       rpc = cluster: port: {
         inherit port;
         unit = "garage";
@@ -91,9 +88,7 @@ in {
       { smtp = 25; submissions = 465; submission = 587; imaps = 993; sieve = 4190; }
     // {
       bulwark = { port = 3480; unit = "bulwark"; clients = [ "caddy" ]; };
-      # Apps' mail, from every host's Caddy, which offers it them on loopback
       submission-mesh = { port = 10588; exposure = "mesh"; clients.caddy = config.site.hosts; };
-      # Every host's way to whichever Stalwart is healthy, for the apps sending through it
       submission-local = {
         port = 10587;
         unit = "caddy";
@@ -102,7 +97,6 @@ in {
           (lib.mapAttrsToList (_: app: lib.genAttrs app.mail.units (_: app.hosts))
             (lib.filterAttrs (_: app: app.mail != null && app.mail.sender != null) config.site.apps));
       };
-      # applies the settings before each start
       stalwart-recovery = { port = 8461; clients = [ "stalwart" ]; };
       s3-gateway = { port = 3920; unit = "s3-overflow"; clients = [ "stalwart" ]; };
       s3-gateway-status = { port = 3921; unit = "s3-overflow"; clients = [ "gatus-aggregator-report" ]; };
@@ -150,8 +144,7 @@ in {
         };
       };
     };
-    # Its files keep the names of what holds them, Stalwart's, Bulwark's and the
-    # gateway's, rather than the app's
+    # files named for what holds them, not the app
     # Stalwart and the gateway run where the primary may
     secrets = let
       stalwart.stalwart = config.site.ha.preference;
@@ -160,7 +153,6 @@ in {
       bulwark-session = { kind = "key"; generate = "rand"; units = [ "bulwark" ]; };
       s3-overflow-client = { kind = "key"; generate = "s3-key"; units = stalwart // gateway; };
       meilisearch-stalwart = { kind = "key"; generate = "meilisearch"; units = stalwart; };
-      # each Valkey member defines its users with them
       valkey-stalwart = { kind = "key"; generate = "rand"; units = { valkey-ha = config.site.ha.members; } // stalwart; };
       valkey-s3-overflow = { kind = "key"; generate = "rand"; units = { valkey-ha = config.site.ha.members; } // gateway; };
     } // lib.optionalAttrs (config.site.mail.relay != null) {
@@ -168,12 +160,10 @@ in {
     } // (let
       inherit (config.site.mail) addressing storage;
       clusters = { inherit (storage) primary overflow; };
-      # a cluster of several nodes meshes over RPC, each node with a key of its own
       meshed = lib.filterAttrs (_: capacity: lib.length (lib.attrNames capacity) > 1) clusters;
     in lib.listToAttrs (
       map (domain: lib.nameValuePair "dkim-${domain.name}" { kind = "key"; generate = "dkim"; units = stalwart; })
         (lib.filter (domain: domain.signs) addressing.domains)
-      # its head sets each cluster up with its key, which the gateway uses
       ++ lib.mapAttrsToList (cluster: _: lib.nameValuePair "garage-mail-${cluster}" {
         kind = "key"; generate = "s3-key"; units = { garage-mail-setup = [ storage.heads.${cluster} ]; } // gateway;
       }) clusters

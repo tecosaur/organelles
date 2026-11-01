@@ -67,8 +67,7 @@ let
   label = "split_once(rcpt_domain, '.')[0]";
   rewrite = [
     { condition = "is_local_domain(rcpt_domain)"; value = "false"; }
-    # noreply@{app}.{domain} becomes noreply+{app}@{domain}: the noreply account's, keeping
-    # the address as ORCPT for the noreply script
+    # noreply@{app}.{domain} to the noreply account, the address kept as ORCPT
     {
       condition = "email_part(rcpt, 'local') == 'noreply' && split_once(rcpt_domain, '.')[1] == ${quote domain}";
       value = "'noreply+' + split_once(rcpt_domain, '.')[0] + ${quote "@${domain}"}";
@@ -96,13 +95,10 @@ let
       ++ map (account: "(authenticated_as == ${quote account.canonical} && (${concatStringsSep " || " (catch-clauses account)}))")
         (filter (account: catch-clauses account != [ ]) accounts);
     in if clauses == [ ] then "true" else "!(${concatStringsSep " || " clauses})";
-  # Apps' submission, sent as one of their addresses with no authentication
   from-apps = "local_port == ${toString submission-port}";
   app-sender = if app-senders == [ ] then "false"
     else concatStringsSep " || " (map (address: "sender == ${quote address}") app-senders);
-  # Mail to the noreply account, which receives none: a reply to an app's mail, addressed to it
-  # alone from a sender passing DMARC, is answered at most once a week per sender and dropped;
-  # anything else is refused whole, so no copy is kept.
+  # A reply to an app's mail is answered weekly per sender and dropped; anything else is refused
   noreply-script = "noreply";
   noreply-interval-seconds = 604800;
   noreply-sieve = ''
@@ -240,7 +236,6 @@ let
       inherit name;
       bind = set [ "[::]:${toString port}" ];
     }) public-ports // {
-      # Every host's Caddy hands apps' mail to it, over the mesh or loopback
       # No TLS, not even offered: a client would check Stalwart's certificate against loopback
       submission-mesh = {
         name = "submission-mesh";
@@ -266,7 +261,6 @@ let
     })
     (upsert "Account" [ "name" "domainId" ]
       (lib.listToAttrs (map (a: lib.nameValuePair "account-${a.login}" (account-of a)) accounts) // {
-        # no credentials: what reaches it is the noreply script's
         account-noreply = {
           "@type" = "User";
           name = "noreply";
@@ -280,7 +274,6 @@ let
     (upsert "SieveSystemScript" [ "name" ] {
       noreply = { name = noreply-script; contents = noreply-sieve; isActive = true; };
     })
-    # What the noreply script sends comes from the site's own noreply address
     (update "SieveSystemInterpreter" {
       defaultFromAddress."else" = quote "noreply@${domain}";
       defaultFromName."else" = quote domain;
@@ -294,8 +287,7 @@ let
       isSenderAllowed = expression [ { condition = from-apps; value = app-sender; } ]
         "!is_empty(authenticated_as) || !key_exists('spam-block', sender_domain)";
     })
-    # Stalwart's own throttles, but for apps' mail: it all comes from Caddy, so a batch would
-    # wait on a rate meant for one sender
+    # Stalwart's default throttles, sparing apps' mail, which all arrives from Caddy
     (upsert "MtaInboundThrottle" [ "description" ] (lib.mapAttrs (_: throttle: throttle // {
       enable = true;
       match."else" = "!(${from-apps})";

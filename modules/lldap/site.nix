@@ -12,7 +12,6 @@
     ports.ldap = {
       port = 3890;
       exposure = "mesh";
-      # lldap checks it listens; Syncthing signs its GUI in
       clients = { authelia-main = config.site.apps.authelia.hosts; lldap = config.site.apps.lldap.hosts; syncthing = config.site.apps.syncthing.hosts; };
     };
     secrets = {
@@ -21,7 +20,6 @@
       admin-password = {
         kind = "password";
         description = "LLDAP admin login, used at its web UI";
-        # Authelia binds with it
         units = { lldap = config.site.apps.lldap.hosts; authelia-main = config.site.apps.authelia.hosts; };
       };
     };

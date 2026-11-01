@@ -8,7 +8,6 @@
     description = "listening history";
     subdomain = "listens";
     port = 4110;
-    # its start checks it serves
     clients = [ "multi-scrobbler" "koito" ];
     extraOptions = {
       title = lib.mkOption {
@@ -46,7 +45,6 @@
     secrets = {
       deezer-arl = { kind = "credential"; description = "Deezer arl login cookie, for multi-scrobbler"; optional = true; file-name = "deezer-arl"; units = [ "multi-scrobbler" ]; };
       listenbrainz-token = { kind = "credential"; description = "ListenBrainz user token, for multi-scrobbler"; optional = true; file-name = "listenbrainz-token"; units = [ "multi-scrobbler" ]; };
-      # Jellyfin installs it as an API key
       jellyfin = {
         kind = "key";
         generate = "rand";
@@ -55,7 +53,6 @@
           jellyfin = lib.optionals config.site.apps.multi-scrobbler.enabled config.site.apps.jellyfin.hosts;
         };
       };
-      # Koito installs it as an API key
       koito = { kind = "key"; generate = "rand"; units = [ "koito" "multi-scrobbler" ]; };
       endpoint-token = { kind = "password"; description = "Token Lyrion's AudioScrobbler plugin presents to multi-scrobbler's ListenBrainz endpoint"; units = [ "multi-scrobbler" ]; };
     };

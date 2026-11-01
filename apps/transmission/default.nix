@@ -12,7 +12,6 @@ in {
     enable = true;
     group = "users";
     package = pkgs.transmission_4;
-    # opened by its site.apps exposure
     openRPCPort = false;
     webHome = pkgs.flood-for-transmission;
     settings = {

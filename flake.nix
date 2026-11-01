@@ -20,11 +20,9 @@
     let
       site-config = import ./site;
       site-lib = import ./site/lib.nix { inherit (nixpkgs) lib; };
-      # every app's and module's metadata, which each host knows of all of them
       site-metadata = nixpkgs.lib.concatMap (root: nixpkgs.lib.concatMap (name:
           nixpkgs.lib.optional (builtins.pathExists (root + "/${name}/site.nix")) (root + "/${name}/site.nix"))
         (builtins.attrNames (builtins.readDir root))) [ ./apps ./modules ];
-      # every app and module, by name
       modules = flake-utils-plus.lib.exportModules (nixpkgs.lib.concatMap (root:
         nixpkgs.lib.mapAttrsToList (name: _: root + "/${name}") (builtins.readDir root)) [ ./apps ./modules ]);
       core-modules = site-lib.site-modules [ ./apps ./modules ] ++ [ { site = import ./site.nix; } ] ++ (with modules; [
@@ -115,7 +113,6 @@
         nixpkgs.lib.mapAttrs (_: _: machine)
           (nixpkgs.lib.filterAttrs (_: conf: conf.enabled) sys.config.site.apps))
         machine-systems);
-      # every machine running each site.ports listener's unit, for those naming no hosts
       global-port-hosts = nixpkgs.lib.mapAttrs (_: listener:
         nixpkgs.lib.filter (machine:
           let services = machine-systems.${machine}.config.systemd.services;
@@ -162,10 +159,9 @@
         server = (setup.server or { }) // { host = name; };
         apps = setup.apps or { };
       };
-      # Every declared secret has its file, unless optional, and every file a declaration
+      # every declared secret has its file, unless optional, and every file a declaration
       secrets-declared = let
         inherit (nixpkgs) lib;
-        # the same on every host
         declared = self.nixosConfigurations.golgi.config.site.secret-files;
         files = lib.concatMap (dir: map (file: "${dir}/${file}")
           (lib.filter (lib.hasSuffix ".age") (builtins.attrNames (builtins.readDir (./secrets + "/${dir}")))))

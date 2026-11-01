@@ -6,7 +6,6 @@ let
   inherit (ha) preference members voters;
   inherit (site-lib) mesh local;
   on = app: config.site.apps.${app}.hosts;
-  # the clients of the replicated Valkey and its Sentinels alike
   valkey-clients = {
     valkey-ha = members;
     valkey-ha-sentinel = voters;
@@ -102,9 +101,7 @@ in {
     # its gRPC gateway dials its own client listener
     etcd = mesh 2379 "etcd" { patroni = members; etcd = voters; };
     etcd-peer = mesh 2380 "etcd" { etcd = voters; };
-    # health alone, for the status probe
     etcd-metrics = local 2381 "etcd" [ "gatus-aggregator-report" ];
-    # unsafe calls carry a password besides
     patroni = mesh 8008 "patroni" { patroni = members; postgresql-ha-role = members; };
     # /serving answers 200 only on the serving member, for Caddy's health checks
     ha-serving = mesh 8009 "caddy" { caddy = hosts; } // { hosts = preference; };
@@ -115,7 +112,6 @@ in {
     # root's patronictl reads it too
     patroni-restapi = { kind = "key"; generate = "rand"; units = { patroni = members; postgresql-ha-role = members; }; };
     postgresql-ha-replication = { kind = "key"; generate = "rand"; units = { patroni = members; postgresql-ha-setup = preference; }; };
-    # the default user's: Authelia's sessions use it, and Stalwart and the gateway reach Sentinel with it
     valkey-ha = {
       kind = "key";
       generate = "rand";

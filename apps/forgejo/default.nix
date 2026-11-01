@@ -87,8 +87,7 @@ let
 in {
   site.apps.forgejo.enabled = true;
 
-  # The sign-in source lives in Forgejo's database, set up through its admin pages;
-  # its secret follows the declared one, whose digest Authelia holds
+  # the sign-in source lives in Forgejo's database, so its secret is set there
   systemd.services.forgejo.preStart = lib.mkAfter ''
     source=$(${lib.getExe config.services.forgejo.package} admin auth list | ${lib.getExe pkgs.gawk} '$2 == "authelia" { print $1 }')
     if [ -n "$source" ]; then

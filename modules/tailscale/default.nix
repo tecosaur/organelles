@@ -20,7 +20,6 @@ in {
       # "--ssh"
     ] ++ lib.optionals config.site.apps.headscale.enabled [
       "--login-server=https://${config.site.apps.headscale.subdomain}.${config.site.domain}"
-      # the pre-auth key's tags, which --reset would otherwise clear
       "--advertise-tags=${lib.concatMapStringsSep "," (tag: "tag:${tag}") tags}"
     ];
     extraSetFlags = [ "--relay-server-port=${toString relay-port}" ];

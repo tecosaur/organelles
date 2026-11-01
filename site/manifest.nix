@@ -1,7 +1,5 @@
-# The site's metadata without any machine: the site layer, the settings in ../site.nix, and
-# every app's and module's site.nix, evaluated alone with the flake's locked nixpkgs library, for what reads it outside
-# a NixOS evaluation, such as secrets/secrets.nix and the scripts beside it. A site.nix reads
-# only config.site, which is what makes this possible.
+# The site's metadata without any machine, for what reads it outside NixOS, such as
+# secrets/secrets.nix. It works because a site.nix reads only config.site.
 
 let
   lock = builtins.fromJSON (builtins.readFile ../flake.lock);

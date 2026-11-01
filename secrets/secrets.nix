@@ -1,6 +1,4 @@
-# agenix's rules, derived from the secrets each app and module declares in its site.nix
-# (site.apps.<app>.secrets, its auth's clients, and site.secrets): a secret is encrypted to
-# the admin and to every host, or to those it names.
+# agenix's rules, from the declared secrets: each is encrypted to the admin and its recipients
 
 let
   inherit (import ../site/manifest.nix) lib site;

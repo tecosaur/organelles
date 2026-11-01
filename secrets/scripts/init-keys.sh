@@ -15,9 +15,7 @@ tool_name="init-keys"
 # shellcheck source=lib.sh
 . "$secrets_dir/scripts/lib.sh"
 
-# name:generator for every declared key but the WireGuard ones, which
-# init-wireguard.sh makes with their public halves. A meilisearch key derives from
-# meilisearch-master, so follows it.
+# A meilisearch key derives from meilisearch-master, so follows it
 mapfile -t service_keys < <(generated_keys | grep -v ':wireguard$' | sort)
 
 function usage() {
@@ -136,7 +134,6 @@ function init_key() {
         return 1
     fi
     echo "$name:"
-    # agenix reads secrets.nix for the recipients, so the declaration must exist first
     register_secret "$age_file"
     # A non-interactive stdin makes agenix use `cp /dev/stdin` as its editor.
     generate "$kind" "$name" |

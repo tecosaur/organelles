@@ -1,11 +1,8 @@
 #!/usr/bin/env bash
 # Generate paired OIDC credentials for Authelia clients.
 #
-# For each client: a random secret, encrypted to `oidc/<name>-secret.age` (read
-# by the app), and its digest in `oidc/<name>-hash.txt` (read by Authelia). The
-# two must share a name, or authentication fails at token exchange rather than
-# at eval. A client is declared in its app's site.nix (auth.clients), which
-# also declares its secret and so whom it is encrypted to.
+# Each client's secret and its digest must share a name, or sign-in fails at token
+# exchange rather than at evaluation.
 
 set -euo pipefail
 
@@ -57,7 +54,6 @@ function make_oidc() {
     local name="$1"
     local age_file="oidc/$name-secret.age" txt_file="oidc/$name-hash.txt"
     echo "$name:"
-    # agenix reads secrets.nix for the recipients, so the declaration must exist first
     register_secret "$age_file"
     local secret digest
     { IFS= read -r -d '' secret; IFS= read -r -d '' digest; } < <(generate_credentials)
@@ -85,7 +81,6 @@ function parse_args() {
     done
 }
 
-# Confirm before generating anything, so a declined overwrite costs nothing.
 function confirm_overwrites() {
     local name existing=()
     for name in "$@"; do

@@ -100,8 +100,6 @@ in {
         proxy_allowed = [ "127.0.0.1" ];
         proxy_skipped = [ ];
       };
-      # smtp, from site.apps.sftpgo.mail through config.site.mail.connections.sftpgo:
-      #   host, port, from
     };
   };
 

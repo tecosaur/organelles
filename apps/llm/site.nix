@@ -50,7 +50,7 @@
         kind = "password";
         description = "Shared secret between the llama-server and its clients";
         file-name = "llm-api-key";
-        # its clients' too; Paperless's activation reads it as root
+        # Paperless reads it as root, outside any unit
         hosts = lib.optionals config.site.apps.llm.enabled
           (lib.unique (lib.concatMap (app: config.site.apps.${app}.hosts) [ "llm" "mealie" "paperless" ]));
         units = lib.optionalAttrs config.site.apps.llm.enabled {

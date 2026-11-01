@@ -1,11 +1,8 @@
 { config, lib, pkgs, site-lib, ... }:
 
-# What the site listens on, and who may reach it. Every listener, declared in site.apps and
-# site.ports, is resolved with its hosts and its clients, each a unit with the hosts it runs
-# on. The firewall opens exactly the public and mesh listeners, and confinement lets only a
-# listener's clients connect: per-peer ingress over wg0, and per-unit egress from each host.
-# Egress matches each client unit's slice, not the unit: nft resolves a cgroup path once, at
-# load, and a restarted unit gets a new cgroup, while its slice lasts.
+# What the site listens on, and who may reach it: the firewall opens exactly the declared
+# listeners, and confinement admits only their clients. Egress matches each client's slice,
+# not its unit: nft resolves a cgroup once, and a restarted unit gets a new one.
 
 let
   inherit (site-lib) listener;
@@ -75,7 +72,6 @@ let
   units-here = clients: lib.attrNames (lib.filterAttrs (_: hosts: lib.elem this-host hosts) clients);
   local-clients = lib.unique (lib.concatMap (listener: units-here listener.clients) confined);
   serves = listener: lib.elem this-host listener.hosts;
-  # the listeners this host has a rule for: those it serves, and the mesh ones it may dial
   ruled = lib.filter (listener: serves listener || (listener.exposure == "mesh" && listener.hosts != [ ])) confined;
   ingress-rule = listener: let
     hosts = lib.unique (lib.concatLists (lib.attrValues listener.clients));

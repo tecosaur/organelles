@@ -35,7 +35,6 @@ let
   }) storage.cache-bytes;
   cache = lib.mapNullable (c: c // { budget-bytes = garage.overflow.quota-bytes + c.target-bytes + c.reserve-bytes; })
     (caches.${this-host} or null);
-  # its settings name each secret by credential
   secrets = {
     client = config.site.apps.mail.secrets.s3-overflow-client;
     primary = garage.primary.secret;

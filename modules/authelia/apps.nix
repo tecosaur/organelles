@@ -5,7 +5,6 @@
 let
   inherit (config.site) domain;
   apps = lib.filterAttrs (_: app: app.enabled) config.site.apps;
-  # an app's policy, and a client's ID when it is the app's own, from its name
   id-of = app: lib.toLower (lib.replaceStrings [ " " ] [ "-" ] app.name);
   digest = id: lib.removeSuffix "\n" (builtins.readFile (../../secrets/oidc + "/${id}-hash.txt"));
   policy = app: let

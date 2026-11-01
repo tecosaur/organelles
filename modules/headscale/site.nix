@@ -10,7 +10,6 @@
     port = 8174;
     ports = {
       headplane = { port = 8175; unit = "headplane"; clients = [ "caddy" ]; };
-      # every host's tailscaled relays for the tailnet
       relay = { port = 40108; unit = "tailscaled"; hosts = config.site.hosts; exposure = "public"; protocols = [ "tcp" "udp" ]; };
     };
     admin = null;

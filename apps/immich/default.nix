@@ -63,7 +63,6 @@ in {
         };
       };
     };
-    # nixpkgs fixes the machine-learning port
     environment.IMMICH_MACHINE_LEARNING_URL = lib.mkForce "http://localhost:${toString ml-port}";
     machine-learning = {
       enable = true;
