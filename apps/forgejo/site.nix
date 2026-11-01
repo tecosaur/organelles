@@ -70,6 +70,10 @@
         default = [ ];
       };
     };
+    auth = {
+      policy = { };
+      clients.forgejo.redirects = [ "user/oauth2/authelia/callback" ];
+    };
   };
   config.site.apps.forgejo = {
     groups.primary = "forge";

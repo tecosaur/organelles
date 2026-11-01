@@ -10,6 +10,10 @@
     subdomain = "media";
     port = 8096;
     clients = [ "multi-scrobbler" ];
+    auth.clients.jellyfin = {
+      redirects = [ "sso/OID/redirect/authelia" ];
+      settings = { authorization_policy = "one_factor"; token_endpoint_auth_method = "client_secret_post"; };
+    };
   };
   config.site.apps.jellyfin.groups.extra = [ "family" ];
 }

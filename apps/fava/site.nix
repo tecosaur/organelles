@@ -10,5 +10,6 @@
     usesStateDir = false;
     subdomain = "fava";
     port = 5025;
+    auth.access = { policy = "two_factor"; subject = [ "user:tec" ]; };
   };
 }

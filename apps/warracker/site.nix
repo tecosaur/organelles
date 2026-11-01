@@ -8,6 +8,13 @@
     description = "warranty tracking";
     subdomain = "warracker";
     port = 8087;
+    auth = {
+      policy = { };
+      clients.warracker = {
+        redirects = [ "api/oidc/callback" ];
+        pkce = false;
+      };
+    };
   };
   config.site.apps.warracker.groups.extra = [ "family" ];
 }

@@ -8,6 +8,14 @@
     description = "quick notes";
     subdomain = "memos";
     port = 5230;
+    auth = {
+      policy = { };
+      clients.memos = {
+        redirects = [ "auth/callback" ];
+        pkce = false;
+        settings.token_endpoint_auth_method = "client_secret_post";
+      };
+    };
   };
   config.site.apps.memos.groups.extra = [ "family" ];
 }

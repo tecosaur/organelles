@@ -25,6 +25,10 @@
         description = "Additional filesystems the agent should monitor";
       };
     };
+    auth = {
+      policy = { };
+      clients.beszel.redirects = [ "api/oauth2-redirect" ];
+    };
   };
   config.site.apps.beszel.publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIL6RP5omIbCzQsC/NizUg56JgpgMdl0/VXmCAE0VyJlq";
 }

@@ -20,7 +20,7 @@ let
     cp -rL ${config.site.assets}/authelia/* $out
   '';
 in {
-  imports = [ ./clients.nix ];
+  imports = [ ./apps.nix ];
 
   site.apps.authelia.enabled = true;
 

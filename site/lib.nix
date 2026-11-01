@@ -242,6 +242,79 @@ rec {
           description = "Additional user groups that have access to the ${name} app";
         };
       };
+      auth = {
+        policy = lib.mkOption {
+          type = lib.types.nullOr (lib.types.submodule {
+            options = {
+              users = lib.mkOption {
+                type = lib.types.str;
+                default = "one_factor";
+                description = "What the app's users sign in with";
+              };
+              admins = lib.mkOption {
+                type = lib.types.str;
+                default = "two_factor";
+                description = "What its admins sign in with";
+              };
+            };
+          });
+          default = auth.policy or null;
+          description = ''
+            The OIDC authorization policy named after the ${name} app, which
+            its clients sign in under: its groups pass, by these factors,
+            and others are denied. Null for none.
+          '';
+        };
+        clients = lib.mkOption {
+          type = lib.types.attrsOf (lib.types.submodule {
+            options = {
+              redirects = lib.mkOption {
+                type = lib.types.listOf lib.types.str;
+                example = [ "oidc/callback" "app.example:///callback" ];
+                description = "Redirect paths under the app's domain, or whole URIs";
+              };
+              pkce = lib.mkOption {
+                type = lib.types.bool;
+                default = true;
+                description = "Whether the client must use PKCE";
+              };
+              settings = lib.mkOption {
+                type = lib.types.attrs;
+                default = { };
+                example = { token_endpoint_auth_method = "client_secret_post"; };
+                description = "Further Authelia client settings, over the defaults";
+              };
+            };
+          });
+          default = auth.clients or { };
+          description = ''
+            The ${name} app's OIDC clients, by client ID, each signing in under
+            the app's policy unless its settings say otherwise. A client's
+            secret is secrets/oidc/<id>-secret.age, its digest beside it.
+          '';
+        };
+        access = lib.mkOption {
+          type = lib.types.nullOr (lib.types.submodule {
+            options = {
+              policy = lib.mkOption {
+                type = lib.types.str;
+                default = "one_factor";
+                description = "What those allowed sign in with";
+              };
+              subject = lib.mkOption {
+                type = lib.types.nullOr (lib.types.listOf lib.types.str);
+                default = null;
+                description = "Who is allowed; null for the app's primary and admin groups";
+              };
+            };
+          });
+          default = auth.access or null;
+          description = ''
+            Authelia's rule for routes Caddy guards with forward-auth on the
+            ${name} app's domain: those allowed pass, and others are denied.
+          '';
+        };
+      };
     } // extraOptions;
   mesh = port: unit: clients: { inherit port unit clients; exposure = "mesh"; };
   local = port: unit: clients: { inherit port unit clients; };

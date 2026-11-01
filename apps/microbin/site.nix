@@ -20,6 +20,7 @@
         description = "Short subdomain for Microbin";
       };
     };
+    auth.access = { };
   };
   config.site.apps.microbin = {
     title = "μPaste";

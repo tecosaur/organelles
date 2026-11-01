@@ -21,5 +21,12 @@
         description = "Subdomain to use in the base domain for MagicDNS.";
       };
     };
+    auth = {
+      policy = { };
+      clients = {
+        headscale.redirects = [ "oidc/callback" ];
+        headplane.redirects = [ "admin/oidc/callback" ];
+      };
+    };
   };
 }

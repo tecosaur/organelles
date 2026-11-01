@@ -7,5 +7,9 @@
     description = "task and project management";
     subdomain = "tasks";
     port = 3456;
+    auth = {
+      policy.users = "two_factor";
+      clients.vikunja.redirects = [ "auth/openid/authelia" ];
+    };
   };
 }

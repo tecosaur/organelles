@@ -39,6 +39,7 @@
         description = "The ListenBrainz account listens are relayed to";
       };
     };
+    auth.access.subject = [ "group:${config.site.apps.multi-scrobbler.groups.admin}" ];
   };
   config.site.apps.koito = {
     title = "Listens";

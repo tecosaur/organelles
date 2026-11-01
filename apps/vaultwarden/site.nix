@@ -11,5 +11,9 @@
     stateSubdirs = [ "attachments" "sends" ];
     subdomain = "vault";
     port = 8222;
+    auth = {
+      policy.users = "two_factor";
+      clients.vaultwarden.redirects = [ "identity/connect/oidc-signin" ];
+    };
   };
 }

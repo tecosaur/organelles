@@ -101,6 +101,42 @@ in {
       garage-overflow-rpc = rpc "overflow" 3911;
     };
     health.ports = [ { listener = "smtp"; } { listener = "imaps"; tls = true; } ];
+    auth.clients = let
+      inherit (config.site.mail) oidc;
+      # SUPPORTED_LOCALES in Bulwark 1.14.2's i18n/routing.ts; its redirect is /<locale>/auth/callback
+      bulwark-locales = [ "ar" "ca" "cs" "da" "de" "en" "es" "fa" "fr" "he" "hu" "it" "ja" "ko"
+                          "lv" "mn" "nb" "nl" "pl" "pt" "ro" "ru" "sk" "tr" "uk" "zh" "zh-TW" ];
+      stalwart-client = settings: {
+        authorization_policy = oidc.authorization-policy;
+        claims_policy = oidc.claims-policy;
+        audience = [ oidc.audience ];
+        requested_audience_mode = "implicit";
+        access_token_signed_response_alg = "RS256";
+      } // settings;
+    in {
+      ${oidc.bulwark-client} = {
+        redirects = map (locale: "${locale}/auth/callback") bulwark-locales;
+        settings = stalwart-client {
+          scopes = [ "openid" "profile" oidc.account-claim "offline_access" ];
+          grant_types = [ "authorization_code" "refresh_token" ];
+          inherit (oidc) lifespan;
+          token_endpoint_auth_method = "client_secret_post";
+          # It revokes tokens at sign-out as it fetches them, and the default differs
+          revocation_endpoint_auth_method = "client_secret_post";
+        };
+      };
+      ${oidc.web-ui-client} = {
+        redirects = [ "admin/oauth/callback" "account/oauth/callback" ];
+        settings = stalwart-client {
+          client_secret = "";
+          public = true;
+          # Authelia discourages implicit consent for public clients
+          consent_mode = "pre-configured";
+          scopes = [ "openid" "profile" oidc.account-claim ];
+          token_endpoint_auth_method = "none";
+        };
+      };
+    };
   };
   options.site.mail = {
     domains = mkOption {

@@ -13,6 +13,14 @@
       webdav = { port = 3303; clients = [ "caddy" ]; };
     };
     admin = null;
+    auth = {
+      policy = { };
+      clients.sftpgo = {
+        redirects = [ "web/oidc/redirect" "web/oauth2/redirect" ];
+        pkce = false;
+        settings.token_endpoint_auth_method = "client_secret_post";
+      };
+    };
   };
   config.site.apps.sftpgo.groups.extra = [ "family" ];
 }

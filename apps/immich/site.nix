@@ -12,6 +12,14 @@
     subdomain = "photos";
     port = 2283;
     ports.machine-learning = { port = 3003; unit = "immich-machine-learning"; clients = [ "immich-server" ]; };
+    auth = {
+      policy = { };
+      clients.immich = {
+        redirects = [ "auth/login" "user-settings" "app.immich:///oauth-callback" ];
+        pkce = false;
+        settings.token_endpoint_auth_method = "client_secret_post";
+      };
+    };
   };
   config.site.apps.immich.groups.extra = [ "family" ];
 }

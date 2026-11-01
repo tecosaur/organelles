@@ -8,6 +8,10 @@
     service = "tandoor-recipes";
     subdomain = "recipes";
     port = 7203;
+    auth = {
+      policy.admins = "one_factor";
+      clients.tandoor.redirects = [ "accounts/oidc/authelia/login/callback/" ];
+    };
   };
   config.site.apps.tandoor.groups.extra = [ "family" ];
 }

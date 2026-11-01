@@ -11,5 +11,12 @@
     # The rest of the state directory is a tree of links to the store,
     # rebuilt on every start.
     stateSubdirs = [ "data" "uploads" ];
+    auth = {
+      policy = { };
+      clients.trek = {
+        redirects = [ "api/auth/oidc/callback" ];
+        settings.token_endpoint_auth_method = "client_secret_post";
+      };
+    };
   };
 }
