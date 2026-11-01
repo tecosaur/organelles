@@ -22,5 +22,4 @@
     };
     mail = { sender = "noreply"; units = [ "immich-server" ]; };
   };
-  config.site.apps.immich.groups.extra = [ "family" ];
 }

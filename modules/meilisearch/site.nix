@@ -30,7 +30,6 @@ in {
     };
   };
 
-  config.site.meilisearch.host = "nucleus";
   config.site.ports = {
     meilisearch = mesh 7700 "meilisearch" {
       stalwart = on "mail";

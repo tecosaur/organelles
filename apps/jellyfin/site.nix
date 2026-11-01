@@ -18,5 +18,4 @@
       meilisearch = { kind = "key"; generate = "meilisearch"; file-name = "meilisearch-jellyfin"; };
     };
   };
-  config.site.apps.jellyfin.groups.extra = [ "family" ];
 }

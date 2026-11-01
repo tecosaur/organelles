@@ -16,5 +16,4 @@
       fdc-api-key = { kind = "credential"; description = "USDA FoodData Central API key"; };
     };
   };
-  config.site.apps.tandoor.groups.extra = [ "family" ];
 }

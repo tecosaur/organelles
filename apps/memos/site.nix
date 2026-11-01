@@ -17,5 +17,4 @@
       };
     };
   };
-  config.site.apps.memos.groups.extra = [ "family" ];
 }

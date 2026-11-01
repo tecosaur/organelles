@@ -22,5 +22,4 @@
       admin-password = { kind = "password"; description = "Paperless admin login"; };
     };
   };
-  config.site.apps.paperless.groups.extra = [ "family" ];
 }

@@ -26,5 +26,4 @@
       admin-password = { kind = "password"; description = "SFTPGo admin login"; units = [ "sftpgo" ]; };
     };
   };
-  config.site.apps.sftpgo.groups.extra = [ "family" ];
 }

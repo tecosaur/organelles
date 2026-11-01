@@ -27,7 +27,7 @@
       # every app and module, by name
       modules = flake-utils-plus.lib.exportModules (nixpkgs.lib.concatMap (root:
         nixpkgs.lib.mapAttrsToList (name: _: root + "/${name}") (builtins.readDir root)) [ ./apps ./modules ]);
-      core-modules = site-metadata ++ (with modules; [
+      core-modules = site-lib.site-modules [ ./apps ./modules ] ++ [ { site = import ./site.nix; } ] ++ (with modules; [
         agenix.nixosModules.default
         beszel-agent
         caddy
@@ -187,7 +187,7 @@
           modules = core-modules ++ setup.modules ++ [ ({ config, ... }: {
             assertions = [ {
               assertion = nixpkgs.lib.sort (a: b: a < b) config.site.hosts == builtins.attrNames machines;
-              message = "flake.nix builds ${toString (builtins.attrNames machines)}, but site/settings.nix names the hosts ${toString config.site.hosts}";
+              message = "flake.nix builds ${toString (builtins.attrNames machines)}, but site.nix names the hosts ${toString config.site.hosts}";
             } ];
           }) {
             site = nixpkgs.lib.recursiveUpdate (machine-site name setup) {

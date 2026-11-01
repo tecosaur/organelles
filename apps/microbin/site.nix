@@ -22,10 +22,4 @@
     };
     auth.access = { };
   };
-  config.site.apps.microbin = {
-    title = "μPaste";
-    subdomain = "pastes";
-    short-subdomain = "p";
-    groups.primary = "paste";
-  };
 }

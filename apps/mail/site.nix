@@ -305,32 +305,4 @@ in {
       description = "SMTP2GO's verification and return-path records, as its dashboard gives them";
     };
   };
-  config.site.mail = {
-    domains."tecosaur.net" = {
-      users = [ "tec" ];
-      addresses = [ "{user}@{domain}" ];
-      filing = "{location}@{user}.{domain}";
-      catch-all = "tec";
-      catch-subdomains = "tec";
-    };
-    admins = [ "tec" ];
-    # Bodies live on nucleus's bulk volume, and spill to the light nodes while it is down
-    storage = {
-      primary = { nucleus = 1000000000000; };
-      overflow = { golgi = 10000000000; centrosome = 10000000000; };
-      overflow-quota-bytes = 2000000000;
-      cache-bytes = { golgi = 4000000000; };
-    };
-    smtp2go.records = [
-      { name = "mailbounces"; type = "CNAME"; value = "return.smtp2go.net."; }
-      { name = "s766060._domainkey"; type = "CNAME"; value = "dkim.smtp2go.net."; }
-      { name = "mailtrack"; type = "CNAME"; value = "track.smtp2go.net."; }
-    ];
-    relay = {
-      host = "mail-au.smtp2go.com";
-      port = 465;
-      username = "stalwart.tecosaur.net";
-      credential-file = config.site.apps.mail.secrets.smtp2go.file;
-    };
-  };
 }

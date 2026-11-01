@@ -86,7 +86,6 @@ in {
     };
   };
 
-  config.site.ha.preference = [ "nucleus" "golgi" ];
   config.site.ports = {
     ha-postgres = mesh 5433 "patroni" {
       patroni = members;

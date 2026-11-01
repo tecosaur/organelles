@@ -79,38 +79,4 @@
     };
     mail = { sender = "noreply"; units = [ "forgejo" ]; };
   };
-  config.site.apps.forgejo = {
-    groups.primary = "forge";
-    site-name = "Code by TEC";
-    site-description = "The personal Forgejo instance of TEC";
-    qa-captcha = {
-      enabled = true;
-      questions = [
-        "What is my first name?"
-        "What is the thing I use as my avatar?"
-        "What is the mononym I often go by online?"
-        "What community do you know me from?"
-      ];
-      answers = [
-        "timothy"
-        "tec"
-        "tree"
-        "tecosaur"
-        "julia"
-        "julialang"
-        "emacs"
-        "org"
-        "doom"
-      ];
-    };
-    default-user-redirect = "tec";
-    served-repositories = [
-      {
-        repo = "tec/this-month-in-org";
-        rev = "html";
-        subdomain = "blog";
-        path = "tmio";
-      }
-    ];
-  };
 }

@@ -14,5 +14,4 @@
       secrets = { kind = "credential"; description = "Home Assistant secrets.yaml"; };
     };
   };
-  config.site.apps.home-assistant.subdomain = "doonan";
 }

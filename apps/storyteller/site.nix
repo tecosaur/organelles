@@ -20,5 +20,4 @@
     };
     mail = { sender = "noreply"; units = [ "storyteller" ]; };
   };
-  config.site.apps.storyteller.groups.extra = [ "family" ];
 }

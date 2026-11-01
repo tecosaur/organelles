@@ -17,5 +17,4 @@
     };
     mail = { sender = "noreply"; units = [ "warracker" ]; };
   };
-  config.site.apps.warracker.groups.extra = [ "family" ];
 }

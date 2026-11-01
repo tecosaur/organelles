@@ -18,5 +18,4 @@
       credentials-env = { kind = "credential"; description = "Mealie OIDC/SMTP environment"; };
     };
   };
-  config.site.apps.mealie.subdomain = "food";
 }

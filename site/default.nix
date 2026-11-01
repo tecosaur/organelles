@@ -6,7 +6,7 @@ let
     secondary = config.site.accent.secondary;
   };
 in {
-  imports = [ ./network.nix ./secrets.nix ./settings.nix ];
+  imports = [ ./network.nix ./secrets.nix ];
 
   options.site = {
     domain = lib.mkOption {

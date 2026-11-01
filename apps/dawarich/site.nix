@@ -14,5 +14,4 @@
       clients.dawarich.redirects = [ "users/auth/openid_connect/callback" ];
     };
   };
-  config.site.apps.dawarich.groups = { primary = "timeline"; extra = [ "family" ]; };
 }

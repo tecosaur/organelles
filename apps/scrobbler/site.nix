@@ -51,12 +51,4 @@
       endpoint-token = { kind = "password"; description = "Token Lyrion's AudioScrobbler plugin presents to multi-scrobbler's ListenBrainz endpoint"; };
     };
   };
-  config.site.apps.koito = {
-    title = "Listens";
-    groups.primary = "listens";
-  };
-  config.site.apps.multi-scrobbler = {
-    jellyfin-user = "tec";
-    listenbrainz-user = "tecosaur";
-  };
 }

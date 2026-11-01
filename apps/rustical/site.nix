@@ -16,5 +16,4 @@
       };
     };
   };
-  config.site.apps.rustical.groups = { primary = "caldav"; extra = [ "family" ]; };
 }
