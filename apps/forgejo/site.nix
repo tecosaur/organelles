@@ -72,11 +72,7 @@
     };
     auth = {
       policy = { };
-      clients.forgejo = {
-        redirects = [ "user/oauth2/authelia/callback" ];
-        # set in Forgejo's own database, through its admin pages
-        holds-secret = false;
-      };
+      clients.forgejo.redirects = [ "user/oauth2/authelia/callback" ];
     };
   };
   config.site.apps.forgejo = {

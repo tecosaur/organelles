@@ -92,6 +92,22 @@ in {
     group = "users";
     file = config.site.secrets.fastmail.file;
   };
+  age.secrets.forgejo-oidc = {
+    owner = forgejo-user;
+    file = config.site.apps.forgejo.auth.clients.forgejo.file;
+  };
+
+  # The sign-in source lives in Forgejo's database, set up through its admin pages;
+  # its secret follows the declared one, whose digest Authelia holds
+  systemd.services.forgejo.preStart = lib.mkAfter ''
+    source=$(${lib.getExe config.services.forgejo.package} admin auth list | ${lib.getExe pkgs.gawk} '$2 == "authelia" { print $1 }')
+    if [ -n "$source" ]; then
+      ${lib.getExe config.services.forgejo.package} admin auth update-oauth --id "$source" \
+        --secret "$(< ${config.age.secrets.forgejo-oidc.path})"
+    else
+      echo "forgejo: no authentication source named authelia, so no client secret to set" >&2
+    fi
+  '';
 
   services.forgejo = {
     enable = true;
