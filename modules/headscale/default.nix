@@ -5,7 +5,6 @@ let
   headscale-port = config.site.apps.headscale.port;
   headplane-port = config.site.apps.headscale.ports.headplane.port;
   magicdns-domain = "${config.site.apps.headscale.magicdns-subdomain}.${config.site.domain}";
-  headscale-config-copy = (pkgs.formats.yaml { }).generate "headscale.yaml" config.services.headscale.settings;
 in {
   site.apps.headscale.enabled = true;
 
