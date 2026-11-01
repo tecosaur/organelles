@@ -56,7 +56,7 @@ in {
 
   age.secrets.paperless-oidc = {
     owner = "paperless";
-    file = config.site.apps.paperless.auth.clients.paperless.file;
+    file = config.site.apps.paperless.auth.clients.paperless.secret.file;
   };
 
   age.secrets.paperless-admin-password = {

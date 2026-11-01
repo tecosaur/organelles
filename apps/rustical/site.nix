@@ -10,7 +10,10 @@
     port = 4811;
     auth = {
       policy = { };
-      clients.rustical.redirects = [ "frontend/login/oidc/callback" ];
+      clients.rustical = {
+        redirects = [ "frontend/login/oidc/callback" ];
+        secret.units = [ "rustical" ];
+      };
     };
   };
   config.site.apps.rustical.groups = { primary = "caldav"; extra = [ "family" ]; };

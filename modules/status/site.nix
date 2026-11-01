@@ -18,9 +18,16 @@ in {
     port = 3001;
     # every reporter pushes to it
     clients = { gatus-aggregator-report = config.site.hosts; gatus-aggregator-aggregate = config.site.ha.preference; };
-    secrets = {
-      push = { kind = "key"; generate = "rand"; };
-      alert-topic = { kind = "key"; generate = "rand"; file-name = "status-alert-topic"; };
+    secrets = let
+      # Gatus beside the primary, a reporter on every host, the aggregator where Gatus may run
+      units = {
+        gatus = config.site.apps.gatus.hosts;
+        gatus-aggregator-report = config.site.hosts;
+        gatus-aggregator-aggregate = config.site.ha.preference;
+      };
+    in {
+      push = { kind = "key"; generate = "rand"; inherit units; };
+      alert-topic = { kind = "key"; generate = "rand"; file-name = "status-alert-topic"; inherit units; };
     };
   };
   config.site.ports = {

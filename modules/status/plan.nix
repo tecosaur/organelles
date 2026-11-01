@@ -91,7 +91,7 @@ in {
     gatus = {
       endpoints = lib.genAttrs hosts (host: "http://${host}.internal:${toString gatus.port}");
       local = "http://127.0.0.1:${toString gatus.port}";
-      token_file = "push";
+      token_file = gatus.secrets.push.credential-name;
     } // lib.optionalAttrs (lib.elem config.site.server.host config.site.ha.preference) {
       announcements_file = "/var/lib/gatus-aggregator/announcement.json";
       config_listen = "[::]:${toString announcement-port}";
@@ -103,7 +103,7 @@ in {
         (host: "http://${host}.internal:${toString conditions-port}");
       local = "http://127.0.0.1:${toString conditions-port}";
     };
-    alerts = [ { url = alert-url; topic_file = "topic"; } ];
+    alerts = [ { url = alert-url; topic_file = gatus.secrets.alert-topic.credential-name; } ];
     apps = map plan-app apps;
     units = map plan-unit units;
     rows = map (row: builtins.removeAttrs row [ "heartbeat" ]) rows;

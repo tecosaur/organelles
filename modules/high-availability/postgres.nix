@@ -14,7 +14,7 @@ let
     \set ON_ERROR_STOP on
     SELECT 'CREATE ROLE replicator WITH REPLICATION LOGIN'
       WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'replicator') \gexec
-    \set password `cat "$CREDENTIALS_DIRECTORY/replication"`
+    \set password `cat "$CREDENTIALS_DIRECTORY/${config.site.secrets.postgresql-ha-replication.credential-name}"`
     ALTER ROLE replicator PASSWORD :'password';
   '' + lib.concatMapStrings (role: ''
     SELECT 'CREATE ROLE "${role}" LOGIN'
@@ -101,14 +101,12 @@ in {
       command = [ "${package}/bin/pg_isready" "--quiet" "--host=${cfg.socket-dir}" "--port=${toString ports.ha-postgres.port}" "--dbname=postgres" ];
     } ];
 
-    age.secrets.postgresql-ha-replication.file = config.site.secrets.postgresql-ha-replication.file;
     # Required for the REST API's unsafe methods; reads stay open, for Caddy's health checks
-    age.secrets.patroni-restapi.file = config.site.secrets.patroni-restapi.file;
 
     # Root's patronictl may switch over and edit the configuration; others only read
     environment.systemPackages = [ (lib.hiPrio (pkgs.writeShellScriptBin "patronictl" ''
-      if [ -r ${config.age.secrets.patroni-restapi.path} ]; then
-        export PATRONI_RESTAPI_USERNAME=patroni PATRONI_RESTAPI_PASSWORD="$(< ${config.age.secrets.patroni-restapi.path})"
+      if [ -r ${config.site.secrets.patroni-restapi.decrypted} ]; then
+        export PATRONI_RESTAPI_USERNAME=patroni PATRONI_RESTAPI_PASSWORD="$(< ${config.site.secrets.patroni-restapi.decrypted})"
       fi
       exec ${pkgs.patroni}/bin/patronictl "$@"
     '')) ];
@@ -212,16 +210,12 @@ in {
       reloadIfChanged = true;
       restartTriggers = [ config.environment.etc.${lib.removePrefix "/etc/" config-file}.source ];
       script = lib.mkForce ''
-        replication="$(< "$CREDENTIALS_DIRECTORY/replication")"
+        replication="$(< ${config.site.secrets.postgresql-ha-replication.credentials.patroni})"
         export PATRONI_REPLICATION_PASSWORD="$replication" PATRONI_REWIND_PASSWORD="$replication"
-        export PATRONI_RESTAPI_USERNAME=patroni PATRONI_RESTAPI_PASSWORD="$(< "$CREDENTIALS_DIRECTORY/restapi")"
+        export PATRONI_RESTAPI_USERNAME=patroni PATRONI_RESTAPI_PASSWORD="$(< ${config.site.secrets.patroni-restapi.credentials.patroni})"
         exec ${lib.getExe pkgs.patroni} ${config-file}
       '';
       serviceConfig = {
-        LoadCredential = [
-          "replication:${config.age.secrets.postgresql-ha-replication.path}"
-          "restapi:${config.age.secrets.patroni-restapi.path}"
-        ];
         RuntimeDirectory = "postgresql-ha";
         RuntimeDirectoryMode = "0755";
         RuntimeDirectoryPreserve = true;
@@ -269,7 +263,7 @@ in {
             [ "$candidate" = "$streaming" ] || { streaming=$candidate since=$SECONDS; }
             if [ -n "$candidate" ] && [ $((SECONDS - since)) -ge ${toString (config.site.ha.failback-minutes * 60)} ]; then
               echo "postgresql-ha: $candidate has streamed for ${toString config.site.ha.failback-minutes} minutes; handing over"
-              printf 'user = "patroni:%s"\n' "$(< "$CREDENTIALS_DIRECTORY/restapi")" |
+              printf 'user = "patroni:%s"\n' "$(< ${config.site.secrets.patroni-restapi.credentials.postgresql-ha-role})" |
               curl -sS --fail-with-body --max-time 60 -K - -H 'Content-Type: application/json' \
                 -d "{\"leader\": \"${this-host}\", \"candidate\": \"$candidate\"}" ${patroni-api}/switchover ||
                 echo "postgresql-ha: handing over to $candidate failed; retrying in ${toString config.site.ha.failback-minutes} minutes" >&2
@@ -285,7 +279,6 @@ in {
         Type = "notify";
         NotifyAccess = "all";
         Restart = "always";
-        LoadCredential = lib.optional (ahead != [ ]) "restapi:${config.age.secrets.patroni-restapi.path}";
         RuntimeDirectory = "postgresql-ha-role";
         RuntimeDirectoryPreserve = true;
       };
@@ -325,7 +318,6 @@ in {
         User = "postgres";
         Group = "postgres";
         EnvironmentFile = primary-env;
-        LoadCredential = [ "replication:${config.age.secrets.postgresql-ha-replication.path}" ];
         Restart = "on-failure";
         RestartSec = "10s";
       };

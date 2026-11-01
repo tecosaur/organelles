@@ -13,10 +13,15 @@
     port = 8222;
     auth = {
       policy.users = "two_factor";
-      clients.vaultwarden.redirects = [ "identity/connect/oidc-signin" ];
+      clients.vaultwarden = {
+        redirects = [ "identity/connect/oidc-signin" ];
+        secret.units = [ "vaultwarden" ];
+      };
     };
     secrets = {
-      "rsa.pem" = { kind = "key"; generate = "rsa"; };
+      # named as Vaultwarden looks for it, its path less .pem given
+      "rsa_key.pem" = { kind = "key"; generate = "rsa"; file-name = "vaultwarden-rsa.pem"; units = [ "vaultwarden" ]; };
     };
   };
+  config.site.secrets.fastmail.units.vaultwarden = config.site.apps.vaultwarden.hosts;
 }

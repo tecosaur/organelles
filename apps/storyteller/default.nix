@@ -12,7 +12,7 @@ in {
 
   age.secrets.storyteller-oidc = {
     owner = "storyteller";
-    file = config.site.apps.storyteller.auth.clients.storyteller.file;
+    file = config.site.apps.storyteller.auth.clients.storyteller.secret.file;
   };
 
   age.secrets.storyteller-smtp = {

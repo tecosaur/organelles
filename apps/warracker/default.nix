@@ -23,7 +23,7 @@ in {
   age.secrets = {
     warracker-oidc = {
       owner = warracker-user;
-      file = config.site.apps.warracker.auth.clients.warracker.file;
+      file = config.site.apps.warracker.auth.clients.warracker.secret.file;
     };
     warracker-smtp = {
       owner = warracker-user;

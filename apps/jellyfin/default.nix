@@ -23,7 +23,7 @@ in {
   age.secrets.jellyfin-oidc = {
     owner = "jellyfin";
     group = "users";
-    file = config.site.apps.jellyfin.auth.clients.jellyfin.file;
+    file = config.site.apps.jellyfin.auth.clients.jellyfin.secret.file;
   };
 
   services.declarative-jellyfin = {

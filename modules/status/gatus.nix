@@ -12,8 +12,8 @@ let
   status = import ./plan.nix { inherit config lib; };
   page-domain = "${app.subdomain}.${domain}";
   start = pkgs.writeShellScript "gatus-start" ''
-    GATUS_PUSH_TOKEN="$(< "$CREDENTIALS_DIRECTORY/push")"
-    GATUS_ALERT_TOPIC="$(< "$CREDENTIALS_DIRECTORY/topic")"
+    GATUS_PUSH_TOKEN="$(< ${app.secrets.push.credentials.gatus})"
+    GATUS_ALERT_TOPIC="$(< ${app.secrets.alert-topic.credentials.gatus})"
     export GATUS_PUSH_TOKEN GATUS_ALERT_TOPIC
     exec ${lib.getExe config.services.gatus.package}
   '';
@@ -93,10 +93,6 @@ in {
         # peer authentication needs the system user the database is named for
         DynamicUser = lib.mkForce false;
         ExecStart = lib.mkForce start;
-        LoadCredential = [
-          "push:${config.age.secrets.gatus-push.path}"
-          "topic:${config.age.secrets.status-alert-topic.path}"
-        ];
         RestartSec = "10s";
       };
     };

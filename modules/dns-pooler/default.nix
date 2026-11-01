@@ -16,8 +16,7 @@ let
   peer-port = config.site.ports.dns-pooler-peer.port;
   # /status for the local monitor, unauthenticated, so loopback only
   status-port = config.site.ports.dns-pooler-status.port;
-  # systemd places a LoadCredential secret at this fixed per-unit path
-  credential-path = "/run/credentials/dns-pooler.service/provider";
+  credential-path = config.site.secrets.bunny-dns-key.credentials.dns-pooler;
   mesh-endpoint = host: "[${config.site.mesh.addresses.${host}}]:${toString peer-port}";
   enabled-apps = lib.filter (app: app.enabled && app.host != null)
     (lib.attrValues config.site.apps);
@@ -101,7 +100,6 @@ in {
   } ];
 
   # shared with Caddy, which answers ACME DNS challenges with it
-  age.secrets.bunny-dns-key.file = config.site.secrets.bunny-dns-key.file;
 
   environment.etc."dns-pooler/config.toml".source = config-file;
 
@@ -127,7 +125,6 @@ in {
       # or a watchdog kill restarts it.
       Restart = "on-failure";
       RestartSec = "5s";
-      LoadCredential = [ "provider:${config.age.secrets.bunny-dns-key.path}" ];
       DynamicUser = true;
       # reading WireGuard counters needs CAP_NET_ADMIN, and nothing else does
       AmbientCapabilities = [ "CAP_NET_ADMIN" ];

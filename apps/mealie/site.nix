@@ -12,7 +12,7 @@
       redirects = [ "login" "http://localhost:${toString config.site.apps.mealie.port}/login" ];
       settings.authorization_policy = "one_factor";
       # in mealie-credentials-env, with its SMTP password
-      holds-secret = false;
+      secret = null;
     };
     secrets = {
       credentials-env = { kind = "credential"; description = "Mealie OIDC/SMTP environment"; };

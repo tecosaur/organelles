@@ -113,8 +113,9 @@ in {
     ha-sentinel = mesh 26379 "valkey-ha-sentinel" valkey-clients;
   };
   config.site.secrets = {
-    patroni-restapi = { kind = "key"; generate = "rand"; };
-    postgresql-ha-replication = { kind = "key"; generate = "rand"; };
-    valkey-ha = { kind = "key"; generate = "rand"; };
+    # root's patronictl reads it too
+    patroni-restapi = { kind = "key"; generate = "rand"; units = { patroni = members; postgresql-ha-role = members; }; };
+    postgresql-ha-replication = { kind = "key"; generate = "rand"; units = { patroni = members; postgresql-ha-setup = preference; }; };
+    valkey-ha = { kind = "key"; generate = "rand"; units = { valkey-ha = members; valkey-ha-sentinel = voters; valkey-ha-follow = preference; }; };
   };
 }

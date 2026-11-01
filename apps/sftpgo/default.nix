@@ -6,38 +6,21 @@ let
   sftpgo-pkg = pkgs.callPackage ./package.nix { };
   sftpgo-admin-user = "admin";
   webdav-prefix = "/dav";
+  admin-password = config.site.apps.sftpgo.secrets.admin-password.credential;
+  smtp-password = config.site.secrets.fastmail.credentials.sftpgo;
   sftpgo-exec = pkgs.writeShellScript "sftpgo-start" ''
-    if [ -f "$CREDENTIALS_DIRECTORY/default-admin-password" ]; then
+    if [ -f ${admin-password} ]; then
       export SFTPGO_DEFAULT_ADMIN_USERNAME="${sftpgo-admin-user}"
-      export SFTPGO_DEFAULT_ADMIN_PASSWORD="$(${pkgs.coreutils}/bin/cat "$CREDENTIALS_DIRECTORY/default-admin-password")"
+      export SFTPGO_DEFAULT_ADMIN_PASSWORD="$(${pkgs.coreutils}/bin/cat ${admin-password})"
     fi
-    [ -f "$CREDENTIALS_DIRECTORY/smtp-password" ] && \
-      export SFTPGO_SMTP_PASSWORD="$(${pkgs.coreutils}/bin/cat "$CREDENTIALS_DIRECTORY/smtp-password")"
+    [ -f ${smtp-password} ] && \
+      export SFTPGO_SMTP_PASSWORD="$(${pkgs.coreutils}/bin/cat ${smtp-password})"
     exec ${sftpgo-pkg}/bin/sftpgo serve ${utils.escapeSystemdExecArgs config.services.sftpgo.extraArgs}
   '';
 in {
   site.apps.sftpgo.enabled = true;
 
-  age.secrets = {
-    sftpgo-oidc = {
-      owner = sftpgo-user;
-      file = config.site.apps.sftpgo.auth.clients.sftpgo.file;
-    };
-    sftpgo-admin-password = {
-      owner = sftpgo-user;
-      file = config.site.apps.sftpgo.secrets.admin-password.file;
-    };
-    sftpgo-smtp-password = {
-      owner = sftpgo-user;
-      file = config.site.secrets.fastmail.file;
-    };
-  };
-
   systemd.services.sftpgo.serviceConfig = {
-    LoadCredential = [
-      "default-admin-password:${config.age.secrets.sftpgo-admin-password.path}"
-      "smtp-password:${config.age.secrets.sftpgo-smtp-password.path}"
-    ];
     ExecStart = lib.mkForce sftpgo-exec;
   };
 
@@ -98,7 +81,7 @@ in {
           proxy_allowed = [ "127.0.0.1" ];
           oidc = {
             client_id = "sftpgo";
-            client_secret_file = config.age.secrets.sftpgo-oidc.path;
+            client_secret_file = config.site.apps.sftpgo.auth.clients.sftpgo.secret.credential;
             config_url = "https://${config.site.apps.authelia.subdomain}.${config.site.domain}";
             redirect_base_url = "https://${sftpgo-domain}";
             scopes = [ "openid" "email" "profile" "groups" ];

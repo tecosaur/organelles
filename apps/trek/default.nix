@@ -132,7 +132,7 @@ in {
   age.secrets = {
     trek-oidc = {
       owner = "trek";
-      file = config.site.apps.trek.auth.clients.trek.file;
+      file = config.site.apps.trek.auth.clients.trek.secret.file;
     };
     trek-aerodatabox-key = {
       owner = "trek";

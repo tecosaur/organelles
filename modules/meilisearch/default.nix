@@ -22,7 +22,7 @@ let
     runtimeInputs = with pkgs; [ curl jq ];
     text = ''
       api() {
-        curl -sS --fail-with-body -H @<(printf 'Authorization: Bearer %s' "$(< "$CREDENTIALS_DIRECTORY/master-key")") \
+        curl -sS --fail-with-body -H @<(printf 'Authorization: Bearer %s' "$(< ${config.site.secrets.meilisearch-master.credential})") \
           -H 'Content-Type: application/json' "$@"
       }
       tries=0
@@ -43,12 +43,11 @@ let
   };
 in {
   config = lib.mkIf (config.site.server.host == host) {
-    age.secrets.meilisearch-master.file = config.site.secrets.meilisearch-master.file;
     services.meilisearch = {
       enable = true;
       listenAddress = "[${config.site.mesh.addresses.${host}}]";
       listenPort = port;
-      masterKeyFile = config.age.secrets.meilisearch-master.path;
+      masterKeyFile = config.site.secrets.meilisearch-master.decrypted;
       settings.env = "production";
     };
     systemd.services.meilisearch = {
@@ -71,7 +70,6 @@ in {
         Type = "oneshot";
         RemainAfterExit = true;
         ExecStart = lib.getExe declare-keys;
-        LoadCredential = "master-key:${config.age.secrets.meilisearch-master.path}";
         DynamicUser = true;
       };
     };

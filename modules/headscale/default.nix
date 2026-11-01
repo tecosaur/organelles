@@ -12,11 +12,11 @@ in {
   age.secrets = {
     headscale-oidc = {
       owner = "headscale";
-      file = config.site.apps.headscale.auth.clients.headscale.file;
+      file = config.site.apps.headscale.auth.clients.headscale.secret.file;
     };
     headplane-oidc = {
       owner = "headscale";
-      file = config.site.apps.headscale.auth.clients.headplane.file;
+      file = config.site.apps.headscale.auth.clients.headplane.secret.file;
     };
   };
 

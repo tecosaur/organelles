@@ -11,6 +11,11 @@ in {
     dns-pooler-status = local 9434 "dns-pooler" { gatus-aggregator-report = hosts; gatus-aggregator-aggregate = preference; };
   };
   config.site.secrets = {
-    bunny-dns-key = { kind = "credential"; description = "Bunny API key, for dns-pooler; it also keys the peer channel, so every node needs the same one"; };
+    bunny-dns-key = {
+      kind = "credential";
+      description = "Bunny API key, for dns-pooler; it also keys the peer channel, so every node needs the same one";
+      # Caddy answers ACME's DNS challenges with it
+      units = [ "dns-pooler" "caddy" ];
+    };
   };
 }

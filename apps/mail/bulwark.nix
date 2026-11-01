@@ -4,7 +4,6 @@ let
   app = config.site.apps.mail;
   inherit (config.site) domain;
   hostname = "${app.subdomain}.${domain}";
-  credentials = "/run/credentials/bulwark.service";
   stalwart = "127.0.0.1:${toString app.port}";
   bulwark-port = app.ports.bulwark.port;
   # Next.js spells any loopback address localhost in a middleware rewrite, and proxies one not
@@ -39,10 +38,6 @@ let
   '';
 in {
   config = lib.mkIf config.site.ha.may-lead {
-    age.secrets = {
-      bulwark-oidc.file = config.site.apps.mail.auth.clients.${config.site.mail.oidc.bulwark-client}.file;
-      bulwark-session.file = config.site.apps.mail.secrets.bulwark-session.file;
-    };
     services.bulwark = {
       enable = true;
       hostname = "localhost";
@@ -56,20 +51,16 @@ in {
           # Stalwart knows only Authelia's tokens and app passwords
           only = true;
           clientId = config.site.mail.oidc.bulwark-client;
-          clientSecretFile = "${credentials}/oidc-secret";
+          clientSecretFile = app.auth.clients.${config.site.mail.oidc.bulwark-client}.secret.credential;
           issuerUrl = config.site.mail.oidc.issuer;
           scopes = "openid profile ${config.site.mail.oidc.account-claim} offline_access";
         };
         # Shared by both hosts, so a sign-in survives a switch between them
-        sessionSecretFile = "${credentials}/session-secret";
+        sessionSecretFile = app.secrets.bulwark-session.credential;
         # Its /admin is Stalwart's here
         stalwartAdminAccess = "off";
       };
     };
-    systemd.services.bulwark.serviceConfig.LoadCredential = [
-      "oidc-secret:${config.age.secrets.bulwark-oidc.path}"
-      "session-secret:${config.age.secrets.bulwark-session.path}"
-    ];
     # Bulwark's server-side JMAP calls then reach this host's Stalwart
     networking.hosts = {
       "127.0.0.1" = [ hostname ];

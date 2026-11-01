@@ -17,13 +17,15 @@
       policy = { };
       clients.sftpgo = {
         redirects = [ "web/oidc/redirect" "web/oauth2/redirect" ];
+        secret.units = [ "sftpgo" ];
         pkce = false;
         settings.token_endpoint_auth_method = "client_secret_post";
       };
     };
     secrets = {
-      admin-password = { kind = "password"; description = "SFTPGo admin login"; };
+      admin-password = { kind = "password"; description = "SFTPGo admin login"; units = [ "sftpgo" ]; };
     };
   };
   config.site.apps.sftpgo.groups.extra = [ "family" ];
+  config.site.secrets.fastmail.units.sftpgo = config.site.apps.sftpgo.hosts;
 }

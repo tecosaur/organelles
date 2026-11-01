@@ -3,18 +3,13 @@
 let
   rustical-domain = "${config.site.apps.rustical.subdomain}.${config.site.domain}";
   rustical-start = pkgs.writeShellScript "rustical-start" ''
-    export RUSTICAL_OIDC__CLIENT_SECRET="$(< "$CREDENTIALS_DIRECTORY/oidc-secret")"
+    export RUSTICAL_OIDC__CLIENT_SECRET="$(< ${config.site.apps.rustical.auth.clients.rustical.secret.credential})"
     exec ${lib.getExe config.services.rustical.package} serve
   '';
 in {
   site.apps.rustical.enabled = true;
 
-  age.secrets.rustical-oidc = {
-    file = config.site.apps.rustical.auth.clients.rustical.file;
-  };
-
   systemd.services.rustical.serviceConfig = {
-    LoadCredential = [ "oidc-secret:${config.age.secrets.rustical-oidc.path}" ];
     ExecStart = lib.mkForce rustical-start;
   };
 

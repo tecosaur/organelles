@@ -50,11 +50,11 @@ let
     if is-meshed then "[${address host}]:${toString cluster.ports.rpc}"
     else "127.0.0.1:${toString cluster.ports.rpc}";
   meta-dir = "${cluster.root}/meta";
-  rpc-secret = if is-meshed then config.age.secrets."garage-${this-cluster-name}-rpc".path else "${meta-dir}/rpc_secret";
+  rpc-secret = if is-meshed then config.site.apps.mail.secrets."garage-${this-cluster-name}-rpc".decrypted else "${meta-dir}/rpc_secret";
   # node_key is libsodium's 64-byte ed25519 secret key; the CLI reads the node ID from node_key.pub
   install-node-key = pkgs.writeShellScript "garage-node-key" ''
     set -euo pipefail
-    key="$CREDENTIALS_DIRECTORY/node-key"
+    key="$CREDENTIALS_DIRECTORY/garage-node-${this-host}"
     public=$(base64 -d "$key" | tail -c 32 | od -An -tx1 -v | tr -d ' \n')
     if [ "$public" != ${node-id this-host} ]; then
       echo "garage: keys/garage-node-${this-host}.age does not hold the key keys/garage-node-${this-host}.pub names; regenerate both with init-keys.sh" >&2
@@ -110,7 +110,7 @@ let
     jq -n --arg id "$bucket" '{id: $id, body: {quotas: {maxSize: ${builtins.toJSON cluster.quota-bytes}, maxObjects: null}}}' |
       api UpdateBucket - >/dev/null
     # Key, imported so its secret can live in agenix; a deleted ID can never be imported again
-    secret="$CREDENTIALS_DIRECTORY/key-secret"
+    secret="$CREDENTIALS_DIRECTORY/garage-${cluster.key.name}"
     if key=$(api GetKeyInfo '{"id": "${cluster.key.id}", "showSecretKey": true}' 2>/dev/null); then
       if ! jq -e --rawfile secret "$secret" '.secretAccessKey == ($secret | rtrimstr("\n"))' <<<"$key" >/dev/null; then
         echo "garage-mail-setup: key ${cluster.key.id} holds a secret other than keys/garage-${cluster.key.name}.age's;" \
@@ -126,7 +126,6 @@ let
       '{bucketId: $bucket, accessKeyId: "${cluster.key.id}", permissions: {read: true, write: true, owner: false}}' |
       api AllowBucketKey - >/dev/null
   '';
-  secret = name: { file = config.site.apps.mail.secrets."garage-${name}".file; };
 in {
   options.site.mail.garage = lib.mkOption {
     type = lib.types.attrsOf lib.types.raw;
@@ -135,7 +134,7 @@ in {
       inherit (c) bucket quota-bytes;
       inherit region;
       access-key-id = c.key.id;
-      secret-file = (secret c.key.name).file;
+      secret-file = config.site.apps.mail.secrets."garage-${c.key.name}".file;
       endpoint = host: if lib.elem host (hosts-of c)
         then "http://127.0.0.1:${toString c.ports.s3}"
         else "http://${c.head-host}.internal:${toString c.ports.s3}";
@@ -148,11 +147,6 @@ in {
   };
   config = lib.mkIf (this-cluster-name != null) (lib.mkMerge [
     {
-      age.secrets = lib.mkIf is-meshed {
-        # Garage refuses a secret its owner alone cannot read, so not systemd's 0440 credential copy
-        "garage-${this-cluster-name}-rpc" = secret "${this-cluster-name}-rpc" // { owner = "garage"; };
-        "garage-node-${this-host}" = secret "node-${this-host}";
-      };
       users.users.garage = {
         isSystemUser = true;
         group = "garage";
@@ -196,7 +190,6 @@ in {
           User = "garage";
           Group = "garage";
           StateDirectory = lib.mkForce [ ];
-          LoadCredential = lib.optional is-meshed "node-key:${config.age.secrets."garage-node-${this-host}".path}";
           ExecStartPre = [ (if is-meshed then install-node-key else generate-rpc-secret) ];
           # wg0 may not carry its address yet when the RPC socket binds;
           # anything lasting past ~2 minutes is a real fault
@@ -209,7 +202,6 @@ in {
       site.status.units = [ { id = "garage"; name = "Garage mail ${this-cluster-name}"; unit = "garage.service"; } ];
     }
     (lib.mkIf (cluster.head-host == this-host) {
-      age.secrets."garage-${cluster.key.name}" = secret cluster.key.name;
       systemd.services.garage-mail-setup = {
         description = "Declare the ${this-cluster-name} Garage cluster's layout, bucket and key";
         after = [ "garage.service" ];
@@ -217,7 +209,6 @@ in {
         serviceConfig = {
           Type = "oneshot";
           ExecStart = setup;
-          LoadCredential = [ "key-secret:${config.age.secrets."garage-${cluster.key.name}".path}" ];
         };
       };
       # Kept out of activation, which must not wait on a peer not yet deployed;

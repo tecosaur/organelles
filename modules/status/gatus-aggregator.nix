@@ -23,10 +23,6 @@ let
       ExecStart = "${lib.getExe package} -plan ${plan-file} ${command}";
       Restart = "always";
       RestartSec = "5s";
-      LoadCredential = [
-        "push:${config.age.secrets.gatus-push.path}"
-        "topic:${config.age.secrets.status-alert-topic.path}"
-      ];
       DynamicUser = true;
       NoNewPrivileges = true;
       ProtectSystem = "strict";
@@ -52,8 +48,6 @@ let
     };
   };
 in {
-  age.secrets.gatus-push.file = config.site.apps.gatus.secrets.push.file;
-  age.secrets.status-alert-topic.file = config.site.apps.gatus.secrets.alert-topic.file;
 
   systemd.services.gatus-aggregator-report = service "report" "Status reports to Gatus";
   services.ha.postgres.probe-roles = [ "gatus-aggregator-report" ];

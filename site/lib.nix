@@ -6,18 +6,24 @@
 rec {
   # an app's ID, for its OIDC policy and client and its secrets' files, from its name
   id-of = name: lib.toLower (lib.replaceStrings [ " " ] [ "-" ] name);
+  # Each site.nix in a folder under the roots: every app's and module's metadata
+  site-modules = roots: lib.concatMap (root: lib.concatMap (name:
+      lib.optional (builtins.pathExists (root + "/${name}/site.nix")) (root + "/${name}/site.nix"))
+    (lib.attrNames (builtins.readDir root))) roots;
   secret-dirs = { key = "keys"; credential = "credentials"; password = "passwords"; oidc = "oidc"; };
-  # The shape every secret is declared in; an app's files are named after it unless they say
-  secret = { prefix ? null }: lib.types.submodule ({ name, config, ... }: {
+  # The shape every secret is declared in. It is decrypted once, root's alone, on the hosts
+  # that hold it, and each unit reading it loads it as a credential; an app's files are
+  # named after it unless they say.
+  secret = { prefix ? null, kind ? null, file-name ? null, as ? null }: lib.types.submodule ({ name, config, ... }: {
     options = {
-      kind = lib.mkOption {
+      kind = lib.mkOption ({
         type = lib.types.enum (lib.attrNames secret-dirs);
         description = ''
           Where it comes from, and so its directory under secrets/: a key
           the scripts generate, a credential from elsewhere, a password set
           by hand, or an OIDC client's secret beside its digest.
         '';
-      };
+      } // lib.optionalAttrs (kind != null) { default = kind; });
       generate = lib.mkOption {
         type = lib.types.nullOr (lib.types.enum [ "rand" "hex" "rsa" "dkim" "s3-key" "garage-node" "meilisearch" "wireguard" ]);
         default = null;
@@ -40,8 +46,66 @@ rec {
       };
       file-name = lib.mkOption {
         type = lib.types.str;
-        default = if prefix == null then name else "${prefix}-${name}";
+        default = if file-name != null then file-name else if prefix == null then name else "${prefix}-${name}";
         description = "Its file's name in its directory, less .age";
+      };
+      units = lib.mkOption {
+        type = with lib.types; either (listOf str) (attrsOf (listOf str));
+        default = [ ];
+        example = { gatus = [ "golgi" ]; gatus-aggregator-report = [ "golgi" "centrosome" ]; };
+        description = ''
+          The systemd units that read it, each loading it as a credential
+          at the path `credentials.<unit>` gives, `credential` for the one:
+          a list, for units on its hosts, or each unit with the hosts it
+          runs on, which are then its hosts.
+        '';
+      };
+      hosts = lib.mkOption {
+        type = lib.types.nullOr (lib.types.listOf lib.types.str);
+        default = null;
+        description = "For a secret of no app, the hosts holding it; null for every host";
+      };
+      owner = lib.mkOption {
+        type = lib.types.str;
+        default = "root";
+        description = "Who owns the decrypted file, for a reader no credential reaches";
+      };
+      group = lib.mkOption {
+        type = lib.types.str;
+        default = "root";
+        description = "The decrypted file's group";
+      };
+      mode = lib.mkOption {
+        type = lib.types.str;
+        default = "0400";
+        description = "The decrypted file's mode";
+      };
+      credential-name = lib.mkOption {
+        type = lib.types.str;
+        readOnly = true;
+        default = if as != null then as else name;
+        description = "Its name among a unit's credentials";
+      };
+      decrypted = lib.mkOption {
+        type = lib.types.str;
+        readOnly = true;
+        default = "/run/agenix/${config.file-name}";
+        description = "The decrypted file, for root, an EnvironmentFile, or its owner";
+      };
+      credentials = lib.mkOption {
+        type = lib.types.attrsOf lib.types.str;
+        readOnly = true;
+        default = lib.genAttrs (if lib.isList config.units then config.units else lib.attrNames config.units)
+          (unit: "/run/credentials/${unit}.service/${config.credential-name}");
+        description = "Where each of its units reads it";
+      };
+      credential = lib.mkOption {
+        type = lib.types.str;
+        readOnly = true;
+        default = let units = lib.attrNames config.credentials; in
+          if lib.length units == 1 then config.credentials.${lib.head units}
+          else throw "secret ${config.file-name}: credential names its one unit's copy, but it has ${toString (lib.length units)}; use credentials.<unit>";
+        description = "Where its one unit reads it";
       };
       path = lib.mkOption {
         type = lib.types.str;
@@ -321,11 +385,14 @@ rec {
         clients = lib.mkOption {
           type = lib.types.attrsOf (lib.types.submodule ({ name, ... }: {
             options = {
-              file = lib.mkOption {
-                type = lib.types.path;
-                readOnly = true;
-                default = ../secrets + "/oidc/${name}-secret.age";
-                description = "The client's encrypted secret, where it holds one";
+              secret = lib.mkOption {
+                type = lib.types.nullOr (secret { kind = "oidc"; file-name = "${name}-secret"; as = "oidc-secret"; });
+                default = { };
+                description = ''
+                  The client's secret, in secrets/oidc/<id>-secret.age, its
+                  digest beside it; null where the app keeps it elsewhere or
+                  the client is public. Its credential is oidc-secret.
+                '';
               };
               redirects = lib.mkOption {
                 type = lib.types.listOf lib.types.str;
@@ -336,15 +403,6 @@ rec {
                 type = lib.types.bool;
                 default = true;
                 description = "Whether the client must use PKCE";
-              };
-              holds-secret = lib.mkOption {
-                type = lib.types.bool;
-                default = true;
-                description = ''
-                  Whether the app reads the client's secret from
-                  secrets/oidc/<id>-secret.age, rather than keeping it
-                  elsewhere (its own database, say) or being public.
-                '';
               };
               settings = lib.mkOption {
                 type = lib.types.attrs;

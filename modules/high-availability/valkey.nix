@@ -50,7 +50,6 @@ let
       User = "valkey-ha";
       Group = "valkey-ha";
       Restart = "always";
-      LoadCredential = [ "password:${config.age.secrets.valkey-ha.path}" ];
       MemorySwapMax = 0;
     };
   };
@@ -97,7 +96,6 @@ in {
       };
     }
     (lib.mkIf (lib.elem this-host (members ++ voters)) {
-      age.secrets.valkey-ha.file = config.site.secrets.valkey-ha.file;
       environment.systemPackages = [ package ];
       users.users.valkey-ha = {
         isSystemUser = true;
@@ -106,13 +104,10 @@ in {
       users.groups.valkey-ha = { };
     })
     (lib.mkIf (lib.elem this-host members) {
-      age.secrets = lib.mapAttrs' (name: _: lib.nameValuePair "valkey-${name}" {
-        file = config.site.secret-files."keys/valkey-${name}.age".file;
-      }) cfg.users;
       systemd.services.valkey-ha = lib.recursiveUpdate service {
         description = "Replicated Valkey";
         script = ''
-          export VALKEYCLI_AUTH="$(< "$CREDENTIALS_DIRECTORY/password")"
+          export VALKEYCLI_AUTH="$(< "$CREDENTIALS_DIRECTORY/${config.site.secrets.valkey-ha.credential-name}")"
           read -r master port < <(${current-master})
           {
             echo 'include "${valkey-conf}"'
@@ -124,8 +119,6 @@ in {
           exec ${package}/bin/valkey-server "$RUNTIME_DIRECTORY/valkey.conf"
         '';
         serviceConfig = {
-          LoadCredential = service.serviceConfig.LoadCredential
-            ++ lib.mapAttrsToList (name: _: "valkey-${name}:${config.age.secrets."valkey-${name}".path}") cfg.users;
           RuntimeDirectory = "valkey-ha";
           RuntimeDirectoryMode = "0700";
           StateDirectory = "valkey-ha";
@@ -140,7 +133,7 @@ in {
         after = [ "valkey-ha.service" "postgresql-ha-role.service" ];
         path = [ package ];
         script = ''
-          export VALKEYCLI_AUTH="$(< "$CREDENTIALS_DIRECTORY/password")"
+          export VALKEYCLI_AUTH="$(< "$CREDENTIALS_DIRECTORY/${config.site.secrets.valkey-ha.credential-name}")"
           cli() { valkey-cli -t 2 --raw "$@" 2>/dev/null; }
           sentinel() {
             for host in ${toString (map address voters)}; do
@@ -175,7 +168,7 @@ in {
       systemd.services.valkey-ha-sentinel = lib.recursiveUpdate service {
         description = "Sentinel for the replicated Valkey";
         script = ''
-          export VALKEYCLI_AUTH="$(< "$CREDENTIALS_DIRECTORY/password")"
+          export VALKEYCLI_AUTH="$(< "$CREDENTIALS_DIRECTORY/${config.site.secrets.valkey-ha.credential-name}")"
           read -r master port < <(${current-master})
           cat > "$STATE_DIRECTORY/sentinel.conf" <<EOF
           bind ${address this-host} 127.0.0.1

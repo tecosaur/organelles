@@ -72,7 +72,10 @@
     };
     auth = {
       policy = { };
-      clients.forgejo.redirects = [ "user/oauth2/authelia/callback" ];
+      clients.forgejo = {
+        redirects = [ "user/oauth2/authelia/callback" ];
+        secret.units = [ "forgejo" ];
+      };
     };
   };
   config.site.apps.forgejo = {
@@ -109,4 +112,5 @@
       }
     ];
   };
+  config.site.secrets.fastmail.units.forgejo = config.site.apps.forgejo.hosts;
 }

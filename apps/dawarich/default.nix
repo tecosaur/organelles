@@ -5,7 +5,7 @@
 
   age.secrets.dawarich-oidc = {
     owner = "dawarich";
-    file = config.site.apps.dawarich.auth.clients.dawarich.file;
+    file = config.site.apps.dawarich.auth.clients.dawarich.secret.file;
   };
 
   services.dawarich = {

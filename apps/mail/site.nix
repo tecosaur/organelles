@@ -116,6 +116,7 @@ in {
     in {
       ${oidc.bulwark-client} = {
         redirects = map (locale: "${locale}/auth/callback") bulwark-locales;
+        secret.units = [ "bulwark" ];
         settings = stalwart-client {
           scopes = [ "openid" "profile" oidc.account-claim "offline_access" ];
           grant_types = [ "authorization_code" "refresh_token" ];
@@ -127,7 +128,7 @@ in {
       };
       ${oidc.web-ui-client} = {
         redirects = [ "admin/oauth/callback" "account/oauth/callback" ];
-        holds-secret = false;
+        secret = null;
         settings = stalwart-client {
           client_secret = "";
           public = true;
@@ -141,11 +142,12 @@ in {
     # Its files keep the names of what holds them, Stalwart's, Bulwark's and the
     # gateway's, rather than the app's
     secrets = lib.mapAttrs (name: secret: secret // { file-name = name; }) ({
-      bulwark-session = { kind = "key"; generate = "rand"; };
+      bulwark-session = { kind = "key"; generate = "rand"; units = [ "bulwark" ]; };
       s3-overflow-client = { kind = "key"; generate = "s3-key"; };
       meilisearch-stalwart = { kind = "key"; generate = "meilisearch"; };
-      valkey-stalwart = { kind = "key"; generate = "rand"; };
-      valkey-s3-overflow = { kind = "key"; generate = "rand"; };
+      # each Valkey member defines its users with them
+      valkey-stalwart = { kind = "key"; generate = "rand"; units.valkey-ha = config.site.ha.members; };
+      valkey-s3-overflow = { kind = "key"; generate = "rand"; units.valkey-ha = config.site.ha.members; };
       smtp2go = { kind = "credential"; description = "SMTP2GO SMTP user's password, for Stalwart's relay"; };
     } // (let
       addressing = import ./addressing.nix { inherit lib; } { inherit (config.site.mail) domains admins; };
@@ -156,10 +158,16 @@ in {
     in lib.listToAttrs (
       map (domain: lib.nameValuePair "dkim-${domain.name}" { kind = "key"; generate = "dkim"; })
         (lib.filter (domain: domain.signs) addressing.domains)
-      ++ lib.mapAttrsToList (cluster: _: lib.nameValuePair "garage-mail-${cluster}" { kind = "key"; generate = "s3-key"; }) clusters
-      ++ lib.mapAttrsToList (cluster: _: lib.nameValuePair "garage-${cluster}-rpc" { kind = "key"; generate = "hex"; }) meshed
+      # its head sets each cluster up with its key
+      ++ lib.mapAttrsToList (cluster: _: lib.nameValuePair "garage-mail-${cluster}" {
+        kind = "key"; generate = "s3-key"; units.garage-mail-setup = [ storage.heads.${cluster} ];
+      }) clusters
+      # Garage refuses a secret its owner alone cannot read, so not systemd's 0440 credential copy
+      ++ lib.mapAttrsToList (cluster: capacity: lib.nameValuePair "garage-${cluster}-rpc" {
+        kind = "key"; generate = "hex"; owner = "garage"; hosts = lib.attrNames capacity;
+      }) meshed
       ++ lib.concatLists (lib.mapAttrsToList (_: capacity: map (host: lib.nameValuePair "garage-node-${host}" {
-        kind = "key"; generate = "garage-node"; recipients = [ host ];
+        kind = "key"; generate = "garage-node"; recipients = [ host ]; units.garage = [ host ];
       }) (lib.attrNames capacity)) meshed))));
   };
   options.site.mail = {

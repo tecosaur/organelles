@@ -7,16 +7,9 @@
 let
   app = config.site.apps.vaultwarden;
   vault-domain = "${app.subdomain}.${config.site.domain}";
-  credentials = "/run/credentials/vaultwarden.service";
 in {
   config = lib.mkIf config.site.ha.may-lead {
     site.apps.vaultwarden.enabled = true;
-
-    age.secrets = {
-      vaultwarden-rsa.file = config.site.apps.vaultwarden.secrets."rsa.pem".file;
-      vaultwarden-smtp.file = config.site.secrets.fastmail.file;
-      vaultwarden-oidc.file = config.site.apps.vaultwarden.auth.clients.vaultwarden.file;
-    };
 
     services.ha.postgres.databases = [ "vaultwarden" ];
 
@@ -31,7 +24,7 @@ in {
         ROCKET_PORT = app.port;
         # .pem is appended; differing between members, it would sign
         # everyone out at each failover
-        RSA_KEY_FILENAME = "${credentials}/rsa_key";
+        RSA_KEY_FILENAME = lib.removeSuffix ".pem" app.secrets."rsa_key.pem".credential;
         SIGNUPS_ALLOWED = false;
         # Authelia guards the admin page instead
         DISABLE_ADMIN_TOKEN = true;
@@ -43,24 +36,18 @@ in {
         SSO_ONLY = false;
         SSO_AUTHORITY = "https://${config.site.apps.authelia.subdomain}.${config.site.domain}";
         SSO_CLIENT_ID = "vaultwarden";
-        SSO_CLIENT_SECRET_FILE = "${credentials}/oidc-secret";
+        SSO_CLIENT_SECRET_FILE = app.auth.clients.vaultwarden.secret.credential;
         # no refresh token, so no consent page, and sessions outlast Authelia
         SSO_AUTH_ONLY_NOT_SESSION = true;
         SMTP_HOST = config.site.email.server;
         SMTP_PORT = config.site.email.port;
         SMTP_SECURITY = "starttls";
         SMTP_USERNAME = config.site.email.username;
-        SMTP_PASSWORD_FILE = "${credentials}/smtp-password";
+        SMTP_PASSWORD_FILE = config.site.secrets.fastmail.credentials.vaultwarden;
         SMTP_FROM = "services.vault@${config.site.domain}";
         SMTP_FROM_NAME = "Vaultwarden on ${config.site.domain}";
       };
     };
-
-    systemd.services.vaultwarden.serviceConfig.LoadCredential = [
-      "rsa_key.pem:${config.age.secrets.vaultwarden-rsa.path}"
-      "smtp-password:${config.age.secrets.vaultwarden-smtp.path}"
-      "oidc-secret:${config.age.secrets.vaultwarden-oidc.path}"
-    ];
 
     services.authelia.instances.main.settings.access_control.rules = [
       {

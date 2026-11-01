@@ -17,7 +17,7 @@
         # the system resolver, whose cache can trail a nameserver change by
         # a day and wait on a provider no longer authoritative.
         cert_issuer acme {
-            dns bunny {file./run/credentials/caddy.service/bunny}
+            dns bunny {file.${config.site.secrets.bunny-dns-key.credentials.caddy}}
             resolvers 1.1.1.1 8.8.8.8
         }
         '';
@@ -47,9 +47,4 @@
           '';
       };
   };
-
-  # The Bunny key dns-pooler writes the zone with, for ACME DNS challenges;
-  # dns-pooler keeps the records, so Caddy no longer updates any itself.
-  systemd.services.caddy.serviceConfig.LoadCredential =
-    [ "bunny:${config.age.secrets.bunny-dns-key.path}" ];
 }

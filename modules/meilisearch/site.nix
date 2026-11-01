@@ -39,6 +39,7 @@ in {
     } // { hosts = [ config.site.meilisearch.host ]; };
   };
   config.site.secrets = {
-    meilisearch-master = { kind = "key"; generate = "rand"; };
+    # the server loads it itself; meilisearch-keys declares the clients' keys with it
+    meilisearch-master = { kind = "key"; generate = "rand"; hosts = [ host ]; units = [ "meilisearch-keys" ]; };
   };
 }
