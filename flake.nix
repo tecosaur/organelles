@@ -162,6 +162,22 @@
         server = (setup.server or { }) // { host = name; };
         apps = setup.apps or { };
       };
+      # Every declared secret has its file, unless optional, and every file a declaration
+      secrets-declared = let
+        inherit (nixpkgs) lib;
+        # the same on every host
+        declared = self.nixosConfigurations.golgi.config.site.secret-files;
+        files = lib.concatMap (dir: map (file: "${dir}/${file}")
+          (lib.filter (lib.hasSuffix ".age") (builtins.attrNames (builtins.readDir (./secrets + "/${dir}")))))
+          [ "keys" "credentials" "passwords" "oidc" ];
+        problems = map (path: "secrets/${path}: declared, but there is no such file")
+            (lib.filter (path: !declared.${path}.optional && !builtins.pathExists (./secrets + "/${path}"))
+              (builtins.attrNames declared))
+          ++ map (path: "secrets/${path}: no site.nix declares it") (lib.filter (path: !(declared ? ${path})) files);
+      in nixpkgs.legacyPackages.x86_64-linux.runCommand "secrets-declared" { } (if problems == [ ] then "touch $out" else ''
+        printf '%s\n' ${lib.escapeShellArgs problems} >&2
+        exit 1
+      '');
     in flake-utils-plus.lib.mkFlake {
       inherit self inputs modules;
 
@@ -209,6 +225,7 @@
         };
       });
 
-      checks = builtins.mapAttrs (system: deployLib: deployLib.deployChecks self.deploy) inputs.deploy-rs.lib;
+      checks = builtins.mapAttrs (system: deployLib: deployLib.deployChecks self.deploy
+        // nixpkgs.lib.optionalAttrs (system == "x86_64-linux") { inherit secrets-declared; }) inputs.deploy-rs.lib;
     };
 }
