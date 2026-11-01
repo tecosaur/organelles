@@ -1,12 +1,12 @@
 { config, lib, pkgs, utils, ... }:
 
 let
-  sftpgo-domain = "${config.site.apps.sftpgo.subdomain}.${config.site.domain}";
+  app = config.site.apps.sftpgo;
   sftpgo-user = "sftpgo";
   sftpgo-pkg = pkgs.callPackage ./package.nix { };
   sftpgo-admin-user = "admin";
   webdav-prefix = "/dav";
-  admin-password = config.site.apps.sftpgo.secrets.admin-password.credential;
+  admin-password = app.secrets.admin-password.credential;
   sftpgo-exec = pkgs.writeShellScript "sftpgo-start" ''
     if [ -f ${admin-password} ]; then
       export SFTPGO_DEFAULT_ADMIN_USERNAME="${sftpgo-admin-user}"
@@ -29,7 +29,7 @@ in {
     group = "users";
     package = sftpgo-pkg;
     extraReadWriteDirs = [ "/data/home" ];
-    dataDir = config.site.apps.sftpgo.dir;
+    dataDir = app.dir;
     settings = {
       common = {
         upload_mode = 2;
@@ -52,7 +52,7 @@ in {
       webdavd.bindings = [
         {
           address = "127.0.0.1";
-          port = config.site.apps.sftpgo.ports.webdav.port;
+          port = app.ports.webdav.port;
           prefix = webdav-prefix;
           client_ip_proxy_header = "X-Forwarded-For";
           proxy_allowed = [ "127.0.0.1" ];
@@ -60,7 +60,7 @@ in {
       ];
       sftpd.bindings = [
         {
-          port = config.site.apps.sftpgo.ports.sftp.port;
+          port = app.ports.sftp.port;
           client_ip_proxy_header = "X-Forwarded-For";
           address = "0.0.0.0";
         }
@@ -69,7 +69,7 @@ in {
         {
           address = "127.0.0.1";
           enable_https = false;
-          port = config.site.apps.sftpgo.port;
+          port = app.port;
           client_ip_proxy_header = "X-Forwarded-For";
           enable_web_admin = true;
           enable_web_client = true;
@@ -78,9 +78,9 @@ in {
           proxy_allowed = [ "127.0.0.1" ];
           oidc = {
             client_id = "sftpgo";
-            client_secret_file = config.site.apps.sftpgo.auth.clients.sftpgo.secret.credential;
-            config_url = "https://${config.site.apps.authelia.subdomain}.${config.site.domain}";
-            redirect_base_url = "https://${sftpgo-domain}";
+            client_secret_file = app.auth.clients.sftpgo.secret.credential;
+            config_url = config.site.apps.authelia.url;
+            redirect_base_url = app.url;
             scopes = [ "openid" "email" "profile" "groups" ];
             query_userinfo = true;
             username_field = "preferred_username";
@@ -103,7 +103,7 @@ in {
     };
   };
 
-  users.users."${sftpgo-user}".extraGroups =
+  users.users.${sftpgo-user}.extraGroups =
     (lib.optional config.services.immich.enable "immich") ++
     (lib.optional config.services.paperless.enable "paperless");
 
@@ -113,7 +113,7 @@ in {
     RestartSec = 5;
   };
 
-  services.caddy.virtualHosts."${sftpgo-domain}".extraConfig =
+  services.caddy.virtualHosts.${app.domain}.extraConfig =
     ''
     encode
     header -Alt-svc
@@ -128,13 +128,9 @@ in {
     }
     @webdav path ${webdav-prefix} ${webdav-prefix}/*
     handle @webdav {
-        reverse_proxy :${toString config.site.apps.sftpgo.ports.webdav.port}
+        reverse_proxy 127.0.0.1:${toString app.ports.webdav.port}
     }
-    reverse_proxy * :${toString config.site.apps.sftpgo.port} {
-        header_up Host {http.request.host}
-        header_up Upgrade {http.request.header.Upgrade}
-        header_up Connection {http.request.header.Connection}
-    }
+    reverse_proxy 127.0.0.1:${toString app.port}
     '';
 }
 

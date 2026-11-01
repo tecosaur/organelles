@@ -13,7 +13,7 @@ let
     if app.enabled then
       {
         "${prefix}_SUBDOMAIN" = app.subdomain;
-        "${prefix}_URL" = "${app.subdomain}.${config.site.domain}";
+        "${prefix}_URL" = app.domain;
         "${prefix}_ACCESS" = access-of app;
         "${prefix}_ENABLED" = "true";
       } else
@@ -59,7 +59,7 @@ let
       apply_template index-private.html
       rm index.html welcome-public.html welcome-private.html
       ${lib.concatMapStrings (app: ''
-        URL=${lib.escapeShellArg "${app.subdomain}.${config.site.domain}"} SUBDOMAIN=${lib.escapeShellArg app.subdomain} \
+        URL=${lib.escapeShellArg app.domain} SUBDOMAIN=${lib.escapeShellArg app.subdomain} \
           ACCESS=${lib.escapeShellArg (access-of app)} envsubst '$URL $SUBDOMAIN $ACCESS' < ${app.guide} >> guides.html
       '') guides}
       export GUIDES=`sed 's/^/            /g' guides.html`
@@ -68,7 +68,7 @@ let
     '';
 in {
   services.caddy = {
-      virtualHosts."${config.site.domain}".extraConfig = ''
+      virtualHosts.${config.site.domain}.extraConfig = ''
         @browser-auth {
             header User-Agent *Mozilla*
             header Cookie *authelia_session*

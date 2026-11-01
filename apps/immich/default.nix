@@ -1,9 +1,9 @@
 { config, lib, pkgs, ... }:
 
 let
-  immich-domain = "${config.site.apps.immich.subdomain}.${config.site.domain}";
+  app = config.site.apps.immich;
   immich-data = "/data/immich";
-  ml-port = config.site.apps.immich.ports.machine-learning.port;
+  ml-port = app.ports.machine-learning.port;
 in {
   site.apps.immich.enabled = true;
 
@@ -11,7 +11,7 @@ in {
     enable = true;
     openFirewall = false;
     host = "0.0.0.0";
-    port = config.site.apps.immich.port;
+    port = app.port;
     mediaLocation = immich-data;
     settings = {
       oauth = {
@@ -21,8 +21,8 @@ in {
         buttonText = "Login";
         clientId = "immich";
         # the immich module loads it as a credential itself
-        clientSecret._secret = config.site.apps.immich.auth.clients.immich.secret.decrypted;
-        issuerUrl = "https://${config.site.apps.authelia.subdomain}.${config.site.domain}/.well-known/openid-configuration";
+        clientSecret._secret = app.auth.clients.immich.secret.decrypted;
+        issuerUrl = "${config.site.apps.authelia.url}/.well-known/openid-configuration";
         scope = "openid email profile";
         signingAlgorithm = "RS256";
         profileSigningAlgorithm = "none";
@@ -33,7 +33,7 @@ in {
         enabled = false;
       };
       server = {
-        externalDomain = "https://${immich-domain}";
+        externalDomain = app.url;
       };
       storageTemplate = {
         enabled = true;
@@ -98,6 +98,6 @@ in {
     "d ${immich-data} 0750 immich immich"
   ];
 
-  services.caddy.virtualHosts."${immich-domain}".extraConfig =
-    ''reverse_proxy :${toString config.site.apps.immich.port}'';
+  services.caddy.virtualHosts.${app.domain}.extraConfig =
+    ''reverse_proxy :${toString app.port}'';
 }

@@ -6,7 +6,6 @@
 
 let
   app = config.site.apps.vaultwarden;
-  vault-domain = "${app.subdomain}.${config.site.domain}";
 in {
   config = lib.mkIf config.site.ha.may-lead {
     site.apps.vaultwarden.enabled = true;
@@ -17,7 +16,7 @@ in {
       enable = true;
       dbBackend = "postgresql";
       config = {
-        DOMAIN = "https://${vault-domain}";
+        DOMAIN = app.url;
         # The primary, by PGHOST and PGPORT; ident authenticates the system user as the role
         DATABASE_URL = "postgresql://vaultwarden@/vaultwarden";
         ROCKET_ADDRESS = "::";
@@ -34,7 +33,7 @@ in {
         SSO_ENABLED = true;
         # the master password still signs in: the way back if Authelia is down
         SSO_ONLY = false;
-        SSO_AUTHORITY = "https://${config.site.apps.authelia.subdomain}.${config.site.domain}";
+        SSO_AUTHORITY = config.site.apps.authelia.url;
         SSO_CLIENT_ID = "vaultwarden";
         SSO_CLIENT_SECRET_FILE = app.auth.clients.vaultwarden.secret.credential;
         # no refresh token, so no consent page, and sessions outlast Authelia
@@ -49,17 +48,17 @@ in {
 
     services.authelia.instances.main.settings.access_control.rules = [
       {
-        domain = vault-domain;
+        domain = app.domain;
         policy = "two_factor";
         subject = [ "group:${app.groups.admin}" ];
       }
       {
-        domain = vault-domain;
+        domain = app.domain;
         policy = "deny";
       }
     ];
 
-    services.caddy.virtualHosts.${vault-domain}.extraConfig = ''
+    services.caddy.virtualHosts.${app.domain}.extraConfig = ''
       @icons path /favicon.ico /images/favicon-* /images/apple-touch-icon.png /images/android-chrome-*
       handle @icons {
           root * ${config.site.assets}/vaultwarden

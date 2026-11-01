@@ -2,7 +2,6 @@
 
 let
   llm = config.site.apps.llm;
-  llm-domain = "${llm.subdomain}.${config.site.domain}";
   pool = llm.proxy ++ lib.optional llm.local ":${toString llm.port}";
   lb-policy = if llm.local-fallback || lib.length pool < 2 then "first" else "round_robin";
   pool-proxy =
@@ -43,7 +42,7 @@ in lib.mkMerge [
 
     site.apps.llm.enabled = true;
 
-    services.caddy.virtualHosts."${llm-domain}".extraConfig =
+    services.caddy.virtualHosts.${llm.domain}.extraConfig =
       ''
       @authenticated header Authorization "Bearer {file.{$LLM_API_KEY_PATH}}"
       handle @authenticated {

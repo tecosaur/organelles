@@ -1,7 +1,7 @@
 { config, lib, pkgs, ... }:
 
 let
-  ha-domain = "${config.site.apps.home-assistant.subdomain}.${config.site.domain}";
+  app = config.site.apps.home-assistant;
   ha-state = "/var/lib/hass/state";
   ha-state-files = [ "home-assistant_v2.db" "automations.yaml" ];
   hax-bambu = pkgs.home-assistant.python3Packages.callPackage ./packages/ha-bambu.nix { };
@@ -39,7 +39,7 @@ in {
   '';
 
   systemd.tmpfiles.rules = [
-    "L+ ${config.services.home-assistant.configDir}/secrets.yaml - - - - ${config.site.apps.home-assistant.secrets.secrets.decrypted}"
+    "L+ ${config.services.home-assistant.configDir}/secrets.yaml - - - - ${app.secrets.secrets.decrypted}"
   ];
 
   services.home-assistant = {
@@ -84,8 +84,8 @@ in {
     ];
     config = {
       http = {
-        base_url = "https://${ha-domain}";
-        server_port = config.site.apps.home-assistant.port;
+        base_url = app.url;
+        server_port = app.port;
         use_x_forwarded_for = true;
         trusted_proxies = "127.0.0.1";
       };
@@ -108,8 +108,8 @@ in {
     };
   };
 
-  services.caddy.virtualHosts."${ha-domain}".extraConfig =
+  services.caddy.virtualHosts.${app.domain}.extraConfig =
     ''
-    reverse_proxy :${toString config.site.apps.home-assistant.port}
+    reverse_proxy :${toString app.port}
     '';
 }

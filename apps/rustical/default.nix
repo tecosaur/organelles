@@ -1,9 +1,9 @@
 { config, lib, pkgs, ... }:
 
 let
-  rustical-domain = "${config.site.apps.rustical.subdomain}.${config.site.domain}";
+  app = config.site.apps.rustical;
   rustical-start = pkgs.writeShellScript "rustical-start" ''
-    export RUSTICAL_OIDC__CLIENT_SECRET="$(< ${config.site.apps.rustical.auth.clients.rustical.secret.credential})"
+    export RUSTICAL_OIDC__CLIENT_SECRET="$(< ${app.auth.clients.rustical.secret.credential})"
     exec ${lib.getExe config.services.rustical.package} serve
   '';
 in {
@@ -22,11 +22,11 @@ in {
         allow_password_login = false;
       };
       http = {
-        bind = "[::]:${toString config.site.apps.rustical.port}";
+        bind = "[::]:${toString app.port}";
       };
       oidc = {
         name = "Authelia";
-        issuer = "https://${config.site.apps.authelia.subdomain}.${config.site.domain}";
+        issuer = config.site.apps.authelia.url;
         client_id = "rustical";
         claim_userid = "preferred_username";
         scopes = [ "openid" "profile" "email" "groups" ];
@@ -38,8 +38,8 @@ in {
     };
   };
 
-  services.caddy.virtualHosts."${rustical-domain}".extraConfig =
+  services.caddy.virtualHosts.${app.domain}.extraConfig =
     ''
-    reverse_proxy :${toString config.site.apps.rustical.port}
+    reverse_proxy :${toString app.port}
     '';
 }

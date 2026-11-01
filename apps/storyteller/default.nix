@@ -2,11 +2,10 @@
 
 let
   storyteller = config.site.apps.storyteller;
-  storyteller-domain = "${storyteller.subdomain}.${config.site.domain}";
   storyteller-pkg = pkgs.callPackage ./package.nix { whisper = pkgs.whisper-cpp-vulkan; };
   storyteller-import = "/data/media/books";
   # A user token from hardcover.app, so it does not block a deploy.
-  has-hardcover-token = builtins.pathExists config.site.apps.storyteller.secrets.hardcover-token.file;
+  has-hardcover-token = builtins.pathExists storyteller.secrets.hardcover-token.file;
 in {
   site.apps.storyteller.enabled = true;
 
@@ -27,7 +26,7 @@ in {
       STORYTELLER_SECRET_KEY_FILE = "${storyteller.dir}/secret_key";
       STORYTELLER_CONFIG = (pkgs.formats.json {}).generate "storyteller-config.json" ({
         libraryName = "Books @ ${config.site.domain}";
-        webUrl = "https://${storyteller-domain}";
+        webUrl = storyteller.url;
         preferenceDefaults.accentColor = config.site.accent.primary;
         importMode = "copy";
         epub2ImportStrategy = "replace";
@@ -40,19 +39,19 @@ in {
         authProviders = [{
           kind = "custom";
           name = "Authelia";
-          issuer = "https://${config.site.apps.authelia.subdomain}.${config.site.domain}";
+          issuer = config.site.apps.authelia.url;
           clientId = "storyteller";
-          clientSecret_file = config.site.apps.storyteller.auth.clients.storyteller.secret.credential;
+          clientSecret_file = storyteller.auth.clients.storyteller.secret.credential;
           type = "oidc";
           allowRegistration = true;
           groupPermissions = {
-            "${config.site.apps.storyteller.groups.admin}" = [
+            "${storyteller.groups.admin}" = [
               "bookCreate" "bookRead" "bookProcess" "bookDownload" "bookList"
               "bookDelete" "bookUpdate" "collectionCreate" "inviteList"
               "inviteDelete" "userCreate" "userList" "userRead" "userDelete"
               "userUpdate" "settingsUpdate"];
           } // lib.mergeAttrsList (lib.map (g: { "${g}" = [ "bookRead" "bookDownload" "bookList" "bookCreate" ]; })
-            ([ config.site.apps.storyteller.groups.primary ] ++ storyteller.groups.extra));
+            ([ storyteller.groups.primary ] ++ storyteller.groups.extra));
         }];
         disablePasswordLogin = true;
         smtpHost = config.site.mail.connections.storyteller.host;
@@ -61,12 +60,12 @@ in {
         smtpSsl = false;
         smtpRejectUnauthorized = true;
       } // lib.optionalAttrs has-hardcover-token {
-        hardcoverApiToken_file = config.site.apps.storyteller.secrets.hardcover-token.credential;
+        hardcoverApiToken_file = storyteller.secrets.hardcover-token.credential;
       });
       ENABLE_WEB_READER = "true";
       HOME = storyteller.dir;
       # OIDC (trustHost is hardcoded true in Storyteller)
-      AUTH_URL = "https://${storyteller-domain}/api/v2/auth";
+      AUTH_URL = "${storyteller.url}/api/v2/auth";
       NEXT_CACHE_DIR = "%C/storyteller";
     };
     preStart = ''
@@ -103,7 +102,7 @@ in {
 
   users.groups.storyteller = { };
 
-  services.caddy.virtualHosts.${storyteller-domain}.extraConfig = ''
+  services.caddy.virtualHosts.${storyteller.domain}.extraConfig = ''
     root ${config.site.assets}/storyteller
     route /favicon.ico {
         file_server

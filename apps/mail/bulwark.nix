@@ -3,7 +3,7 @@
 let
   app = config.site.apps.mail;
   inherit (config.site) domain;
-  hostname = "${app.subdomain}.${domain}";
+  hostname = app.domain;
   stalwart = "127.0.0.1:${toString app.port}";
   bulwark-port = app.ports.bulwark.port;
   # Next.js spells any loopback address localhost in a middleware rewrite, and proxies one not

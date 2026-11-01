@@ -15,7 +15,6 @@ let
   site-theme = "site";
   icons-version = lib.substring 0 8 (baseNameOf "${config.site.assets}");
   scrobbler = config.site.apps.multi-scrobbler;
-  scrobbler-domain = "${scrobbler.subdomain}.${config.site.domain}";
   scrobbler-secrets-env = "/run/multi-scrobbler/secrets.env";
   # A browser cookie only the user can supply, so it does not block a deploy.
   has-deezer-arl = builtins.pathExists config.site.apps.multi-scrobbler.secrets.deezer-arl.file;
@@ -132,7 +131,7 @@ in {
       # Defaults under $HOME.
       DATA_DIR = scrobbler.dir;
       PORT = toString scrobbler.port;
-      BASE_URL = "https://${scrobbler-domain}";
+      BASE_URL = scrobbler.url;
       TZ = config.time.timeZone;
     };
     # [[NAME]] is filled from the environment; SECRET_ keeps clear of
@@ -149,10 +148,10 @@ in {
               data = {
                 url = if jellyfin.host == config.site.server.host
                   then "http://127.0.0.1:${toString jellyfin.port}"
-                  else "https://${jellyfin.subdomain}.${config.site.domain}";
+                  else jellyfin.url;
                 user = scrobbler.jellyfin-user;
                 apiKey = "[[SECRET_JELLYFIN_KEY]]";
-                frontendUrlOverride = "https://${jellyfin.subdomain}.${config.site.domain}";
+                frontendUrlOverride = jellyfin.url;
               }; }
             { type = "endpointlz"; id = "endpoint"; name = "ListenBrainz endpoint";
               data.token = "[[SECRET_ENDPOINT_TOKEN]]"; }
@@ -221,11 +220,11 @@ in {
 
   services.caddy.virtualHosts = {
     # Public, like a ListenBrainz profile; Koito's own login guards editing.
-    "${koito.subdomain}.${config.site.domain}".extraConfig = ''
+    ${koito.domain}.extraConfig = ''
       reverse_proxy :${toString koito.port}
     '';
     # Token-checked; the rest of /1/ (playing-now) is not.
-    ${scrobbler-domain}.extraConfig = ''
+    ${scrobbler.domain}.extraConfig = ''
       @endpoint path /1/submit-listens /1/validate-token
       route @endpoint {
         reverse_proxy :${toString scrobbler.port}

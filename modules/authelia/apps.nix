@@ -28,7 +28,7 @@ let
     require_pkce = client.pkce;
     pkce_challenge_method = if client.pkce then "S256" else "";
     redirect_uris = map (redirect: if lib.hasInfix "://" redirect then redirect
-      else "https://${app.subdomain}.${domain}/${redirect}") client.redirects;
+      else "${app.url}/${redirect}") client.redirects;
     scopes = [ "openid" "email" "profile" "groups" ];
     access_token_signed_response_alg = "none";
     response_types = [ "code" ];
@@ -36,13 +36,10 @@ let
     userinfo_signed_response_alg = "none";
     token_endpoint_auth_method = "client_secret_basic";
   } // client.settings;
-  access = app: let
-    app-domain = "${app.subdomain}.${domain}";
-    inherit (app.auth.access) policy subject;
-  in [
-    { domain = app-domain; inherit policy;
+  access = app: let inherit (app.auth.access) policy subject; in [
+    { inherit (app) domain; inherit policy;
       subject = if subject != null then subject else [ "group:${app.groups.primary}" "group:${app.groups.admin}" ]; }
-    { domain = app-domain; policy = "deny"; }
+    { inherit (app) domain; policy = "deny"; }
   ];
 in {
   services.authelia.instances.main.settings = {

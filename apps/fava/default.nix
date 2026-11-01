@@ -1,9 +1,7 @@
 { config, lib, pkgs, ... }:
 
 let
-  fava-domain = "${config.site.apps.fava.subdomain}.${config.site.domain}";
-  fava-port = toString config.site.apps.fava.port;
-  fava-user = "tec";
+  app = config.site.apps.fava;
   bean-file = "${config.services.syncthing.dataDir}/tec-ledger/finance.beancount";
 in {
   site.apps.fava.enabled = true;
@@ -14,7 +12,7 @@ in {
     after = [ "network.target" ];
     serviceConfig = {
       Type = "simple";
-      ExecStart = "${pkgs.fava}/bin/fava -H 127.0.0.1 -p ${fava-port} ${bean-file}";
+      ExecStart = "${pkgs.fava}/bin/fava -H 127.0.0.1 -p ${toString app.port} ${bean-file}";
       Restart = "always";
       User = "fava";
       Group = "fava";
@@ -31,20 +29,8 @@ in {
 
   users.groups.fava = { };
 
-  services.authelia.instances.main.settings.access_control.rules = [
-    {
-      domain = fava-domain;
-      policy = "two_factor";
-      subject = [ "user:${fava-user}" ];
-    }
-    {
-      domain = fava-domain;
-      policy = "deny";
-    }
-  ];
-
-  services.caddy.virtualHosts."${fava-domain}".extraConfig = ''
+  services.caddy.virtualHosts.${app.domain}.extraConfig = ''
     import auth
-    reverse_proxy :${fava-port}
+    reverse_proxy 127.0.0.1:${toString app.port}
   '';
 }

@@ -1,7 +1,7 @@
 { config, lib, pkgs, ... }:
 
 let
-  mealie-domain = "${config.site.apps.mealie.subdomain}.${config.site.domain}";
+  app = config.site.apps.mealie;
   mealie-user = "mealie";
   darkenHex = rgb: let
     min = a: b: if a < b then a else b;
@@ -30,24 +30,24 @@ in {
 
   services.mealie = {
     enable = true;
-    port = config.site.apps.mealie.port;
+    port = app.port;
     settings = {
       ALLOW_SIGNUP = "false";
       MAX_WORKERS = 1;
       WEB_CONCURRENCY = 1;
-      BASE_URL = "https://${mealie-domain}";
+      BASE_URL = app.url;
       TOKEN_TIME = 2200;
       DB_ENGINE = "postgres";
-      DATA_DIR = config.site.apps.mealie.dir;
-      CRF_MODEL_PATH = "${config.site.apps.mealie.dir}/model.crfmodel";
+      DATA_DIR = app.dir;
+      CRF_MODEL_PATH = "${app.dir}/model.crfmodel";
       POSTGRES_URL_OVERRIDE = "postgresql://${mealie-user}:@localhost/${mealie-user}?host=/run/postgresql";
       OIDC_AUTH_ENABLED = "true";
       OIDC_AUTO_REDIRECT = "true";
       OIDC_CLIENT_ID = "mealie";
-      OIDC_CONFIGURATION_URL = "https://${config.site.apps.authelia.subdomain}.${config.site.domain}/.well-known/openid-configuration";
+      OIDC_CONFIGURATION_URL = "${config.site.apps.authelia.url}/.well-known/openid-configuration";
       OIDC_SIGNUP_ENABLED = "true";
-      OIDC_USER_GROUP = config.site.apps.mealie.groups.primary;
-      OIDC_ADMIN_GROUP = config.site.apps.mealie.groups.admin;
+      OIDC_USER_GROUP = app.groups.primary;
+      OIDC_ADMIN_GROUP = app.groups.admin;
       DEFAULT_GROUP = "Family";
       DEFAULT_HOUSEHOLD = "Unsorted";
       THEME_LIGHT_PRIMARY = config.site.accent.primary;
@@ -56,12 +56,12 @@ in {
       THEME_DARK_SECONDARY = darkenHex config.site.accent.primary;
       LOG_LEVEL = "DEBUG";
     } // (if config.site.apps.llm.enabled then {
-      OPENAI_BASE_URL = "https://${config.site.apps.llm.subdomain}.${config.site.domain}/v1";
+      OPENAI_BASE_URL = "${config.site.apps.llm.url}/v1";
       OPENAI_MODEL = "llm";
       OPENAI_API_KEY_FILE = config.site.apps.llm.secrets.api-key.credentials.mealie;
       OPENAI_WORKERS = "1";
     } else {});
-    credentialsFile = config.site.apps.mealie.secrets.credentials-env.decrypted;
+    credentialsFile = app.secrets.credentials-env.decrypted;
   };
 
   systemd.services.mealie = let
@@ -89,7 +89,7 @@ in {
   };
   users.groups.${mealie-user} = {};
 
-  services.caddy.virtualHosts."${mealie-domain}".extraConfig =
+  services.caddy.virtualHosts.${app.domain}.extraConfig =
     ''
     handle_path /icons/* {
         root ${config.site.assets}/mealie
@@ -103,7 +103,7 @@ in {
         file_server /favicon.ico {
             root ${config.site.assets}/mealie
         }
-        reverse_proxy :${toString config.site.apps.mealie.port}
+        reverse_proxy :${toString app.port}
     }
     '';
 }

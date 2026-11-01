@@ -7,7 +7,7 @@
     # The agent dials the hub over a WebSocket; its SSH listener is only a fallback
     openFirewall = false;
     environment = {
-      HUB_URL = "https://${config.site.apps.beszel.subdomain}.${config.site.domain}";
+      HUB_URL = config.site.apps.beszel.url;
       KEY = config.site.apps.beszel.publicKey;
       TOKEN_FILE = config.site.apps.beszel.secrets.token.credential;
       PORT = toString config.site.apps.beszel.ports.agent.port;

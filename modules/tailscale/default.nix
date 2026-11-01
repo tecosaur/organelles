@@ -19,7 +19,7 @@ in {
       "--advertise-exit-node"
       # "--ssh"
     ] ++ lib.optionals config.site.apps.headscale.enabled [
-      "--login-server=https://${config.site.apps.headscale.subdomain}.${config.site.domain}"
+      "--login-server=${config.site.apps.headscale.url}"
       "--advertise-tags=${lib.concatMapStringsSep "," (tag: "tag:${tag}") tags}"
     ];
     extraSetFlags = [ "--relay-server-port=${toString relay-port}" ];

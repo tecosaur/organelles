@@ -34,9 +34,9 @@
           }
         '' else ''
           (auth) {
-              forward_auth https://${config.site.apps.authelia.subdomain}.${config.site.domain} {
+              forward_auth ${config.site.apps.authelia.url} {
                   header_up Host  {upstream_hostport}
-                  uri /api/authz/forward-auth?rd=https://${config.site.apps.authelia.subdomain}.${config.site.domain}
+                  uri /api/authz/forward-auth?rd=${config.site.apps.authelia.url}
                   copy_headers Remote-User Remote-Groups Remote-Email Remote-Name
               }
           }

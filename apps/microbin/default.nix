@@ -1,10 +1,10 @@
 { config, lib, pkgs, ... }:
 
 let
-  ubin-domain = "${config.site.apps.microbin.subdomain}.${config.site.domain}";
-  short-domain = "${config.site.apps.microbin.short-subdomain}.${config.site.domain}";
-  ubin-port = config.site.apps.microbin.port;
-  page-name = config.site.apps.microbin.title;
+  app = config.site.apps.microbin;
+  short-domain = "${app.short-subdomain}.${config.site.domain}";
+  ubin-port = app.port;
+  page-name = app.title;
 in
 let
   site.apps.microbin.enabled = true;
@@ -27,9 +27,9 @@ let
         re `<div style="float: left">\s*(?:(<button[^>]*>[\s\S]+?<\/button>(?:\s*<button[^>]*>[^>]+?<\/button>)?)\s*(<a[^>]+>Raw)[^<]+(<\/a>))?[\s\S]*?<\/div>` <<HTML
           <div style="float: left">
           <b style="margin-right: 1.5rem">
-            <a href="https://${ubin-domain}">
-              <img width=100 style="margin-bottom: -6px; margin-right: 0.5rem;" src="https://${ubin-domain}/static/logo.png"
-                  onload="this.parentElement.href = 'https://${config.site.apps.authelia.subdomain}.${config.site.domain}/?rd=' + encodeURIComponent(window.location.href) + '&rm=GET';">
+            <a href="${app.url}">
+              <img width=100 style="margin-bottom: -6px; margin-right: 0.5rem;" src="${app.url}/static/logo.png"
+                  onload="this.parentElement.href = '${config.site.apps.authelia.url}/?rd=' + encodeURIComponent(window.location.href) + '&rm=GET';">
             </a>
             ${page-name}
           </b>
@@ -37,7 +37,7 @@ let
           </div>
           HTML
         re "\n*<div>\s*<p[^>]*>Read[^<]+<\/p>\s*<\/div>" ""
-        re `<a href="https://${ubin-domain}/">\s*Go Home</a>` ""
+        re `<a href="${app.url}/">\s*Go Home</a>` ""
     }
     '';
   caddy-settings-filter =
@@ -93,7 +93,7 @@ in {
       MICROBIN_HIGHLIGHTSYNTAX = true;
       MICROBIN_PORT = ubin-port;
       MICROBIN_PRIVATE = false; # They're all essentially private
-      MICROBIN_PUBLIC_PATH = "https://${ubin-domain}";
+      MICROBIN_PUBLIC_PATH = app.url;
       MICROBIN_QR = true;
       MICROBIN_SHORT_PATH = "https://${short-domain}";
       MICROBIN_SHOW_READ_STATS = true;
@@ -101,7 +101,7 @@ in {
     };
   };
 
-  services.caddy.virtualHosts."${ubin-domain}".extraConfig =
+  services.caddy.virtualHosts.${app.domain}.extraConfig =
     ''
     ${caddy-static-assets-filter}
     route /raw/* {
@@ -125,7 +125,7 @@ in {
         }
     }
     '';
-  services.caddy.virtualHosts."${short-domain}".extraConfig =
+  services.caddy.virtualHosts.${short-domain}.extraConfig =
     ''
     route /p/* {
         ${caddy-unauth-filter}
@@ -138,7 +138,7 @@ in {
         reverse_proxy :${toString config.services.microbin.settings.MICROBIN_PORT}
     }
     route * {
-        redir https://${ubin-domain}{uri}
+        redir ${app.url}{uri}
     }
     '';
 }

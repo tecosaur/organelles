@@ -1,8 +1,8 @@
 { config, lib, pkgs, ... }:
 
 let
+  app = config.site.apps.forgejo;
   forgejo-user = "git";
-  forgejo-domain = "${config.site.apps.forgejo.subdomain}.${config.site.domain}";
   blog-domain = "blog.${config.site.domain}";
   # theming
   catppuccinThemes = pkgs.fetchzip {
@@ -24,7 +24,7 @@ let
         "$(cat "$f_mocha")" "$(cat "$f")" > "$out/$(basename "$f_mocha")"
     done
   '';
-  captcha-config = if config.site.apps.forgejo.qa-captcha.enabled then
+  captcha-config = if app.qa-captcha.enabled then
     let
       caddy-challenge = ''
         @challenge {
@@ -38,14 +38,14 @@ let
                 not header User-Agent *meta*
                 not header User-Agent *Mozilla*
             }
-            ${lib.strings.concatMapStringsSep "\n    " (ans: "not header Cookie *caddy_qa_captcha=${ans}*") config.site.apps.forgejo.qa-captcha.answers}
+            ${lib.strings.concatMapStringsSep "\n    " (ans: "not header Cookie *caddy_qa_captcha=${ans}*") app.qa-captcha.answers}
         }
       '';
       captcha-content = pkgs.writeText "captcha.html" (
         builtins.replaceStrings
           ["$ACCENT" "$QUESTIONS"]
           [config.site.accent.primary
-           (lib.strings.concatMapStringsSep "\n                        " (q: "<li>${q}</li>") config.site.apps.forgejo.qa-captcha.questions)]
+           (lib.strings.concatMapStringsSep "\n                        " (q: "<li>${q}</li>") app.qa-captcha.questions)]
           (builtins.readFile ./captcha.html)
       );
       captcha-dir = pkgs.runCommand "forgejo-captcha" {} ''
@@ -92,7 +92,7 @@ in {
     source=$(${lib.getExe config.services.forgejo.package} admin auth list | ${lib.getExe pkgs.gawk} '$2 == "authelia" { print $1 }')
     if [ -n "$source" ]; then
       ${lib.getExe config.services.forgejo.package} admin auth update-oauth --id "$source" \
-        --secret "$(< ${config.site.apps.forgejo.auth.clients.forgejo.secret.credential})"
+        --secret "$(< ${app.auth.clients.forgejo.secret.credential})"
     else
       echo "forgejo: no authentication source named authelia, so no client secret to set" >&2
     fi
@@ -103,7 +103,7 @@ in {
     package = pkgs.forgejo;
     user = forgejo-user;
     group = forgejo-user;
-    stateDir = config.site.apps.forgejo.dir;
+    stateDir = app.dir;
     database = {
       type = "postgres";
       name = forgejo-user;
@@ -111,13 +111,13 @@ in {
     };
     lfs.enable = true;
     settings = {
-      DEFAULT.APP_NAME = config.site.apps.forgejo.site-name;
+      DEFAULT.APP_NAME = app.site-name;
       server = {
-        DOMAIN = "${forgejo-domain}";
-        ROOT_URL = "https://${forgejo-domain}";
+        DOMAIN = app.domain;
+        ROOT_URL = app.url;
         HTTP_ADDR = "127.0.0.1";
-        HTTP_PORT = config.site.apps.forgejo.port;
-        SSH_DOMAIN = forgejo-domain;
+        HTTP_PORT = app.port;
+        SSH_DOMAIN = app.domain;
       };
       mailer = {
         ENABLED = true;
@@ -135,7 +135,7 @@ in {
       openid = {
         ENABLE_OPENID_SIGNIN = false;
         ENABLE_OPENID_SIGNUP = false;
-        WHITELISTED_URIS = "${config.site.apps.authelia.subdomain}.${config.site.domain}";
+        WHITELISTED_URIS = config.site.apps.authelia.domain;
       };
       oauth2_client = {
         ENABLE_AUTO_REGISTRATION = true;
@@ -187,7 +187,7 @@ in {
         ));
       };
       "ui.meta" = {
-        DESCRIPTION = config.site.apps.forgejo.site-description;
+        DESCRIPTION = app.site-description;
       };
       federation = {
         ENABLED = true;
@@ -246,7 +246,7 @@ in {
              else "${user}/${repo-name}";
       fs = "git_${user}_${mkSafe repo-name}_${mkSafe rev}";
     };
-    processed-repos = map processRepo config.site.apps.forgejo.served-repositories;
+    processed-repos = map processRepo app.served-repositories;
     subdomain-groups = lib.groupBy (entry: entry.subdomain) processed-repos;
     mkFsConfig = e:
       ''
@@ -274,8 +274,8 @@ in {
           ]);
         }
       ) groups;
-    caddy-user-conf = if config.site.apps.forgejo.default-user-redirect != null then
-      let user = config.site.apps.forgejo.default-user-redirect; in
+    caddy-user-conf = if app.default-user-redirect != null then
+      let user = app.default-user-redirect; in
       ''
       @not_${user} {
           not path /${user}/*
@@ -324,8 +324,8 @@ in {
       (mkVhosts subdomain-groups) //
       {
         "git.${config.site.domain}".extraConfig =
-          "redir https://${forgejo-domain}{uri} 301";
-        "${forgejo-domain}".extraConfig =
+          "redir ${app.url}{uri} 301";
+        "${app.domain}".extraConfig =
           "route {\n" + (indent "    " caddy-config) + "\n}";
       };
   };

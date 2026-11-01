@@ -1,7 +1,7 @@
 { config, lib, pkgs, ... }:
 
 let
-  speed-domain = "${config.site.apps.speedtest.subdomain}.${config.site.domain}";
+  app = config.site.apps.speedtest;
 in {
   site.apps.speedtest.enabled = true;
 
@@ -12,22 +12,22 @@ in {
       pageTitle = "Speed Test";
       contactEmail = "speedtest@${config.site.domain}";
       servers = [{
-        name = speed-domain;
-        server = "https://${speed-domain}";
+        name = app.domain;
+        server = app.url;
       }];
     };
     settings = {
-      listen_port = config.site.apps.speedtest.port;
+      listen_port = app.port;
       enable_tls = false;
     };
   };
 
-  services.caddy.virtualHosts."${speed-domain}".extraConfig =
+  services.caddy.virtualHosts.${app.domain}.extraConfig =
     ''
     import auth
     route {
       root ${config.services.librespeed.settings.assets_path}
-      reverse_proxy /backend/* :${toString config.site.apps.speedtest.port} {
+      reverse_proxy /backend/* :${toString app.port} {
         header_up X-Real-IP {http.request.remote.host}
       }
       respond /servers.json <<JSON

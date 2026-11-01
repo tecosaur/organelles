@@ -1,8 +1,8 @@
 { config, lib, pkgs, ... }:
 
 let
-  auth-domain = "${config.site.apps.authelia.subdomain}.${config.site.domain}";
-  authelia-port = config.site.apps.authelia.port;
+  authelia = config.site.apps.authelia;
+  authelia-port = authelia.port;
   authelia-user = "authelia";
   inherit (config.site.ha) members voters;
   inherit (config.site) ports;
@@ -10,12 +10,12 @@ let
   sentinels = map (host: { host = "${host}.internal"; port = ports.ha-sentinel.port; })
     (lib.optional (lib.elem this-host voters) this-host ++ lib.remove this-host voters);
   # for the status page's anonymous probes; a path of / is the app itself
-  health-rules = lib.concatMap (app: lib.optional (app.health != null && lib.elem app.health.path [ null "/" ] == false) {
-    domain = "${app.subdomain}.${config.site.domain}";
+  health-rules = lib.concatMap (app: lib.optional (app.health != null && !lib.elem app.health.path [ null "/" ]) {
+    inherit (app) domain;
     resources = [ "^${lib.escapeRegex app.health.path}$" ];
     policy = "bypass";
   }) (lib.filter (app: app.enabled) (lib.attrValues config.site.apps));
-  assets-no-symlinks = pkgs.runCommand "autheleia-assets" {} ''
+  assets-no-symlinks = pkgs.runCommand "authelia-assets" {} ''
     mkdir -p $out
     cp -rL ${config.site.assets}/authelia/* $out
   '';
@@ -29,7 +29,7 @@ in {
     user = authelia-user;
     group = authelia-user;
     # loaded as credentials by the authelia module itself
-    secrets = let secrets = config.site.apps.authelia.secrets; in {
+    secrets = let secrets = authelia.secrets; in {
       jwtSecretFile = secrets.jwt.decrypted;
       oidcHmacSecretFile = secrets.oidc-hmac.decrypted;
       oidcIssuerPrivateKeyFile = secrets."oidc-issuer.pem".decrypted;
@@ -46,7 +46,7 @@ in {
         cookies = [
           ({
             domain = config.site.domain;
-            authelia_url = "https://${auth-domain}";
+            authelia_url = authelia.url;
             default_redirection_url = "https://${config.site.domain}/reload";
           })
         ];
@@ -175,7 +175,7 @@ in {
   users.groups.${authelia-user} = {};
 
   # only the API needs the primary; the page is the same from any instance
-  services.caddy.virtualHosts."${auth-domain}".extraConfig = ''
+  services.caddy.virtualHosts.${authelia.domain}.extraConfig = ''
     handle /api/* {
       ${config.site.ha.primary-proxy authelia-port}
     }

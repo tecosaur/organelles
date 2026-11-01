@@ -3,8 +3,8 @@
 with lib;
 
 let
+  app = config.site.apps.syncthing;
   domain = config.site.domain;
-  syncthing-domain = "${config.site.apps.syncthing.subdomain}.${config.site.domain}";
   public-domain = "public.${domain}";
   my-computers = [ "tranquillity" "demure" "ict1634" ];
 in {
@@ -12,8 +12,8 @@ in {
 
   services.syncthing = {
     enable = true;
-    dataDir = config.site.apps.syncthing.dir;
-    guiAddress = "localhost:${toString config.site.apps.syncthing.port}";
+    dataDir = app.dir;
+    guiAddress = "localhost:${toString app.port}";
     overrideDevices = true;
     overrideFolders = true;
     settings = {
@@ -25,7 +25,7 @@ in {
         bindDN = "uid=%s,ou=people,${config.services.lldap.settings.ldap_base_dn}";
         transport = "nontls";
         searchBaseDN = "ou=people,${config.services.lldap.settings.ldap_base_dn}";
-        searchFilter = "(|(memberof=cn=${config.site.apps.syncthing.groups.primary},ou=groups,${config.services.lldap.settings.ldap_base_dn})(memberof=cn=${config.site.apps.syncthing.groups.admin},ou=groups,${config.services.lldap.settings.ldap_base_dn}))";
+        searchFilter = "(|(memberof=cn=${app.groups.primary},ou=groups,${config.services.lldap.settings.ldap_base_dn})(memberof=cn=${app.groups.admin},ou=groups,${config.services.lldap.settings.ldap_base_dn}))";
       };
       devices = {
         "tranquillity" = { id = "VXWXMXK-MWENVPV-PV75JQH-45OP44F-QMPH645-JVWGJB2-C2GKHSV-QARV5A2"; };
@@ -75,13 +75,13 @@ in {
     caddy.extraGroups = [ config.services.syncthing.group ];
   });
 
-  services.caddy.virtualHosts."${syncthing-domain}".extraConfig =
+  services.caddy.virtualHosts.${app.domain}.extraConfig =
     ''
     reverse_proxy ${config.services.syncthing.guiAddress} {
         header_up Host {upstream_hostport}
     }
     '';
-  services.caddy.virtualHosts."${public-domain}".extraConfig =
+  services.caddy.virtualHosts.${public-domain}.extraConfig =
     ''
     root ${config.services.syncthing.dataDir}/public/.build
     file_server

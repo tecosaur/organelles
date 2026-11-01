@@ -1,19 +1,18 @@
 { config, lib, pkgs, ... }:
 
 let
-  warracker-domain = "${config.site.apps.warracker.subdomain}.${config.site.domain}";
+  app = config.site.apps.warracker;
   warracker-user = "warracker";
-  warracker-dir = config.site.apps.warracker.dir;
   warracker-pkg = pkgs.callPackage ./package.nix {  };
   warracker-config = {
     registration_enabled = false;
-    email_base_url = "https://${warracker-domain}";
+    email_base_url = app.url;
     oidc_enabled = true;
     oidc_only_mode = true;
     oidc_skip_login_screen = true;
     oidc_client_id = "warracker";
     oidc_provider_name = "authelia";
-    oidc_issuer_url = "https://${config.site.apps.authelia.subdomain}.${config.site.domain}";
+    oidc_issuer_url = config.site.apps.authelia.url;
     oidc_scope = "openid email profile groups";
     oidc_admin_group = "admin";
   };
@@ -31,9 +30,9 @@ in {
       # FLASK_CONFIG = "production";
       LOG_LEVEL = "info";
       BIND_ADDR = "127.0.0.1";
-      PORT = toString config.site.apps.warracker.port;
-      FRONTEND_URL = "https://${warracker-domain}";
-      APP_BASE_URL = "https://${warracker-domain}";
+      PORT = toString app.port;
+      FRONTEND_URL = app.url;
+      APP_BASE_URL = app.url;
       GUNICORN_WORKERS = "2";
       DB_HOST = "/run/postgresql";
       DB_NAME = warracker-user;
@@ -41,7 +40,7 @@ in {
       DB_PASSWORD = "";
       UPLOAD_FOLDER = "${warracker-dir}/uploads";
       WARRACKER_FIXED_CONFIG = (pkgs.formats.json {}).generate "warracker.json" warracker-config;
-      OIDC_CLIENT_SECRET_FILE = config.site.apps.warracker.auth.clients.warracker.secret.credential;
+      OIDC_CLIENT_SECRET_FILE = app.auth.clients.warracker.secret.credential;
       SMTP_HOST = config.site.mail.connections.warracker.host;
       SMTP_PORT = toString config.site.mail.connections.warracker.port;
       SMTP_USE_TLS = "false";
@@ -76,8 +75,8 @@ in {
 
   users.groups.${warracker-user} = { };
 
-  services.caddy.virtualHosts.${warracker-domain}.extraConfig = ''
-    reverse_proxy /api/* :${toString config.site.apps.warracker.port}
+  services.caddy.virtualHosts.${app.domain}.extraConfig = ''
+    reverse_proxy /api/* :${toString app.port}
     file_server /favicon* {
       root ${config.site.assets}/warracker
     }

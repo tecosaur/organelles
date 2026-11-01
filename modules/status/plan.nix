@@ -54,7 +54,7 @@ let
     ++ map (unit: { group = local-group unit.host; inherit (unit) name host; role = "unit"; unit = unit.id; }) units;
   plan-app = app: lib.filterAttrs (_: v: v != null) {
     inherit (app) id name hosts port;
-    public_name = if is-public app then "${app.subdomain}.${domain}" else null;
+    public_name = if is-public app then app.domain else null;
     unit = if app.service == null then null else "${app.service}.service";
     health = if app.health == null || app.health.path == null then null else lib.filterAttrs (_: v: v != null) {
       inherit (app.health) path status body;

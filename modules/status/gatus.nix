@@ -10,7 +10,6 @@ let
   inherit (config.site) domain;
   app = config.site.apps.gatus;
   status = import ./plan.nix { inherit config lib; };
-  page-domain = "${app.subdomain}.${domain}";
   start = pkgs.writeShellScript "gatus-start" ''
     GATUS_PUSH_TOKEN="$(< ${app.secrets.push.credentials.gatus})"
     GATUS_ALERT_TOPIC="$(< ${app.secrets.alert-topic.credentials.gatus})"
@@ -97,7 +96,7 @@ in {
       };
     };
 
-    services.caddy.virtualHosts.${page-domain}.extraConfig = ''
+    services.caddy.virtualHosts.${app.domain}.extraConfig = ''
       @push path /api/v1/endpoints/*/external
       respond @push 403
       # The page reads its announcement here: from the aggregator beside Gatus, which serves it

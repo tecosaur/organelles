@@ -1,6 +1,7 @@
 { config, lib, pkgs, ... }:
 
 let
+  app = config.site.apps.tandoor;
   oidc-config = {
     OAUTH_PKCE_ENABLED = true;
     APPS = [{
@@ -9,7 +10,7 @@ let
       client_id = "tandoor";
       secret = "##oidc_secret##";
       settings = {
-        server_url = "https://${config.site.apps.authelia.subdomain}.${config.site.domain}/.well-known/openid-configuration";
+        server_url = "${config.site.apps.authelia.url}/.well-known/openid-configuration";
         token_auth_method = "client_secret_basic";
       };
     }];
@@ -82,33 +83,31 @@ in {
             cp ${version-info old.version} cookbook/version_info.py
           '';
         });
-    port = config.site.apps.tandoor.port;
+    port = app.port;
     database.createLocally = true;
     extraConfig = {
-      ALLOWED_HOSTS = "${config.site.apps.tandoor.subdomain}.${config.site.domain}";
+      ALLOWED_HOSTS = app.domain;
       SOCIAL_PROVIDERS = "allauth.socialaccount.providers.openid_connect";
       ENABLE_SIGNUP = 0;
       HIDE_LOGIN_FORM = 1;
       SOCIALACCOUNT_LOGIN_ON_GET = 1;
       SOCIAL_DEFAULT_ACCESS = 1;
       SOCIAL_DEFAULT_GROUP = "user";
-      AI_ALLOWED_URLS = "https://${config.site.apps.llm.subdomain}.${config.site.domain}/v1";
+      AI_ALLOWED_URLS = "${config.site.apps.llm.url}/v1";
       MEDIA_ROOT = "/var/lib/tandoor-recipes/media";
     };
   };
 
   systemd.services.tandoor-recipes = {
     preStart = ''
-      install -m 0600 '${oidc-secret-file}' "$RUNTIME_DIRECTORY/oidc.json"
+      install -m 0600 '${oidc-template}' "$RUNTIME_DIRECTORY/oidc.json"
       ${lib.getExe pkgs.replace-secret} '##oidc_secret##' \
-        '${config.site.apps.tandoor.auth.clients.tandoor.secret.credential}' "$RUNTIME_DIRECTORY/oidc.json"
+        '${app.auth.clients.tandoor.secret.credential}' "$RUNTIME_DIRECTORY/oidc.json"
       chmod 0400 "$RUNTIME_DIRECTORY/oidc.json"
-      cp '${config.site.apps.tandoor.secrets.fdc-api-key.credential}' "$RUNTIME_DIRECTORY/fdc-api-key"
     '';
     serviceConfig = {
       UMask = lib.mkForce "0027";
       ExecStart = lib.mkForce tandoor-start;
-      BindReadOnlyPaths = [ oidc-secret-file ];
     };
   };
 
@@ -116,7 +115,7 @@ in {
     config.services.tandoor-recipes.group
   ];
 
-  services.caddy.virtualHosts."${config.site.apps.tandoor.subdomain}.${config.site.domain}".extraConfig = ''
+  services.caddy.virtualHosts.${app.domain}.extraConfig = ''
     @tandoor-icon path_regexp icon ^/static/(?:vue3/)?assets/(.*?)[.-][0-9A-Za-z]+(\.png|\.svg)$
     route {
       file_server /favicon.ico {
@@ -128,13 +127,13 @@ in {
         file_server {
           pass_thru
         }
-        reverse_proxy :${toString config.site.apps.tandoor.port}
+        reverse_proxy :${toString app.port}
       }
       handle_path /media/* {
         root ${config.services.tandoor-recipes.extraConfig.MEDIA_ROOT}
         file_server
       }
-      reverse_proxy :${toString config.site.apps.tandoor.port}
+      reverse_proxy :${toString app.port}
     }
   '';
 }

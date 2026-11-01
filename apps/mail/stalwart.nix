@@ -12,7 +12,7 @@ let
   package = pkgs.callPackage ./packages/stalwart.nix { };
   cli = pkgs.callPackage ./packages/stalwart-cli.nix { };
   user = "stalwart";
-  hostname = "${app.subdomain}.${domain}";
+  hostname = app.domain;
   inherit (config.services.ha.postgres) primary-env;
   log-dir = "/var/log/stalwart";
   public-ports = lib.mapAttrs (_: listener: listener.port) (lib.filterAttrs (_: listener: listener.exposure == "public") app.ports);

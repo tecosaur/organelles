@@ -2,7 +2,6 @@
 
 let
   inherit (lib) types mkOption;
-  auth-domain = "${config.site.apps.authelia.subdomain}.${config.site.domain}";
   # Lowercase and quote-free, so values drop straight into Stalwart's and Authelia's expressions
   login = types.strMatching "[a-z0-9][a-z0-9_-]*";
   capacities = description: mkOption { type = types.attrsOf types.ints.positive; inherit description; };
@@ -211,8 +210,8 @@ in {
       type = types.attrsOf types.str;
       readOnly = true;
       default = {
-        audience = "https://${config.site.apps.mail.subdomain}.${config.site.domain}";
-        issuer = "https://${auth-domain}";
+        audience = config.site.apps.mail.url;
+        issuer = config.site.apps.authelia.url;
         account-claim = "mail_account";
         claims-policy = "mail";
         authorization-policy = "mail";
@@ -275,7 +274,7 @@ in {
           host = "127.0.0.1";
           port = config.site.apps.mail.ports.submission-local.port;
           security = "none";
-          from = "${app.mail.sender}@${app.subdomain}.${config.site.domain}";
+          from = "${app.mail.sender}@${app.domain}";
           inherit (app.mail) reply-to;
         } else {
           inherit (app.mail.smtp) host port security username;

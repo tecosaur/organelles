@@ -1,19 +1,21 @@
 { config, lib, pkgs, ... }:
 
-{
+let
+  app = config.site.apps.dawarich;
+in {
   site.apps.dawarich.enabled = true;
 
   services.dawarich = {
     enable = true;
-    localDomain = "${config.site.apps.dawarich.subdomain}.${config.site.domain}";
-    webPort = config.site.apps.dawarich.port;
+    localDomain = app.domain;
+    webPort = app.port;
     configureNginx = false;
     environment = {
       OIDC_CLIENT_ID = "dawarich";
       # OIDC_CLIENT_SECRET is set in the age secret file
       # Update when <https://github.com/NixOS/nixpkgs/issues/545545> is resolved
-      OIDC_ISSUER = "https://${config.site.apps.authelia.subdomain}.${config.site.domain}";
-      OIDC_REDIRECT_URI = "https://${config.site.apps.dawarich.subdomain}.${config.site.domain}/users/auth/openid_connect/callback";
+      OIDC_ISSUER = config.site.apps.authelia.url;
+      OIDC_REDIRECT_URI = "${app.url}/users/auth/openid_connect/callback";
       OIDC_PKCE_ENABLED = "true";
       OIDC_PROVIDER_NAME = "Authelia";
       OIDC_AUTO_REGISTER = "true";
@@ -23,11 +25,11 @@
       PHOTON_API_USE_HTTPS = "true";
       STORE_GEODATA = "true";
     };
-    extraEnvFiles = [ config.site.apps.dawarich.auth.clients.dawarich.secret.decrypted ];
+    extraEnvFiles = [ app.auth.clients.dawarich.secret.decrypted ];
   };
 
-  services.caddy.virtualHosts."${config.site.apps.dawarich.subdomain}.${config.site.domain}".extraConfig =
+  services.caddy.virtualHosts.${app.domain}.extraConfig =
     ''
-    reverse_proxy :${toString config.site.apps.dawarich.port}
+    reverse_proxy :${toString app.port}
     '';
 }

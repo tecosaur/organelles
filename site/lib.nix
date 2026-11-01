@@ -250,6 +250,16 @@ rec {
         default = subdomain;
         description = "Name for the ${name} app";
       };
+      domain = lib.mkOption {
+        type = lib.types.str;
+        readOnly = true;
+        description = "The ${name} app's domain, its subdomain of the site's";
+      };
+      url = lib.mkOption {
+        type = lib.types.str;
+        readOnly = true;
+        description = "The ${name} app's address, https:// and its domain";
+      };
       dir = lib.mkOption {
         type = lib.types.str;
         default = "/var/lib/${lib.toLower (if service != null then service else name)}";

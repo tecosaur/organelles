@@ -1,4 +1,4 @@
-{ config, lib, pkgs, site-lib, ... }:
+{ config, options, lib, pkgs, site-lib, ... }:
 
 let
   assets-pkg = pkgs.callPackage ./assets.nix {
@@ -199,6 +199,10 @@ in {
   };
 
   config = {
+    site.apps = lib.mapAttrs (name: _: let domain = "${config.site.apps.${name}.subdomain}.${config.site.domain}"; in {
+      inherit domain;
+      url = "https://${domain}";
+    }) options.site.apps;
     site.ports.wireguard = site-lib.public 51820 "systemd-networkd" // { protocols = [ "udp" ]; };
     # each host's mesh key, for it alone, readable by networkd as systemd.netdev(5) asks
     site.secrets = lib.listToAttrs (map (host: lib.nameValuePair "wg-${host}" {

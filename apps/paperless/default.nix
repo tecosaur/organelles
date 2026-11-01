@@ -27,6 +27,7 @@
 # 5. Uncomment `PAPERLESS_DISABLE_REGULAR_LOGIN`
 
 let
+  app = config.site.apps.paperless;
   django-allauth-oidc-config = {
     OAUTH_PKCE_ENABLED = true;
     APPS = [
@@ -38,7 +39,7 @@ let
         settings = {
           fetch_userinfo = true;
           oauth_pkce_enabled = true;
-          server_url = "https://${config.site.apps.authelia.subdomain}.${config.site.domain}/.well-known/openid-configuration";
+          server_url = "${config.site.apps.authelia.url}/.well-known/openid-configuration";
           token_auth_method = "client_secret_basic";
         };
       }
@@ -61,18 +62,18 @@ in {
     OTEL_TRACES_EXPORTER = "none";
   };
 
-  services.tika.port = config.site.apps.paperless.ports.tika.port;
-  services.gotenberg.port = config.site.apps.paperless.ports.gotenberg.port;
+  services.tika.port = app.ports.tika.port;
+  services.gotenberg.port = app.ports.gotenberg.port;
 
   services.paperless = {
     enable = true;
-    port = config.site.apps.paperless.port;
+    port = app.port;
     dataDir = "/data/paperless";
     configureTika = true;
-    passwordFile = config.site.apps.paperless.secrets.admin-password.decrypted;
+    passwordFile = app.secrets.admin-password.decrypted;
     settings = {
       PAPERLESS_APP_TITLE = "Paperless";
-      PAPERLESS_URL = "https://${config.site.apps.paperless.subdomain}.${config.site.domain}";
+      PAPERLESS_URL = app.url;
       # OIDC
       PAPERLESS_APPS = "allauth.socialaccount.providers.openid_connect";
       PAPERLESS_DISABLE_REGULAR_LOGIN = true;
@@ -81,7 +82,7 @@ in {
       PAPERLESS_SOCIAL_ACCOUNT_DEFAULT_GROUPS = "users"; # Comes with basic permissions
       # PAPERLESS_SOCIAL_ACCOUNT_SYNC_GROUPS = true; # This adds people to `admin`, but removes people from the OIDC non-existent `users` group
       PAPERLESS_REDIRECT_LOGIN_TO_SSO = true;
-      PAPERLESS_LOGOUT_REDIRECT_URL = "https://${config.site.apps.paperless.subdomain}.${config.site.domain}";
+      PAPERLESS_LOGOUT_REDIRECT_URL = app.url;
       # Consumption
       PAPERLESS_CONSUMER_RECURSIVE = true;
       PAPERLESS_CONSUMER_SUBDIRS_AS_TAGS = true;
@@ -91,7 +92,7 @@ in {
       PAPERLESS_AI_ENABLED = true;
       PAPERLESS_AI_LLM_BACKEND = "openai-like";
       PAPERLESS_AI_LLM_MODEL = "llm";
-      PAPERLESS_AI_LLM_ENDPOINT = "https://${config.site.apps.llm.subdomain}.${config.site.domain}/v1";
+      PAPERLESS_AI_LLM_ENDPOINT = "${config.site.apps.llm.url}/v1";
     } // lib.optionalAttrs config.site.apps.llm.embedding.enable {
       PAPERLESS_AI_LLM_EMBEDDING_BACKEND = "openai-like";
       PAPERLESS_AI_LLM_EMBEDDING_MODEL = "embedding";
@@ -106,7 +107,7 @@ in {
       chown -R ${config.services.paperless.user}:${config.services.paperless.user} /run/paperless-secrets
       chmod -R 700 /run/paperless-secrets
       cp ${secret-env} /run/paperless-secrets/env-file
-      ${lib.getExe pkgs.replace-secret} '##oidc_secret##' '${config.site.apps.paperless.auth.clients.paperless.secret.decrypted}' /run/paperless-secrets/env-file
+      ${lib.getExe pkgs.replace-secret} '##oidc_secret##' '${app.auth.clients.paperless.secret.decrypted}' /run/paperless-secrets/env-file
       ${lib.optionalString config.site.apps.llm.enabled
         "${lib.getExe pkgs.replace-secret} '##llm_api_key##' '${config.site.apps.llm.secrets.api-key.decrypted}' /run/paperless-secrets/env-file"}
       chmod 400 /run/paperless-secrets/env-file
@@ -125,13 +126,13 @@ in {
   systemd.services.paperless-web.serviceConfig.UMask = lib.mkForce "0027";
   systemd.services.paperless-exporter.serviceConfig.UMask = lib.mkForce "0027";
 
-  services.caddy.virtualHosts."${config.site.apps.paperless.subdomain}.${config.site.domain}".extraConfig =
+  services.caddy.virtualHosts.${app.domain}.extraConfig =
     ''
     route {
         file_server /favicon.ico {
             root ${config.site.assets}/paperless
         }
-        reverse_proxy :${toString config.site.apps.paperless.port}
+        reverse_proxy :${toString app.port}
     }
     '';
 }

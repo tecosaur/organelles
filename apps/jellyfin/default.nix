@@ -8,13 +8,13 @@
 # - <https://git.vimium.com/jordan/nix-config/src/branch/master/hosts/library/jellysearch.nix>
 
 let
+  app = config.site.apps.jellyfin;
   media-dir = "/data/media";
   movies-dir = "${media-dir}/movies";
   shows-dir = "${media-dir}/shows";
   anime-dir = "${media-dir}/anime";
   books-dir = "${media-dir}/books";
   music-dir = "${media-dir}/music";
-  jellyfin-domain = "${config.site.apps.jellyfin.subdomain}.${config.site.domain}";
 in {
   imports = [ ./meilisearch.nix ];
 
@@ -28,9 +28,9 @@ in {
     network = {
       enableIPv6 = true;
       enableHttps = false; # Handled by Caddy
-      internalHttpPort = config.site.apps.jellyfin.port;
-      publicHttpPort = config.site.apps.jellyfin.port;
-      publishedServerUriBySubnet = [ "all=https://${jellyfin-domain}" ];
+      internalHttpPort = app.port;
+      publicHttpPort = app.port;
+      publishedServerUriBySubnet = [ "all=${app.url}" ];
     };
     encoding = {
       enableHardwareEncoding = true;
@@ -148,7 +148,7 @@ in {
     };
     branding = {
       loginDisclaimer = ''
-      <form action="https://${jellyfin-domain}/sso/OID/start/authelia">
+      <form action="${app.url}/sso/OID/start/authelia">
         <button class="raised block emby-button button-submit">
           Sign in
         </button>
@@ -167,7 +167,7 @@ in {
   # `preStart` ourselves.
   systemd.services.jellyfin.preStart = let
     sso-template = builtins.replaceStrings [ "#oidc_endpoint#" ]
-      [ "https://${config.site.apps.authelia.subdomain}.${config.site.domain}" ]
+      [ config.site.apps.authelia.url ]
       (builtins.readFile ./jellyfin-sso-template.xml);
     sso-file = pkgs.writeText "jellyfin-sso.xml" sso-template;
     sso-path = "${config.services.jellyfin.dataDir}/plugins/configurations/SSO-Auth.xml";
@@ -187,7 +187,7 @@ in {
     fi
     mkdir -p "$(dirname '${sso-path}')"
     install -m 600 '${sso-file}' '${sso-path}'
-    ${replaceSecretBin} '#oidc_secret#' '${config.site.apps.jellyfin.auth.clients.jellyfin.secret.credential}' '${sso-path}'
+    ${replaceSecretBin} '#oidc_secret#' '${app.auth.clients.jellyfin.secret.credential}' '${sso-path}'
     sed -i '/#enabled_folders#/{
       r /dev/stdin
       d
@@ -217,7 +217,7 @@ in {
     "d ${music-dir} 0575 ${config.services.jellyfin.user} users - -"
   ];
 
-  services.caddy.virtualHosts."${config.site.apps.jellyfin.subdomain}.${config.site.domain}".extraConfig =
+  services.caddy.virtualHosts.${app.domain}.extraConfig =
     ''
     handle_path /web/assets/img/* {
         root ${config.site.assets}/jellyfin
@@ -227,7 +227,7 @@ in {
                 pass_thru
             }
             rewrite * {orig_uri}
-            reverse_proxy :${toString config.site.apps.jellyfin.port}
+            reverse_proxy :${toString app.port}
         }
     }
     handle /web/*.ico {
@@ -235,6 +235,6 @@ in {
         root ${config.site.assets}/jellyfin
         file_server
     }
-    reverse_proxy :${toString config.site.apps.jellyfin.port}
+    reverse_proxy :${toString app.port}
     '';
 }

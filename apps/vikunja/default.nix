@@ -1,7 +1,7 @@
 { config, lib, pkgs, ... }:
 
 let
-  vikunja-domain = "${config.site.apps.vikunja.subdomain}.${config.site.domain}";
+  app = config.site.apps.vikunja;
   vikunja-user = "vikunja";
   vikunja-assets = builtins.path {
     name = "vikunja-assets";
@@ -16,8 +16,8 @@ in {
       vikunja-assets = vikunja-assets;
     };
     frontendScheme = "https";
-    frontendHostname = vikunja-domain;
-    port = config.site.apps.vikunja.port;
+    frontendHostname = app.domain;
+    port = app.port;
     database = {
       type = "postgres";
       user = vikunja-user;
@@ -28,13 +28,13 @@ in {
         local.enabled = false;
         openid = {
           enabled = true;
-          redirecturl = "https://${vikunja-domain}/auth/openid/";
+          redirecturl = "${app.url}/auth/openid/";
           providers = {
             authelia = {
               name = "Authelia";
-              authurl = "https://${config.site.apps.authelia.subdomain}.${config.site.domain}";
+              authurl = config.site.apps.authelia.url;
               clientid = "vikunja";
-              clientsecret.file = config.site.apps.vikunja.auth.clients.vikunja.secret.credential;
+              clientsecret.file = app.auth.clients.vikunja.secret.credential;
             };
           };
         };
@@ -70,14 +70,14 @@ in {
   };
   users.groups.${vikunja-user} = {};
 
-  services.caddy.virtualHosts."${vikunja-domain}".extraConfig =
+  services.caddy.virtualHosts.${app.domain}.extraConfig =
     ''
     @public-assets path /favicon.ico /images/icons/*
     route {
         file_server @public-assets {
             root ${config.site.assets}/vikunja/public
         }
-        reverse_proxy :${toString config.site.apps.vikunja.port}
+        reverse_proxy :${toString app.port}
     }
     '';
 }

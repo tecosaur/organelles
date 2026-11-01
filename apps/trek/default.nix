@@ -2,7 +2,6 @@
 
 let
   trek = config.site.apps.trek;
-  trek-domain = "${trek.subdomain}.${config.site.domain}";
   trek-pkg = pkgs.callPackage ./package.nix { };
   # A tree of links to the package: the server writes beside its own location.
   trek-runtime = "${trek.dir}/runtime";
@@ -16,7 +15,7 @@ let
       id = "flight-tracker";
       src = "fbnlrz/trek-track@v2.0.0";
       hash = "sha256-r++zNN+tzjKLSLIvSSlc8jKRPCA6jRIEYfhe25r9MO0=";
-      settings.aerodatabox_key = config.site.apps.trek.secrets.aerodatabox-key.credential;
+      settings.aerodatabox_key = trek.secrets.aerodatabox-key.credential;
     }
   ];
   trek-fetch-plugin = { id, src, hash, settings ? { } }:
@@ -137,7 +136,7 @@ in {
     environment = {
       NODE_ENV = "production";
       PORT = toString trek.port;
-      APP_URL = "https://${trek-domain}";
+      APP_URL = trek.url;
       TZ = config.time.timeZone;
       TRUST_PROXY = "1";
       FORCE_HTTPS = "false";
@@ -148,7 +147,7 @@ in {
       # settings in the admin UI along with UI backup/restore, plugin sideloading
       # and the home-server integrations (Immich, AirTrail).
       TREK_MANAGED = "true";
-      OIDC_ISSUER = "https://${config.site.apps.authelia.subdomain}.${config.site.domain}";
+      OIDC_ISSUER = config.site.apps.authelia.url;
       OIDC_CLIENT_ID = "trek";
       OIDC_DISPLAY_NAME = "Authelia";
       OIDC_ONLY = "true";
@@ -192,10 +191,10 @@ in {
       [ -s ${trek-encryption-key} ] || ${lib.getExe pkgs.openssl} rand -hex 32 > ${trek-encryption-key}
       # Env vars, not the database: TREK reads these ahead of any stored key.
       { echo "ENCRYPTION_KEY=$(cat ${trek-encryption-key})"
-        echo "OIDC_CLIENT_SECRET=$(cat ${config.site.apps.trek.auth.clients.trek.secret.credential})"
-        echo "UNSPLASH_ACCESS_KEY=$(cat ${config.site.apps.trek.secrets.unsplash-key.credential})"
-        echo "PLACES_API_KEY=$(cat ${config.site.apps.trek.secrets.maps-key.credential})"
-        echo "MAPBOX_ACCESS_TOKEN=$(cat ${config.site.apps.trek.secrets.mapbox-token.credential})"
+        echo "OIDC_CLIENT_SECRET=$(cat ${trek.auth.clients.trek.secret.credential})"
+        echo "UNSPLASH_ACCESS_KEY=$(cat ${trek.secrets.unsplash-key.credential})"
+        echo "PLACES_API_KEY=$(cat ${trek.secrets.maps-key.credential})"
+        echo "MAPBOX_ACCESS_TOKEN=$(cat ${trek.secrets.mapbox-token.credential})"
       } > ${trek-secrets-env}
 
       ${lib.getExe pkgs.nodejs} ${trek-reconcile} ${trek-secrets-env}
@@ -230,7 +229,7 @@ in {
 
   users.groups.trek = { };
 
-  services.caddy.virtualHosts.${trek-domain}.extraConfig = ''
+  services.caddy.virtualHosts.${trek.domain}.extraConfig = ''
     # Listed, not globbed: TREK serves its own /icons too.
     @custom-icons {
         path /icons/icon.svg

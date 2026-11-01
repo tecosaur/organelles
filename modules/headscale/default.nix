@@ -1,43 +1,39 @@
 { config, lib, pkgs, ... }:
 
 let
-  headscale-domain = "${config.site.apps.headscale.subdomain}.${config.site.domain}";
-  headscale-port = config.site.apps.headscale.port;
-  headplane-port = config.site.apps.headscale.ports.headplane.port;
-  magicdns-domain = "${config.site.apps.headscale.magicdns-subdomain}.${config.site.domain}";
+  app = config.site.apps.headscale;
+  headscale-port = app.port;
+  headplane-port = app.ports.headplane.port;
+  magicdns-domain = "${app.magicdns-subdomain}.${config.site.domain}";
 in {
   site.apps.headscale.enabled = true;
 
   services.headscale = {
-      enable = true;
-      port = headscale-port;
-      settings = {
-        server_url = "https://${headscale-domain}";
-        dns = {
-          base_domain = magicdns-domain;
-          override_local_dns = false;
+    enable = true;
+    port = headscale-port;
+    settings = {
+      server_url = app.url;
+      dns = {
+        base_domain = magicdns-domain;
+        override_local_dns = false;
+      };
+      oidc = {
+        issuer = config.site.apps.authelia.url;
+        client_id = "headscale";
+        # a file, not a credential: its CLI and Headplane read this config too
+        client_secret_path = app.auth.clients.headscale.secret.decrypted;
+        scope = [ "openid" "profile" "email" "groups" ];
+        allowed_groups = [ "headscale" ];
+        pkce = {
+          enabled = true;
+          method = "S256";
         };
-        ip_prefixes = [ "fd7a:115c:a1e0::/48" "100.64.0.0/10" ];
-        oidc = {
-          issuer = "https://${config.site.apps.authelia.subdomain}.${config.site.domain}";
-          client_id = "headscale";
-          # a file, not a credential: its CLI and Headplane read this config too
-          client_secret_path = config.site.apps.headscale.auth.clients.headscale.secret.decrypted;
-          scope = [ "openid" "profile" "email" "groups" ];
-          allowed_groups = [ "headscale" ];
-          pkce = {
-            enabled = true;
-            method = "S256";
-          };
-          extra_params = {
-            domain_hint = config.site.domain;
-          };
-        };
-        policy = {
-          mode = "database";
-          path = "${config.services.headscale.settings.database.sqlite.path}";
+        extra_params = {
+          domain_hint = config.site.domain;
         };
       };
+      policy.mode = "database";
+    };
   };
 
   systemd.services.headscale = lib.mkIf (config.services.authelia.instances ? main
@@ -52,13 +48,13 @@ in {
       server = {
         host = "127.0.0.1";
         port = headplane-port;
-        base_url = "https://${headscale-domain}";
+        base_url = app.url;
         cookie_secret_path = "/var/lib/headplane/cookie_secret";
         cookie_secure = true;
         data_path = "/var/lib/headplane";
       };
       headscale = {
-        url = "https://${headscale-domain}";
+        url = app.url;
         api_key_path = "/var/lib/headplane/api_key";
       };
       integration = {
@@ -70,9 +66,9 @@ in {
         proc.enabled = true;
       };
       oidc = {
-        issuer = "https://${config.site.apps.authelia.subdomain}.${config.site.domain}";
+        issuer = config.site.apps.authelia.url;
         client_id = "headplane";
-        client_secret_path = config.site.apps.headscale.auth.clients.headplane.secret.decrypted;
+        client_secret_path = app.auth.clients.headplane.secret.decrypted;
         disable_api_key_login = true;
         token_endpoint_auth_method = "client_secret_basic";
         use_pkce = true;
@@ -91,7 +87,7 @@ in {
   '';
 
   environment.systemPackages = [ config.services.headscale.package ];
-  services.caddy.virtualHosts."${headscale-domain}".extraConfig =
+  services.caddy.virtualHosts.${app.domain}.extraConfig =
     ''
     @ui path /admin /admin/*
     @browser-root {
