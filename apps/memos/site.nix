@@ -5,6 +5,7 @@
     health.path = "/healthz";
     name = "Memos";
     homepage = "https://usememos.com";
+    guide = ./guide.html;
     description = "quick notes";
     subdomain = "memos";
     port = 5230;

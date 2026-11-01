@@ -167,7 +167,7 @@ rec {
         };
       };
     };
-  mkAppOption = { name, description, homepage, simpleicon ? null,
+  mkAppOption = { name, description, homepage, simpleicon ? null, guide ? null,
                   service ? (lib.toLower (lib.replaceStrings [ " " ] [ "-" ] name)),
                   usesStateDir ? (service != null),
                   subdomain, port, admin ? "admin", extra-groups ? [],
@@ -194,6 +194,15 @@ rec {
         type = lib.types.nullOr lib.types.str;
         default = simpleicon;
         description = "Simple icon for the ${name} app";
+      };
+      guide = lib.mkOption {
+        type = lib.types.nullOr lib.types.path;
+        default = guide;
+        description = ''
+          The ${name} app's section of the services page: a <details> element,
+          in which $URL, $SUBDOMAIN and $ACCESS stand for its address, its
+          subdomain and the template test of whether a visitor may use it.
+        '';
       };
       enabled = lib.mkOption {
         type = lib.types.bool;

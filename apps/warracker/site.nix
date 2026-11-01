@@ -5,6 +5,7 @@
     health.path = "/api/health";
     name = "Warracker";
     homepage = "https://warracker.com";
+    guide = ./guide.html;
     description = "warranty tracking";
     subdomain = "warracker";
     port = 8087;

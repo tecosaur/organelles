@@ -5,6 +5,7 @@
     health.path = "/health";
     name = "Jellyfin";
     homepage = "https://jellyfin.org";
+    guide = ./guide.html;
     description = "media server";
     simpleicon = "jellyfin";
     subdomain = "media";

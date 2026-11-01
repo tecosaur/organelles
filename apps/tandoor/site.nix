@@ -4,6 +4,7 @@
   options.site.apps.tandoor = site-lib.mkAppOption {
     name = "Tandoor";
     homepage = "https://tandoor.dev";
+    guide = ./guide.html;
     description = "recipe manager";
     service = "tandoor-recipes";
     subdomain = "recipes";

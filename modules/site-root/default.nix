@@ -3,18 +3,18 @@
 with lib;
 
 let
+  # the template test of whether the visitor's groups may use an app
+  access-of = app: let
+    groups = [ app.groups.primary ] ++ lib.optional (app.groups.admin != null) app.groups.admin ++ app.groups.extra;
+  in "(or (not $groups) (any ${lib.concatMapStringsSep " " (group: ''(contains "${group}" $groups)'') groups}))";
   mkAppExport = name: app: let
     prefix = lib.toUpper (lib.replaceStrings [ "-" ] [ "_" ] name);
-    allGroups = [ app.groups.primary ] ++                                                                                                              
-                (lib.optional (app.groups.admin != null) app.groups.admin) ++                                                                                    
-                app.groups.extra;  
-    groupChecks =  "(any " + (lib.concatStringsSep " " (map (g: ''(contains "${g}" $groups)'') allGroups)) + ")";
   in
     if app.enabled then
       {
         "${prefix}_SUBDOMAIN" = app.subdomain;
         "${prefix}_URL" = "${app.subdomain}.${config.site.domain}";
-        "${prefix}_ACCESS" = "(or (not $groups) ${groupChecks})";
+        "${prefix}_ACCESS" = access-of app;
         "${prefix}_ENABLED" = "true";
       } else
         {
@@ -28,6 +28,7 @@ let
     (key: val: "export ${key}='${val}'")
     apps-exports);
   app-env-vars = lib.concatStringsSep " " (lib.mapAttrsToList (k: _: "\$${k}") apps-exports);
+  guides = lib.filter (app: app.enabled && app.guide != null) (lib.attrValues config.site.apps);
   static-root = pkgs.runCommand "static-root" { buildInputs = [ pkgs.gettext ]; } ''
       export DOMAIN='${config.site.domain}'
       export ACCENT='${config.site.accent.primary}'
@@ -41,7 +42,7 @@ let
       apply_template() {
           for file in "$@"; do
               tmpout=$(mktemp)
-              envsubst '$DOMAIN $ACCENT $APPS_TEXT $WELCOME ${app-env-vars}' < "$file" > "$tmpout"
+              envsubst '$DOMAIN $ACCENT $APPS_TEXT $WELCOME $GUIDES ${app-env-vars}' < "$file" > "$tmpout"
               mv "$tmpout" "$file"
           done
       }
@@ -57,6 +58,12 @@ let
       export WELCOME=`sed 's/^/            /g' welcome-private.html`
       apply_template index-private.html
       rm index.html welcome-public.html welcome-private.html
+      ${lib.concatMapStrings (app: ''
+        URL=${lib.escapeShellArg "${app.subdomain}.${config.site.domain}"} SUBDOMAIN=${lib.escapeShellArg app.subdomain} \
+          ACCESS=${lib.escapeShellArg (access-of app)} envsubst '$URL $SUBDOMAIN $ACCESS' < ${app.guide} >> guides.html
+      '') guides}
+      export GUIDES=`sed 's/^/            /g' guides.html`
+      rm guides.html
       apply_template services.html # about.html
     '';
 in {

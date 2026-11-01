@@ -5,6 +5,7 @@
     health.path = "/healthz";
     name = "SFTPGo";
     homepage = "https://sftpgo.com";
+    guide = ./guide.html;
     description = "SFTP server";
     subdomain = "files";
     port = 8083;

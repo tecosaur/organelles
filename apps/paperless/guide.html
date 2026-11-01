@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true" focusable="false">
+    <symbol id="icon-stapler" viewBox="0 0 640 512"><path d="M640 299.3L640 432c0 26.5-21.5 48-48 48L64 480c-17.7 0-32-14.3-32-32s14.3-32 32-32l384 0 0-48-352 0c-17.7 0-32-14.3-32-32l0-116.6-30.2-5.4c-19.6-3.5-33.8-20.5-33.8-40.4 0-8.9 2.9-17.5 8.2-24.6l35.6-47.5c32.8-43.8 84.4-69.6 139.1-69.6 27 0 53.6 6.3 77.8 18.4L586.9 213.5C619.5 229.7 640 263 640 299.3zM448 304l0-16-320-57.1 0 73.1 320 0z"/></symbol>
+</svg>
+<details id="document-management" {{ template "greyout" $ACCESS }}>
+    <summary><svg class="icon"><use href="#icon-stapler"></use></svg> Document management</summary>
+    {{- template "ask4access" $ACCESS }}
+    <p><a href="https://docs.paperless-ngx.com/">Paperless</a> is a document management system,
+       designed for scanning, storing, and tagging documents such as receipts, bills, letters, and manuals.</p>
+    <p>Because paperwork and filing is no fun, it learns from the labels and categories you assign to documents,
+        and will automatically apply them to new documents. Simply throw everything in, and rely on the tagging
+        and full-text search to dig out documents with ease later.</p>
+    <nav>
+        <label for="p-web"><svg class="icon"><use href="#icon-globe"></use></svg> Web</label>
+        <label for="p-ios"><svg class="icon"><use href="#icon-apple"></use></svg> iOS</label>
+        <label for="p-android"><svg class="icon"><use href="#icon-android"></use></svg> Android</label>
+    </nav>
+    <dl>
+        <div data-platforms="web">
+            <dt><svg class="icon"><use href="#icon-globe"></use></svg> Web</dt>
+            <dd>Visit <a href="https://$URL">$SUBDOMAIN.■</a> and sign in.</dd>
+        </div>
+        <div data-platforms="ios">
+            <dt><svg class="icon"><use href="#icon-apple"></use></svg> iOS</dt>
+            <dd>Download the third-party <a href="https://apps.apple.com/us/app/swift-paperless/id6448698521"><svg class="icon"><use href="#icon-astore"></use></svg>Swift Paperless</a> app,
+                then supply the server URL <code>https://$URL</code>. Log in.
+                <p>For scanning, <a href="https://apps.apple.com/us/app/quickscan-pdf-ocr-text-scanner/id1513790291"><svg class="icon"><use href="#icon-astore"></use></svg>QuickScan</a> also has built-in support for Paperless.</p></dd>
+        </div>
+        <div data-platforms="android">
+            <dt><svg class="icon"><use href="#icon-android"></use></svg> Android</dt>
+            <dd>Download the <a href="https://play.google.com/store/apps/details?id=de.astubenbord.paperless_mobile"><svg class="icon"><use href="#icon-gplay"></use></svg>Paperless Mobile</a> app
+                (or <a href="https://f-droid.org/packages/de.astubenbord.paperless_mobile">F-Droid</a>),
+                then supply the server URL <code>https://$URL</code>. Log in.</dd>
+        </div>
+    </dl>
+</details>

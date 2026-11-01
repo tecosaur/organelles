@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true" focusable="false">
+    <symbol id="icon-map" viewBox="0 0 640 512"><path d="M576 48c0-11.1-5.7-21.4-15.2-27.2s-21.2-6.4-31.1-1.4L413.5 77.5 234.1 17.6c-8.1-2.7-16.8-2.1-24.4 1.7l-128 64C70.8 88.8 64 99.9 64 112l0 352c0 11.1 5.7 21.4 15.2 27.2s21.2 6.4 31.1 1.4l116.1-58.1 173.3 57.8c-4.3-6.4-8.5-13.1-12.6-19.9-11-18.3-21.9-39.3-30-61.8l-101.2-33.7 0-284.5 128 42.7 0 99.3c31-35.8 77-58.4 128-58.4 22.6 0 44.2 4.4 64 12.5L576 48zM512 224c-66.3 0-120 52.8-120 117.9 0 68.9 64.1 150.4 98.6 189.3 11.6 13 31.3 13 42.9 0 34.5-38.9 98.6-120.4 98.6-189.3 0-65.1-53.7-117.9-120-117.9zM472 344a40 40 0 1 1 80 0 40 40 0 1 1 -80 0z"/></symbol>
+</svg>
+<details id="location" {{ template "greyout" $ACCESS }}>
+    <summary><svg class="icon"><use href="#icon-map"></use></svg> Location tracking</summary>
+    {{- template "ask4access" $ACCESS }}
+    <p><a href="https://dawarich.app/">Dawarich</a> records a timeline of your location, helping you see where you've been.
+        As well as its own app, it works with almost any GPS tracker app.</p>
+    <nav>
+        <label for="p-web"><svg class="icon"><use href="#icon-globe"></use></svg> Web</label>
+        <label for="p-ios"><svg class="icon"><use href="#icon-apple"></use></svg> iOS</label>
+        <label for="p-android"><svg class="icon"><use href="#icon-android"></use></svg> Android</label>
+    </nav>
+    <dl>
+        <div data-platforms="web">
+            <dt><svg class="icon"><use href="#icon-globe"></use></svg> Web</dt>
+            <dd>Visit <a href="https://$URL">$SUBDOMAIN.■</a> and sign in to view your tracks.</dd>
+        </div>
+        <div data-platforms="ios">
+            <dt><svg class="icon"><use href="#icon-apple"></use></svg> iOS</dt>
+            <dd>Download the <a href="https://apps.apple.com/us/app/dawarich/id6739544999"><svg class="icon"><use href="#icon-astore"></use></svg>Dawarich</a>
+                app, then supply the server URL <code>https://$URL</code>. Log in.</dd>
+        </div>
+        <div data-platforms="android">
+            <dt><svg class="icon"><use href="#icon-android"></use></svg> Android</dt>
+            <dd>Download the <a href="https://play.google.com/store/apps/details?id=app.dawarich.Dawarich"><svg class="icon"><use href="#icon-gplay"></use></svg>Dawarich</a> app, then supply the server URL
+                <code>https://$URL</code>. Log in.</dd>
+        </div>
+    </dl>
+</details>

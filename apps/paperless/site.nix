@@ -5,6 +5,7 @@
     health.path = "/accounts/login/";
     name = "Paperless";
     homepage = "https://paperless-ngx.readthedocs.io";
+    guide = ./guide.html;
     description = "document management";
     simpleicon = "paperlessngx";
     service = "paperless-web";

@@ -5,6 +5,7 @@
     health.path = "/api/server/ping";
     name = "Immich";
     homepage = "https://immich.app";
+    guide = ./guide.html;
     description = "photo and video management";
     simpleicon = "immich";
     service = "immich-server";

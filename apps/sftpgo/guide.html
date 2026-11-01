@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true" focusable="false">
+    <symbol id="icon-hdd" viewBox="0 0 448 512"><path d="M64 32C28.7 32 0 60.7 0 96L0 260.1C18.1 247.4 40.2 240 64 240l320 0c23.8 0 45.9 7.4 64 20.1L448 96c0-35.3-28.7-64-64-64L64 32zM448 352c0-35.3-28.7-64-64-64L64 288c-35.3 0-64 28.7-64 64l0 64c0 35.3 28.7 64 64 64l320 0c35.3 0 64-28.7 64-64l0-64zM224 384a32 32 0 1 1 64 0 32 32 0 1 1 -64 0zm128-32a32 32 0 1 1 0 64 32 32 0 1 1 0-64z"/></symbol>
+</svg>
+<details id="storage" {{ template "greyout" $ACCESS }}>
+    <summary><svg class="icon"><use href="#icon-hdd"></use></svg> Cloud storage</summary>
+    <p>⚠️ <b>Work in progress</b></p>
+    {{- template "ask4access" $ACCESS }}
+    <p>In addition to apps that use storage (such as photo management), you can also make use of the
+        available storage as general-purpose cloud storage.</p>
+    <nav>
+        <label for="p-web"><svg class="icon"><use href="#icon-globe"></use></svg> Web</label>
+        <label for="p-ios"><svg class="icon"><use href="#icon-apple"></use></svg> iOS</label>
+        <label for="p-android"><svg class="icon"><use href="#icon-android"></use></svg> Android</label>
+        <label for="p-macos"><svg class="icon"><use href="#icon-apple"></use></svg> macOS</label>
+        <label for="p-windows"><svg class="icon"><use href="#icon-windows"></use></svg> Windows</label>
+        <label for="p-linux"><svg class="icon"><use href="#icon-linux"></use></svg> Linux</label>
+    </nav>
+    <dl>
+        <div data-platforms="web">
+            <dt><svg class="icon"><use href="#icon-globe"></use></svg> Web</dt>
+            <dd>Visit <a href="https://$URL">$SUBDOMAIN.■</a> and sign in.
+                The first time you log in, your account will automatically be created.</dd>
+        </div>
+        <div data-platforms="ios">
+            <dt><svg class="icon"><use href="#icon-apple"></use></svg> iOS</dt>
+            <dd>TODO</dd>
+        </div>
+        <div data-platforms="android">
+            <dt><svg class="icon"><use href="#icon-android"></use></svg> Android</dt>
+            <dd>TODO</dd>
+        </div>
+        <div data-platforms="macos">
+            <dt><svg class="icon"><use href="#icon-apple"></use></svg> macOS</dt>
+            <dd>TODO</dd>
+        </div>
+        <div data-platforms="windows">
+            <dt><svg class="icon"><use href="#icon-windows"></use></svg> Windows</dt>
+            <dd>TODO</dd>
+        </div>
+        <div data-platforms="linux">
+            <dt><svg class="icon"><use href="#icon-linux"></use></svg> Linux</dt>
+            <dd>You should be able to just visit <code>sftp://<it>&lt;user&gt;</it>@$URL</code> in your file browser.</dd>
+        </div>
+    </dl>
+</details>

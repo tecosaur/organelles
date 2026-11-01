@@ -5,6 +5,7 @@
     health.path = "/api/v1/health";
     name = "Dawarich";
     homepage = "https://dawarich.com";
+    guide = ./guide.html;
     description = "location timeline";
     service = "dawarich-web";
     subdomain = "timeline";

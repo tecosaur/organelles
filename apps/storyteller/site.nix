@@ -5,6 +5,7 @@
     health.path = "/api/health";
     name = "Storyteller";
     homepage = "https://storyteller-platform.gitlab.io/storyteller/";
+    guide = ./guide.html;
     description = "synced audiobook platform";
     subdomain = "books";
     port = 8001;

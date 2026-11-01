@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true" focusable="false">
+    <symbol id="icon-book" viewBox="0 0 448 512"><path d="M384 512L96 512c-53 0-96-43-96-96L0 96C0 43 43 0 96 0L400 0c26.5 0 48 21.5 48 48l0 288c0 20.9-13.4 38.7-32 45.3l0 66.7c17.7 0 32 14.3 32 32s-14.3 32-32 32l-32 0zM96 384c-17.7 0-32 14.3-32 32s14.3 32 32 32l256 0 0-64-256 0zm32-232c0 13.3 10.7 24 24 24l176 0c13.3 0 24-10.7 24-24s-10.7-24-24-24l-176 0c-13.3 0-24 10.7-24 24zm24 72c-13.3 0-24 10.7-24 24s10.7 24 24 24l176 0c13.3 0 24-10.7 24-24s-10.7-24-24-24l-176 0z"/></symbol>
+</svg>
+<details id="ebooks" {{ template "greyout" $ACCESS }}>
+    <summary><svg class="icon"><use href="#icon-book"></use></svg> E-book library</summary>
+    {{- template "ask4access" $ACCESS }}
+    <p><a href="https://storyteller-platform.gitlab.io/storyteller">Storyteller</a> is an e-book and audiobook
+        library, with support for synced reading position, bookmarks, and notes.</p>
+    <nav>
+        <label for="p-web"><svg class="icon"><use href="#icon-globe"></use></svg> Web</label>
+        <label for="p-ios"><svg class="icon"><use href="#icon-apple"></use></svg> iOS</label>
+        <label for="p-android"><svg class="icon"><use href="#icon-android"></use></svg> Android</label>
+    </nav>
+    <dl>
+        <div data-platforms="web">
+            <dt><svg class="icon"><use href="#icon-globe"></use></svg> Web</dt>
+            <dd>Visit <a href="https://$URL">$SUBDOMAIN.■</a> and sign in.</dd>
+        </div>
+        <div data-platforms="ios">
+            <dt><svg class="icon"><use href="#icon-apple"></use></svg> iOS</dt>
+            <dd>Download <a href="https://apps.apple.com/us/app/storyteller-reader/id6474467720"><svg class="icon"><use href="#icon-astore"></use></svg>Storyteller</a>,
+                then supply the server URL <code>https://$URL</code>. Log in.</dd>
+        </div>
+        <div data-platforms="android">
+            <dt><svg class="icon"><use href="#icon-android"></use></svg> Android</dt>
+            <dd>Download <a href="https://play.google.com/store/apps/details?id=dev.smoores.Storyteller"><svg class="icon"><use href="#icon-gplay"></use></svg>Storyteller</a> or <a href="https://www.retar.app/parrot"><svg class="icon"><use href="#icon-globe"></use></svg>Parrot</a>,
+                then supply the server URL <code>https://$URL</code>. Log in.</dd>
+        </div>
+    </dl>
+</details>
