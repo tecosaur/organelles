@@ -18,6 +18,7 @@
     secrets = {
       hardcover-token = { kind = "credential"; description = "Hardcover API token, for Storyteller metadata import"; optional = true; file-name = "hardcover-token"; };
     };
+    mail = { sender = "noreply"; units = [ "storyteller" ]; };
   };
   config.site.apps.storyteller.groups.extra = [ "family" ];
 }

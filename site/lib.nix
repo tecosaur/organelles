@@ -172,7 +172,7 @@ rec {
                   subdomain, port, admin ? "admin", extra-groups ? [],
                   auth ? {}, cacheSubdirs ? [], stateSubdirs ? null, health ? null,
                   followsPrimary ? false, exposure ? (if followsPrimary then "mesh" else "local"),
-                  clients ? [], ports ? {}, secrets ? {}, extraOptions ? {} }:
+                  clients ? [], ports ? {}, secrets ? {}, mail ? null, extraOptions ? {} }:
     {
       name = lib.mkOption {
         type = lib.types.str;
@@ -441,9 +441,59 @@ rec {
           '';
         };
       };
+      mail = lib.mkOption {
+        type = lib.types.nullOr (lib.types.submodule {
+          options = {
+            sender = lib.mkOption {
+              type = lib.types.nullOr lib.types.str;
+              default = null;
+              example = "noreply";
+              description = ''
+                The local part it sends as through the site's Stalwart, at
+                its own subdomain. No password: only its units reach the
+                submission port.
+              '';
+            };
+            smtp = lib.mkOption {
+              type = lib.types.nullOr (lib.types.submodule {
+                options = {
+                  host = lib.mkOption { type = lib.types.str; description = "The SMTP server"; };
+                  port = lib.mkOption { type = lib.types.port; description = "Its submission port"; };
+                  security = lib.mkOption {
+                    type = lib.types.enum [ "tls" "starttls" "none" ];
+                    description = "Implicit TLS, STARTTLS, or neither";
+                  };
+                  username = lib.mkOption { type = lib.types.str; description = "Who it signs in as"; };
+                };
+              });
+              default = null;
+              description = "Another SMTP server it sends through instead, its password the app's smtp credential";
+            };
+            from = lib.mkOption {
+              type = lib.types.nullOr lib.types.str;
+              default = null;
+              description = "The address it sends from through another server";
+            };
+            units = lib.mkOption {
+              type = lib.types.listOf lib.types.str;
+              description = "The units that send, each loading the smtp credential when it has one";
+            };
+          };
+        });
+        default = mail;
+        description = ''
+          How the ${name} app sends mail, by one of two forms: `sender`,
+          through the site's Stalwart, or `smtp` and `from`, through
+          another server. Either way its modules read the connection from
+          site.mail.connections.<app>.
+        '';
+      };
       secrets = lib.mkOption {
         type = lib.types.attrsOf (secret { prefix = id-of name; });
-        default = secrets;
+        # the password it sends mail with through another server
+        default = secrets // lib.optionalAttrs (mail != null && mail ? smtp) {
+          smtp = { kind = "credential"; description = "${name}'s password at ${mail.smtp.host}"; inherit (mail) units; };
+        };
         description = ''
           The secrets the ${name} app holds, by name, each a file named
           ${id-of name}-<name> unless it says otherwise. Other apps reading one

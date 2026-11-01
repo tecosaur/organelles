@@ -40,11 +40,6 @@ in {
       group = "users";
       file = config.site.apps.authelia.secrets.jwt.file;
     };
-    authelia-smtp = {
-      owner = authelia-user;
-      group = "users";
-      file = config.site.secrets.fastmail.file;
-    };
     authelia-oidc-hmac = {
       owner = authelia-user;
       group = "users";
@@ -153,11 +148,15 @@ in {
         database = authelia-user;
         username = authelia-user;
       };
-      notifier.smtp = {
-        address = "${config.site.email.server}:${toString config.site.email.port}";
-        username = config.site.email.username;
-        sender = "${config.site.domain} authentication <services.authentication@${config.site.domain}>";
+      # Stalwart waits on Authelia
+      notifier.disable_startup_check = true;
+      notifier.smtp = let mail = config.site.mail.connections.authelia; in {
+        address = "smtp://${mail.host}:${toString mail.port}";
+        sender = "${config.site.domain} authentication <${mail.from}>";
         subject = "{title}";
+        # over loopback to the local Stalwart's door
+        disable_require_tls = true;
+        disable_starttls = true;
       };
       log.level = "debug";
       identity_providers.oidc = {
@@ -181,7 +180,6 @@ in {
     };
     environmentVariables = {
       AUTHELIA_AUTHENTICATION_BACKEND_LDAP_PASSWORD_FILE = config.age.secrets.authelia-lldap-admin-password.path;
-      AUTHELIA_NOTIFIER_SMTP_PASSWORD_FILE = config.age.secrets.authelia-smtp.path;
       AUTHELIA_SESSION_REDIS_PASSWORD_FILE = config.age.secrets.authelia-valkey.path;
       AUTHELIA_SESSION_REDIS_HIGH_AVAILABILITY_SENTINEL_PASSWORD_FILE = config.age.secrets.authelia-valkey.path;
       PGTARGETSESSIONATTRS = "read-write";

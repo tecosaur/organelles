@@ -20,6 +20,7 @@
         settings.token_endpoint_auth_method = "client_secret_post";
       };
     };
+    mail = { sender = "noreply"; units = [ "immich-server" ]; };
   };
   config.site.apps.immich.groups.extra = [ "family" ];
 }

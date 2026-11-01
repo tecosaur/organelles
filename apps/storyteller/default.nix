@@ -15,10 +15,6 @@ in {
     file = config.site.apps.storyteller.auth.clients.storyteller.secret.file;
   };
 
-  age.secrets.storyteller-smtp = {
-    owner = "storyteller";
-    file = config.site.secrets.fastmail.file;
-  };
 
   age.secrets.storyteller-hardcover = lib.mkIf has-hardcover-token {
     owner = "storyteller";
@@ -70,12 +66,10 @@ in {
             ([ config.site.apps.storyteller.groups.primary ] ++ storyteller.groups.extra));
         }];
         disablePasswordLogin = true;
-        smtpHost = config.site.email.server;
-        smtpPort = config.site.email.port;
-        smtpUsername = config.site.email.username;
-        smtpPassword_file = config.age.secrets.storyteller-smtp.path;
-        smtpFrom = "Storyteller (${config.site.domain}) <services.storyteller@${config.site.domain}>";
-        smtpSsl = true;
+        smtpHost = config.site.mail.connections.storyteller.host;
+        smtpPort = config.site.mail.connections.storyteller.port;
+        smtpFrom = "Storyteller (${config.site.domain}) <${config.site.mail.connections.storyteller.from}>";
+        smtpSsl = false;
         smtpRejectUnauthorized = true;
       } // lib.optionalAttrs has-hardcover-token {
         hardcoverApiToken_file = config.age.secrets.storyteller-hardcover.path;

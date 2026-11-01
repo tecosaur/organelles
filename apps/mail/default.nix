@@ -4,5 +4,5 @@
 # Search is in the shared Meilisearch.
 
 {
-  imports = [ ./bulwark.nix ./garage.nix ./s3-overflow.nix ./stalwart.nix ];
+  imports = [ ./bulwark.nix ./garage.nix ./s3-overflow.nix ./stalwart.nix ./submission.nix ];
 }

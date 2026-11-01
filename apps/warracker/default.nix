@@ -25,10 +25,6 @@ in {
       owner = warracker-user;
       file = config.site.apps.warracker.auth.clients.warracker.secret.file;
     };
-    warracker-smtp = {
-      owner = warracker-user;
-      file = config.site.secrets.fastmail.file;
-    };
   };
 
   systemd.services.warracker = {
@@ -53,11 +49,10 @@ in {
       UPLOAD_FOLDER = "${warracker-dir}/uploads";
       WARRACKER_FIXED_CONFIG = (pkgs.formats.json {}).generate "warracker.json" warracker-config;
       OIDC_CLIENT_SECRET_FILE = config.age.secrets.warracker-oidc.path;
-      SMTP_HOST = config.site.email.server;
-      SMTP_PORT = toString config.site.email.port;
-      SMTP_USERNAME = config.site.email.username;
-      SMTP_PASSWORD_FILE = config.age.secrets.warracker-smtp.path;
-      SMTP_FROM_ADDRESS = "Warracker (${config.site.domain}) <services.warracker@${config.site.domain}>";
+      SMTP_HOST = config.site.mail.connections.warracker.host;
+      SMTP_PORT = toString config.site.mail.connections.warracker.port;
+      SMTP_USE_TLS = "false";
+      SMTP_FROM_ADDRESS = "Warracker (${config.site.domain}) <${config.site.mail.connections.warracker.from}>";
     };
     serviceConfig = {
       User = warracker-user;

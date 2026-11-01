@@ -55,6 +55,9 @@ let
     "_submissions._tcp" = 465;
     "_jmap._tcp" = 443;
   };
+  # The address each app sending through Stalwart sends as
+  app-senders = lib.mapAttrsToList (name: _: config.site.mail.connections.${name}.from)
+    (lib.filterAttrs (_: app: app.mail != null && app.mail.sender != null) config.site.apps);
   settings = pkgs.writeText "stalwart-settings.ndjson" (import ./stalwart-settings.nix { inherit lib; } addressing {
     inherit domain hostname public-ports dkim-selector max-message-bytes filing-script log-dir;
     acme = { contact = "postmaster@${domain}"; bunny-key = "${credentials}/bunny-key"; };
@@ -82,6 +85,8 @@ let
     inherit oidc;
     dkim-keys = lib.genAttrs dkim-domains (name: "${credentials}/dkim-${name}");
     http-port = app.port;
+    submission-port = app.ports.submission-mesh.port;
+    inherit app-senders;
     web-ui = { bundle = "file://${package.webui}"; client-id = oidc.web-ui-client; };
     relay = if relay == null then null else {
       inherit (relay) host port username;

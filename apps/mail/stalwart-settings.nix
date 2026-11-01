@@ -31,6 +31,10 @@ addressing:
   log-dir,
   # Null, or { host; port; username; secret-file; } to send everything through
   relay ? null,
+  # The listener apps submit mail on, unauthenticated: only Caddy may reach it
+  submission-port,
+  # The addresses apps may send as from it
+  app-senders ? [ ],
 }:
 let
   inherit (lib) concatStringsSep filter optional optionals;
@@ -83,6 +87,10 @@ let
       ++ map (account: "(authenticated_as == ${quote account.canonical} && (${concatStringsSep " || " (catch-clauses account)}))")
         (filter (account: catch-clauses account != [ ]) accounts);
     in if clauses == [ ] then "true" else "!(${concatStringsSep " || " clauses})";
+  # Apps' submission, sent as one of their addresses with no authentication
+  from-apps = "local_port == ${toString submission-port}";
+  app-sender = if app-senders == [ ] then "false"
+    else concatStringsSep " || " (map (address: "sender == ${quote address}") app-senders);
   # Delivery to {user}+{location}@{domain} keeps that address only as ORCPT. What follows
   # its first +, less any further +tag, is split on dots (:detail would take the last +).
   filing-sieve = ''
@@ -180,6 +188,14 @@ let
       inherit name;
       bind = set [ "[::]:${toString port}" ];
     }) public-ports // {
+      # Every host's Caddy hands apps' mail to it, over the mesh or loopback
+      # No TLS, not even offered: a client would check Stalwart's certificate against loopback
+      submission-mesh = {
+        name = "submission-mesh";
+        protocol = "smtp";
+        bind = set [ "[::]:${toString submission-port}" ];
+        useTls = false;
+      };
       # Only Caddy reaches it, this host's or another's over the mesh, and it terminates TLS
       http = {
         name = "http";
@@ -201,12 +217,41 @@ let
     (upsert "SieveUserScript" [ "name" ] {
       filing = { name = filing-script; contents = filing-sieve; isActive = true; };
     })
-    (update "MtaStageAuth" { mustMatchSender."else" = send-as; })
-    (update "MtaStageRcpt" { rewrite = expression rewrite "false"; })
+    # Each else is Stalwart's default
+    (update "MtaStageAuth" {
+      mustMatchSender."else" = send-as;
+      require = expression [ { condition = from-apps; value = "false"; } ] "local_port != 25";
+    })
+    (update "MtaStageMail" {
+      isSenderAllowed = expression [ { condition = from-apps; value = app-sender; } ]
+        "!is_empty(authenticated_as) || !key_exists('spam-block', sender_domain)";
+    })
+    # Stalwart's own throttles, but for apps' mail: it all comes from Caddy, so a batch would
+    # wait on a rate meant for one sender
+    (upsert "MtaInboundThrottle" [ "description" ] (lib.mapAttrs (_: throttle: throttle // {
+      enable = true;
+      match."else" = "!(${from-apps})";
+    }) {
+      sender-ip = {
+        description = "Sender IP throttle";
+        key = set [ "remoteIp" ];
+        rate = { count = 5; period = 1000; };
+      };
+      sender-recipient = {
+        description = "Sender address to recipient throttle";
+        key = set [ "senderDomain" "rcpt" ];
+        rate = { count = 25; period = 3600000; };
+      };
+    }))
+    (update "MtaStageRcpt" {
+      rewrite = expression rewrite "false";
+      allowRelaying = expression [ { condition = from-apps; value = "true"; } ] "!is_empty(authenticated_as)";
+    })
     (update "MtaStageData" {
       maxMessageSize."else" = toString max-message-bytes;
+      enableSpamFilter = expression [ { condition = from-apps; value = "false"; } ] "is_empty(authenticated_as)";
       dkimSignDomain = expression (map (name: {
-        condition = "!is_empty(authenticated_as) && (sender_domain == ${quote name} || ends_with(sender_domain, ${quote ".${name}"}))";
+        condition = "(!is_empty(authenticated_as) || ${from-apps}) && (sender_domain == ${quote name} || ends_with(sender_domain, ${quote ".${name}"}))";
         value = quote name;
       }) dkim-domains) "false";
     })

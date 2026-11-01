@@ -39,12 +39,10 @@ in {
         SSO_CLIENT_SECRET_FILE = app.auth.clients.vaultwarden.secret.credential;
         # no refresh token, so no consent page, and sessions outlast Authelia
         SSO_AUTH_ONLY_NOT_SESSION = true;
-        SMTP_HOST = config.site.email.server;
-        SMTP_PORT = config.site.email.port;
-        SMTP_SECURITY = "starttls";
-        SMTP_USERNAME = config.site.email.username;
-        SMTP_PASSWORD_FILE = config.site.secrets.fastmail.credentials.vaultwarden;
-        SMTP_FROM = "services.vault@${config.site.domain}";
+        SMTP_HOST = config.site.mail.connections.vaultwarden.host;
+        SMTP_PORT = config.site.mail.connections.vaultwarden.port;
+        SMTP_SECURITY = "off";
+        SMTP_FROM = config.site.mail.connections.vaultwarden.from;
         SMTP_FROM_NAME = "Vaultwarden on ${config.site.domain}";
       };
     };

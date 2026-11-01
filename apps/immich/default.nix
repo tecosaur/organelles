@@ -12,10 +12,6 @@ in {
       owner = "immich";
       file = config.site.apps.immich.auth.clients.immich.secret.file;
     };
-    immich-smtp = {
-      owner = "immich";
-      file = config.site.secrets.fastmail.file;
-    };
   };
 
   services.immich = {
@@ -65,14 +61,11 @@ in {
       };
       notifications.smtp = {
         enabled = true;
-        from = "Immich on tecosaur.net <services.immich@${config.site.domain}>";
+        from = "Immich on ${config.site.domain} <${config.site.mail.connections.immich.from}>";
         replyTo = "contact.immich@${config.site.domain}";
         transport = {
           ignoreCert = false;
-          host = config.site.email.server;
-          port = config.site.email.port;
-          username = config.site.email.username;
-          password._secret = config.age.secrets.immich-smtp.path;
+          inherit (config.site.mail.connections.immich) host port;
         };
       };
     };

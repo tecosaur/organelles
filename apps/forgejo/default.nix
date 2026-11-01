@@ -111,10 +111,6 @@ in {
       user = forgejo-user;
     };
     lfs.enable = true;
-    secrets = {
-      # loaded as a credential by the forgejo module itself
-      mailer.PASSWD = config.site.secrets.fastmail.decrypted;
-    };
     settings = {
       DEFAULT.APP_NAME = config.site.apps.forgejo.site-name;
       server = {
@@ -126,11 +122,10 @@ in {
       };
       mailer = {
         ENABLED = true;
-        PROTOCOL = "smtp+starttls";
-        FROM = "noreply@${forgejo-domain}";
-        USER = config.site.email.username;
-        SMTP_ADDR = config.site.email.server;
-        SMTP_PORT = config.site.email.port;
+        PROTOCOL = "smtp";
+        FROM = config.site.mail.connections.forgejo.from;
+        SMTP_ADDR = config.site.mail.connections.forgejo.host;
+        SMTP_PORT = config.site.mail.connections.forgejo.port;
       };
       service = {
         REGISTER_EMAIL_CONFIRM = false;

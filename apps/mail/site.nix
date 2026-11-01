@@ -91,6 +91,17 @@ in {
       { smtp = 25; submissions = 465; submission = 587; imaps = 993; sieve = 4190; }
     // {
       bulwark = { port = 3480; unit = "bulwark"; clients = [ "caddy" ]; };
+      # Apps' mail, from every host's Caddy, which offers it them on loopback
+      submission-mesh = { port = 10588; exposure = "mesh"; clients.caddy = config.site.hosts; };
+      # Every host's way to whichever Stalwart is healthy, for the apps sending through it
+      submission-local = {
+        port = 10587;
+        unit = "caddy";
+        hosts = config.site.hosts;
+        clients = lib.zipAttrsWith (_: hosts: lib.unique (lib.concatLists hosts))
+          (lib.mapAttrsToList (_: app: lib.genAttrs app.mail.units (_: app.hosts))
+            (lib.filterAttrs (_: app: app.mail != null && app.mail.sender != null) config.site.apps));
+      };
       # applies the settings before each start
       stalwart-recovery = { port = 8461; clients = [ "stalwart" ]; };
       s3-gateway = { port = 3920; unit = "s3-overflow"; clients = [ "stalwart" ]; };
@@ -232,6 +243,28 @@ in {
       });
       default = null;
       description = "The smarthost all outbound mail goes through, or null to deliver directly";
+    };
+    connections = mkOption {
+      type = types.attrsOf types.attrs;
+      readOnly = true;
+      default = lib.mapAttrs (name: app:
+        if (app.mail.sender != null) == (app.mail.smtp != null)
+        then throw "site.apps.${name}.mail: give either sender, to send through the site's Stalwart, or smtp and from, to send through another server"
+        else if app.mail.sender != null then {
+          host = "127.0.0.1";
+          port = config.site.apps.mail.ports.submission-local.port;
+          security = "none";
+          from = "${app.mail.sender}@${app.subdomain}.${config.site.domain}";
+        } else {
+          inherit (app.mail.smtp) host port security username;
+          inherit (app.mail) from;
+          password = app.secrets.smtp.credential;
+        }) (lib.filterAttrs (_: app: app.mail != null) config.site.apps);
+      description = ''
+        Each sending app's connection: { host; port; security; from; }, and
+        through another server also { username; password; }, the password a
+        credential path in its unit.
+      '';
     };
     dkim = mkOption {
       type = types.attrsOf (types.attrsOf types.str);

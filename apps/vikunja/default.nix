@@ -16,11 +16,6 @@ in {
     file = config.site.apps.vikunja.auth.clients.vikunja.secret.file;
   };
 
-  age.secrets.vikunja-fastmail = {
-    owner = vikunja-user;
-    group = vikunja-user;
-    file = config.site.secrets.fastmail.file;
-  };
 
   services.vikunja = {
     enable = true;
@@ -56,11 +51,8 @@ in {
       };
       mailer = {
         enabled = true;
-        host = config.site.email.server;
-        post = config.site.email.port;
-        username = config.site.email.username;
-        password.file = config.age.secrets.vikunja-fastmail.path;
-        fromemail = "services.tasks@${config.site.domain}";
+        inherit (config.site.mail.connections.vikunja) host port;
+        fromemail = config.site.mail.connections.vikunja.from;
       };
       defaultsettings = {
         discoverable_by_name = true;

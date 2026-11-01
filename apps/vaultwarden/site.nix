@@ -22,6 +22,6 @@
       # named as Vaultwarden looks for it, its path less .pem given
       "rsa_key.pem" = { kind = "key"; generate = "rsa"; file-name = "vaultwarden-rsa.pem"; units = [ "vaultwarden" ]; };
     };
+    mail = { sender = "noreply"; units = [ "vaultwarden" ]; };
   };
-  config.site.secrets.fastmail.units.vaultwarden = config.site.apps.vaultwarden.hosts;
 }

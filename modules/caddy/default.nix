@@ -8,8 +8,9 @@
           "github.com/caddy-dns/bunny@v1.2.0"
           "github.com/tecosaur/caddy-fs-git@v0.0.0-20261101180219-0b62135bc0e2"
           "github.com/caddyserver/replace-response@v0.0.0-20250618171559-80962887e4c6"
+          "github.com/mholt/caddy-l4@v0.1.2"
         ];
-        hash = "sha256-Za5UmqZhqSXhnHzVsLn2QCwShqIvjQpQhkFsOxY30u8=";
+        hash = "sha256-ydmVJ4WzUo9e1IqP+D/wPMjKXJLb2e8yRxC5JCj0lG8=";
       };
       globalConfig =
         ''

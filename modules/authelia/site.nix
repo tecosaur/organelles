@@ -21,5 +21,6 @@
       session = { kind = "key"; generate = "rand"; };
       storage = { kind = "key"; generate = "rand"; };
     };
+    mail = { sender = "noreply"; units = [ "authelia-main" ]; };
   };
 }

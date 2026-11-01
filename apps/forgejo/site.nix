@@ -77,6 +77,7 @@
         secret.units = [ "forgejo" ];
       };
     };
+    mail = { sender = "noreply"; units = [ "forgejo" ]; };
   };
   config.site.apps.forgejo = {
     groups.primary = "forge";
@@ -112,5 +113,4 @@
       }
     ];
   };
-  config.site.secrets.fastmail.units.forgejo = config.site.apps.forgejo.hosts;
 }

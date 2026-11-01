@@ -27,5 +27,4 @@
     };
   };
   config.site.apps.sftpgo.groups.extra = [ "family" ];
-  config.site.secrets.fastmail.units.sftpgo = config.site.apps.sftpgo.hosts;
 }

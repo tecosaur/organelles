@@ -196,23 +196,6 @@ in {
         description = "IPv6 address for the server";
       };
     };
-    email = {
-      server = lib.mkOption {
-        type = lib.types.str;
-        default = "smtp.example.com";
-        description = "SMTP server to use for sending email";
-      };
-      port = lib.mkOption {
-        type = lib.types.int;
-        default = 587;
-        description = "Port to use for the SMTP server";
-      };
-      username = lib.mkOption {
-        type = lib.types.str;
-        default = "";
-        description = "Username for the SMTP server";
-      };
-    };
   };
 
   config = {

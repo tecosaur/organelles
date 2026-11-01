@@ -11,5 +11,6 @@
       policy.users = "two_factor";
       clients.vikunja.redirects = [ "auth/openid/authelia" ];
     };
+    mail = { sender = "noreply"; units = [ "vikunja" ]; };
   };
 }

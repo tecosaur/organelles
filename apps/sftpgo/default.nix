@@ -7,14 +7,11 @@ let
   sftpgo-admin-user = "admin";
   webdav-prefix = "/dav";
   admin-password = config.site.apps.sftpgo.secrets.admin-password.credential;
-  smtp-password = config.site.secrets.fastmail.credentials.sftpgo;
   sftpgo-exec = pkgs.writeShellScript "sftpgo-start" ''
     if [ -f ${admin-password} ]; then
       export SFTPGO_DEFAULT_ADMIN_USERNAME="${sftpgo-admin-user}"
       export SFTPGO_DEFAULT_ADMIN_PASSWORD="$(${pkgs.coreutils}/bin/cat ${admin-password})"
     fi
-    [ -f ${smtp-password} ] && \
-      export SFTPGO_SMTP_PASSWORD="$(${pkgs.coreutils}/bin/cat ${smtp-password})"
     exec ${sftpgo-pkg}/bin/sftpgo serve ${utils.escapeSystemdExecArgs config.services.sftpgo.extraArgs}
   '';
 in {
@@ -103,13 +100,8 @@ in {
         proxy_allowed = [ "127.0.0.1" ];
         proxy_skipped = [ ];
       };
-      # smtp = {
-      #   host = config.site.email.server;
-      #   port = config.site.email.port;
-      #   from = "${config.site.domain} — Storage <services.storage@${config.site.domain}>";
-      #   user = config.site.email.username;
-      #   # `password` set in ENV
-      # };
+      # smtp, from site.apps.sftpgo.mail through config.site.mail.connections.sftpgo:
+      #   host, port, from
     };
   };
 
