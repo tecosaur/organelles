@@ -10,6 +10,9 @@ let
   address = name: config.site.mesh.addresses.${name};
   key-file = name: ../secrets/keys + "/wg-${name}.pub";
   public-key = name: lib.removeSuffix "\n" (builtins.readFile (key-file name));
+  mesh-servers = lib.unique (map (listener: listener.unit) (lib.filter (listener:
+    listener.exposure == "mesh" && listener.unit != null && lib.elem this-host listener.hosts)
+    config.site.listeners));
   unkeyed = lib.filter (name: !builtins.pathExists (key-file name)) hosts;
   mkPeer = name: {
     PublicKey = public-key name;
@@ -64,5 +67,22 @@ in
       linkConfig.RequiredForOnline = "no";
     };
     wait-online.ignoredInterfaces = [ "wg0" ];
+  };
+
+  # wg0 stays out of network-online.target, so units binding its address wait on it alone
+  systemd.services = lib.genAttrs mesh-servers (_: {
+    wants = [ "wg0-online.service" ];
+    after = [ "wg0-online.service" ];
+  }) // {
+    wg0-online = {
+      description = "Wait for wg0 to have its mesh address";
+      bindsTo = [ "systemd-networkd.service" ];
+      after = [ "systemd-networkd.service" ];
+      serviceConfig = {
+        Type = "oneshot";
+        RemainAfterExit = true;
+        ExecStart = "${config.systemd.package}/lib/systemd/systemd-networkd-wait-online --interface=wg0:routable";
+      };
+    };
   };
 }

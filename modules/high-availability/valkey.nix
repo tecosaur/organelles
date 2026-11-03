@@ -45,7 +45,7 @@ let
   service = {
     wantedBy = [ "multi-user.target" ];
     wants = [ "network-online.target" ];
-    after = [ "network-online.target" "systemd-networkd.service" ];
+    after = [ "network-online.target" ];
     serviceConfig = {
       User = "valkey-ha";
       Group = "valkey-ha";

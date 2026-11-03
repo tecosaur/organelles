@@ -52,14 +52,11 @@ in {
     };
     systemd.services.meilisearch = {
       wants = [ "network-online.target" ];
-      after = [ "network-online.target" "systemd-networkd.service" ];
+      after = [ "network-online.target" ];
       serviceConfig = {
         IPAddressAllow = [ "localhost" "${config.site.mesh.subnet}/64" ];
         IPAddressDeny = "any";
-        # wg0 may not carry its address when the socket binds
-        RestartSec = "10s";
       };
-      startLimitIntervalSec = 0;
     };
     systemd.services.meilisearch-keys = {
       description = "Declare each Meilisearch client's scoped key";

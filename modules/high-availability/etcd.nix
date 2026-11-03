@@ -31,7 +31,6 @@ in {
     };
 
     systemd.services.etcd = {
-      after = [ "systemd-networkd.service" ];
       serviceConfig = {
         # etcd is only ready with quorum, which a lone first voter lacks
         Type = lib.mkForce "exec";

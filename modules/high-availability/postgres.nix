@@ -201,7 +201,7 @@ in {
       config-file = config.environment.sessionVariables.PATRONICTL_CONFIG_FILE;
     in {
       wants = [ "network-online.target" ];
-      after = [ "network-online.target" "systemd-networkd.service" ];
+      after = [ "network-online.target" ];
       # restarting the leader would fail over; a reload rereads the path
       # Patroni started with, so that is the stable /etc one
       reloadIfChanged = true;
@@ -298,7 +298,6 @@ in {
     };
     services.oidentd.enable = true;
     systemd.services.oidentd = {
-      after = [ "systemd-networkd.service" ];
       script = lib.mkForce "${pkgs.oidentd}/sbin/oidentd -u oidentd -g nogroup -a ${config.site.mesh.addresses.${this-host}}";
     };
 

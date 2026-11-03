@@ -191,13 +191,8 @@ in {
           Group = "garage";
           StateDirectory = lib.mkForce [ ];
           ExecStartPre = [ (if is-meshed then install-node-key else generate-rpc-secret) ];
-          # wg0 may not carry its address yet when the RPC socket binds;
-          # anything lasting past ~2 minutes is a real fault
           Restart = "always";
-          RestartSec = "10s";
         };
-        startLimitBurst = 12;
-        startLimitIntervalSec = 300;
       };
       site.status.units = [ { id = "garage"; name = "Garage mail ${this-cluster-name}"; unit = "garage.service"; } ];
     }
