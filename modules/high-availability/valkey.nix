@@ -142,7 +142,8 @@ in {
           }
           stray=0
           while :; do
-            serving=$(sed -n 's/^HA_SERVING=//p' ${config.services.ha.postgres.primary-env} 2>/dev/null)
+            # absent until Patroni has a leader
+            serving=$(sed -n 's/^HA_SERVING=//p' ${config.services.ha.postgres.primary-env} 2>/dev/null) || serving=
             if [ "$serving" = ${this-host} ]; then want=1; else want=${toString (priority this-host)}; fi
             [ "$(cli -p ${toString ports.ha-valkey.port} CONFIG GET replica-priority | tail -1)" = "$want" ] ||
               cli -p ${toString ports.ha-valkey.port} CONFIG SET replica-priority "$want" >/dev/null || true
