@@ -186,7 +186,7 @@ rec {
       };
     };
   mkAppOption = { name, description, homepage, simpleicon ? null, guide ? null,
-                  service ? (lib.toLower (lib.replaceStrings [ " " ] [ "-" ] name)),
+                  service ? id-of name,
                   usesStateDir ? (service != null),
                   subdomain, port, admin ? "admin", extra-groups ? [],
                   auth ? {}, cacheSubdirs ? [], stateSubdirs ? null, health ? null,

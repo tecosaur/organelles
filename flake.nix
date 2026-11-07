@@ -20,9 +20,6 @@
     let
       site-config = import ./site;
       site-lib = import ./site/lib.nix { inherit (nixpkgs) lib; };
-      site-metadata = nixpkgs.lib.concatMap (root: nixpkgs.lib.concatMap (name:
-          nixpkgs.lib.optional (builtins.pathExists (root + "/${name}/site.nix")) (root + "/${name}/site.nix"))
-        (builtins.attrNames (builtins.readDir root))) [ ./apps ./modules ];
       modules = flake-utils-plus.lib.exportModules (nixpkgs.lib.concatMap (root:
         nixpkgs.lib.mapAttrsToList (name: _: root + "/${name}") (builtins.readDir root)) [ ./apps ./modules ]);
       core-modules = site-lib.site-modules [ ./apps ./modules ] ++ [ { site = import ./site.nix; } ] ++ (with modules; [
@@ -120,20 +117,12 @@
           (builtins.attrNames machines))
         (nixpkgs.lib.filterAttrs (_: listener: listener.hosts == null)
           (builtins.head (builtins.attrValues machine-systems)).config.site.ports);
-      global-enabled-apps = nixpkgs.lib.concatMapAttrs (machine: sys:
-        (nixpkgs.lib.foldlAttrs
-          (acc: app: conf:
-            if conf.enabled then
-              acc // { "${app}" = {
-                         enabled = true;
-                         host = machine;
-                         hosts = global-app-hosts.${app};
-                         serviceConfig = if conf.service == null then { } else
-                           sys.config.systemd.services."${conf.service}".serviceConfig;
-                       }; }
-            else acc)
-          { }
-          sys.config.site.apps))
+      global-enabled-apps = nixpkgs.lib.concatMapAttrs (machine: sys: nixpkgs.lib.mapAttrs (app: conf: {
+          enabled = true;
+          host = machine;
+          hosts = global-app-hosts.${app};
+          serviceConfig = if conf.service == null then { } else sys.config.systemd.services.${conf.service}.serviceConfig;
+        }) (nixpkgs.lib.filterAttrs (_: conf: conf.enabled) sys.config.site.apps))
         machine-systems;
       global-status-units = nixpkgs.lib.mapAttrs (_: sys: sys.config.site.status.units) machine-systems;
       # The names each machine's Caddy serves, relative to the domain ("@" the
@@ -154,7 +143,7 @@
           (lib.attrNames sys.config.services.caddy.virtualHosts)))
         machine-systems;
       # One machine's site settings, everything but what is computed across
-      # machines (global-enabled-apps, dns.served, status.fleet-units).
+      # machines (global-enabled-apps, dns.served, status.fleet-units, ports).
       machine-site = name: setup: {
         server = (setup.server or { }) // { host = name; };
         apps = setup.apps or { };

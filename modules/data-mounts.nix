@@ -161,7 +161,8 @@ in
       }
       if mountpoint -q /data; then
         mkdir -p -m 0700 "$host_dir"
-        ${lib.concatMapAttrsStringSep "\n  " (group: lib.concatMapStringsSep "\n  " (path: "persist_host_file ${group} ${path}")) hostFiles}
+        ${lib.concatMapAttrsStringSep "\n  " (group:
+          lib.concatMapStringsSep "\n  " (path: "persist_host_file ${group} ${path}")) hostFiles}
       else
         echo "persist-host-state: /data is not mounted, host files not persisted" >&2
       fi
