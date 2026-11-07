@@ -9,6 +9,10 @@
     description = "synced audiobook platform";
     subdomain = "books";
     port = 8001;
+    branding = {
+      "/favicon.ico" = "storyteller/favicon.ico";
+      "/Storyteller_Logo.png" = "storyteller/logo.png";
+    };
     # serves the whole filesystem, so for Storyteller alone
     ports.readium = { port = 8002; clients = [ "storyteller" ]; };
     cacheSubdirs = [ ".cache" ".local" "image-cache" ];

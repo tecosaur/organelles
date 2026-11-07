@@ -9,6 +9,10 @@
     description = "quick notes";
     subdomain = "memos";
     port = 5230;
+    branding = {
+      "/logo.webp" = "memos/logo.webp";
+      "/full-logo.webp" = "memos/full-logo.webp";
+    };
     auth = {
       policy = { };
       clients.memos = {

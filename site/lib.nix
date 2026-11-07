@@ -188,9 +188,9 @@ rec {
   mkAppOption = { name, description, homepage, simpleicon ? null, guide ? null,
                   service ? id-of name,
                   usesStateDir ? (service != null),
-                  subdomain, port, admin ? "admin", extra-groups ? [],
+                  subdomain, port, proxy ? true, branding ? { }, admin ? "admin", extra-groups ? [],
                   auth ? {}, cacheSubdirs ? [], stateSubdirs ? null, health ? null,
-                  followsPrimary ? false, exposure ? (if followsPrimary then "mesh" else "local"),
+                  followsPrimary ? false, prefersPrimary ? false,
                   clients ? [], client-users ? [], ports ? {}, secrets ? {}, mail ? null, extraOptions ? {} }:
     {
       name = lib.mkOption {
@@ -295,9 +295,23 @@ rec {
         default = port;
         description = "Port of the ${name} app's main listener, which Caddy proxies";
       };
+      proxy = lib.mkOption {
+        type = lib.types.bool;
+        default = proxy;
+        description = "Whether Caddy's virtual host for ${name} ends in site.proxy; false where its module routes it";
+      };
+      branding = lib.mkOption {
+        type = lib.types.attrsOf lib.types.str;
+        default = branding;
+        example = { "/favicon.ico" = "mail/stalwart/favicon.ico"; "/icon-*.png" = "mail/bulwark/"; };
+        description = ''
+          Files under site.assets served in place of ${name}'s own, by path;
+          a value ending in / is a directory, taking the rest of the path.
+        '';
+      };
       exposure = lib.mkOption {
         type = lib.types.enum [ "local" "mesh" "public" ];
-        default = exposure;
+        defaultText = lib.literalMD "the mesh when the app follows the primary or runs on several hosts, else local";
         description = "Who may reach the main listener; see `ports`";
       };
       clients = lib.mkOption {
@@ -330,6 +344,11 @@ rec {
           Whether the ${name} app runs beside the replicated Postgres primary
           alone, every host's Caddy proxying to it there.
         '';
+      };
+      prefersPrimary = lib.mkOption {
+        type = lib.types.bool;
+        default = prefersPrimary;
+        description = "Whether every host's Caddy prefers the ${name} instance beside the primary to its own";
       };
       health = lib.mkOption {
         type = lib.types.nullOr (lib.types.submodule {
@@ -382,8 +401,8 @@ rec {
         default = health;
         description = ''
           How dns-pooler checks the ${name} app is serving, beside its systemd
-          unit. Null relies on the unit alone, which misses a process that runs
-          without serving.
+          unit, and Caddy too when it is on several hosts. Null relies on the
+          unit alone, which misses a process that runs without serving.
         '';
       };
       groups = {

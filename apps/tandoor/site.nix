@@ -9,6 +9,7 @@
     service = "tandoor-recipes";
     subdomain = "recipes";
     port = 7203;
+    proxy = false;
     auth = {
       policy.admins = "one_factor";
       clients.tandoor = {

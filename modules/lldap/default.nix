@@ -47,7 +47,4 @@ in {
     isSystemUser = true;
   };
   users.groups.${lldap-user} = {};
-
-  services.caddy.virtualHosts.${app.domain}.extraConfig =
-    config.site.ha.primary-proxy config.services.lldap.settings.http_port;
 }

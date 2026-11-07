@@ -23,17 +23,4 @@ in {
   };
 
   users.groups.memos = { };
-
-  services.caddy.virtualHosts.${app.domain}.extraConfig =
-    ''
-    @custom-assets {
-        path /logo.webp
-        path /full-logo.webp
-    }
-    handle @custom-assets {
-        root ${config.site.assets}/memos
-        file_server
-    }
-    reverse_proxy 127.0.0.1:${toString app.port}
-    '';
 }

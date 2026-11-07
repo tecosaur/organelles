@@ -99,16 +99,4 @@ in {
   };
 
   users.groups.storyteller = { };
-
-  services.caddy.virtualHosts.${storyteller.domain}.extraConfig = ''
-    root ${config.site.assets}/storyteller
-    route /favicon.ico {
-        file_server
-    }
-    route /Storyteller_Logo.png {
-        rewrite * /logo.png
-        file_server
-    }
-    reverse_proxy 127.0.0.1:${toString storyteller.port}
-  '';
 }

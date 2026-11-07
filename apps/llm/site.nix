@@ -9,6 +9,7 @@
     usesStateDir = false;
     subdomain = "llm";
     port = 8089;
+    proxy = false;
     ports.embedding = { port = 8088; unit = "llama-cpp-embedding"; clients = [ "caddy" ]; };
     extraOptions = {
       local = lib.mkOption {

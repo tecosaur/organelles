@@ -62,8 +62,7 @@ in {
     usesStateDir = false;
     subdomain = "mail";
     port = 8460;
-    # for the other hosts' Caddy alone, since it trusts X-Forwarded-For
-    exposure = "mesh";
+    proxy = false;
     ports = let
       inherit (config.site.mail.storage) heads;
       cluster-hosts = cluster: lib.attrNames config.site.mail.storage.${cluster};

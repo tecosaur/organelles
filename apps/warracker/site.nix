@@ -9,6 +9,7 @@
     description = "warranty tracking";
     subdomain = "warracker";
     port = 8087;
+    proxy = false;
     auth = {
       policy = { };
       clients.warracker = {

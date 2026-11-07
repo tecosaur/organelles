@@ -59,16 +59,10 @@ in {
     ];
 
     services.caddy.virtualHosts.${app.domain}.extraConfig = ''
-      @icons path /favicon.ico /images/favicon-* /images/apple-touch-icon.png /images/android-chrome-*
-      handle @icons {
-          root * ${config.site.assets}/vaultwarden
-          file_server
-      }
-      route /admin* {
+      handle /admin* {
           import auth
-          ${config.site.ha.primary-proxy app.port}
+          ${config.site.proxy app}
       }
-      ${config.site.ha.primary-proxy app.port}
     '';
   };
 }

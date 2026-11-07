@@ -217,21 +217,15 @@ in {
   users.users.multi-scrobbler = { isSystemUser = true; group = "multi-scrobbler"; };
   users.groups.multi-scrobbler = { };
 
-  services.caddy.virtualHosts = {
-    # Public, like a ListenBrainz profile; Koito's own login guards editing.
-    ${koito.domain}.extraConfig = ''
-      reverse_proxy :${toString koito.port}
-    '';
-    # Token-checked; the rest of /1/ (playing-now) is not.
-    ${scrobbler.domain}.extraConfig = ''
-      @endpoint path /1/submit-listens /1/validate-token
-      route @endpoint {
-        reverse_proxy :${toString scrobbler.port}
-      }
-      route {
-        import auth
-        reverse_proxy :${toString scrobbler.port}
-      }
-    '';
-  };
+  # Token-checked; the rest of /1/ (playing-now) is not.
+  services.caddy.virtualHosts.${scrobbler.domain}.extraConfig = ''
+    @endpoint path /1/submit-listens /1/validate-token
+    route @endpoint {
+      reverse_proxy :${toString scrobbler.port}
+    }
+    route {
+      import auth
+      reverse_proxy :${toString scrobbler.port}
+    }
+  '';
 }

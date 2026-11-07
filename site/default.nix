@@ -6,7 +6,7 @@ let
     secondary = config.site.accent.secondary;
   };
 in {
-  imports = [ ./network.nix ./secrets.nix ];
+  imports = [ ./network.nix ./proxies.nix ./secrets.nix ];
 
   options.site = {
     domain = lib.mkOption {
@@ -199,9 +199,14 @@ in {
   };
 
   config = {
-    site.apps = lib.mapAttrs (name: _: let domain = "${config.site.apps.${name}.subdomain}.${config.site.domain}"; in {
+    site.apps = lib.mapAttrs (name: _: let
+      app = config.site.apps.${name};
+      domain = "${app.subdomain}.${config.site.domain}";
+    in {
       inherit domain;
       url = "https://${domain}";
+      # every host's Caddy proxies to each instance
+      exposure = lib.mkOptionDefault (if app.followsPrimary || lib.length app.hosts > 1 then "mesh" else "local");
     }) options.site.apps;
     site.ports.wireguard = site-lib.public 51820 "systemd-networkd" // { protocols = [ "udp" ]; };
     # each host's mesh key, for it alone, readable by networkd as systemd.netdev(5) asks

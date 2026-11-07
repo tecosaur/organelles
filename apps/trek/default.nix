@@ -228,19 +228,4 @@ in {
   };
 
   users.groups.trek = { };
-
-  services.caddy.virtualHosts.${trek.domain}.extraConfig = ''
-    # Listed, not globbed: TREK serves its own /icons too.
-    @custom-icons {
-        path /icons/icon.svg
-        path /icons/icon-192x192.png
-        path /icons/icon-512x512.png
-        path /icons/apple-touch-icon-180x180.png
-    }
-    handle @custom-icons {
-        root ${config.site.assets}/trek
-        file_server
-    }
-    reverse_proxy :${toString trek.port}
-  '';
 }

@@ -227,11 +227,6 @@ in {
             reverse_proxy :${toString app.port}
         }
     }
-    handle /web/*.ico {
-        rewrite * /jellyfin.ico
-        root ${config.site.assets}/jellyfin
-        file_server
-    }
     reverse_proxy :${toString app.port}
     '';
 }

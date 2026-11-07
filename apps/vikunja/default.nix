@@ -69,15 +69,4 @@ in {
     isSystemUser = true;
   };
   users.groups.${vikunja-user} = {};
-
-  services.caddy.virtualHosts.${app.domain}.extraConfig =
-    ''
-    @public-assets path /favicon.ico /images/icons/*
-    route {
-        file_server @public-assets {
-            root ${config.site.assets}/vikunja/public
-        }
-        reverse_proxy :${toString app.port}
-    }
-    '';
 }

@@ -9,6 +9,10 @@
     description = "SFTP server";
     subdomain = "files";
     port = 8083;
+    branding = {
+      "/static/img/*" = "sftpgo/";
+      "/static/favicon.png" = "sftpgo/favicon.png";
+    };
     ports = {
       sftp = { port = 2022; exposure = "public"; };
       webdav = { port = 3303; clients = [ "caddy" ]; };

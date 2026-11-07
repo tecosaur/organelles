@@ -93,7 +93,4 @@ in {
   systemd.tmpfiles.rules = [
     "d ${immich-data} 0750 immich immich"
   ];
-
-  services.caddy.virtualHosts.${app.domain}.extraConfig =
-    "reverse_proxy 127.0.0.1:${toString app.port}";
 }

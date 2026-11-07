@@ -11,6 +11,12 @@
     stateSubdirs = [ "attachments" "sends" ];
     subdomain = "vault";
     port = 8222;
+    branding = {
+      "/favicon.ico" = "vaultwarden/favicon.ico";
+      "/images/apple-touch-icon.png" = "vaultwarden/images/apple-touch-icon.png";
+      "/images/favicon-*" = "vaultwarden/images/";
+      "/images/android-chrome-*" = "vaultwarden/images/";
+    };
     auth = {
       policy.users = "two_factor";
       clients.vaultwarden = {

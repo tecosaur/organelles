@@ -35,9 +35,4 @@ in {
       };
     };
   };
-
-  services.caddy.virtualHosts.${app.domain}.extraConfig =
-    ''
-    reverse_proxy 127.0.0.1:${toString app.port}
-    '';
 }

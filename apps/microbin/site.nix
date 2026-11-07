@@ -8,6 +8,7 @@
     description = "pastebin and url shortener";
     subdomain = "microbin";
     port = 4144;
+    proxy = false;
     extraOptions = {
       title = lib.mkOption {
         type = lib.types.str;

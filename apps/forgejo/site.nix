@@ -9,6 +9,7 @@
     simpleicon = "forgejo";
     subdomain = "code";
     port = 3002;
+    proxy = false;
     # git over SSH calls its internal API from the session pam_systemd gives it, outside any unit
     client-users = [ "git" ];
     extraOptions = {

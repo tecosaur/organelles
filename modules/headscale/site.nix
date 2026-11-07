@@ -8,6 +8,7 @@
     description = "mesh virtual private network";
     subdomain = "headscale";
     port = 8174;
+    proxy = false;
     ports = {
       headplane = { port = 8175; unit = "headplane"; clients = [ "caddy" ]; };
       relay = { port = 40108; unit = "tailscaled"; hosts = config.site.hosts; exposure = "public"; protocols = [ "tcp" "udp" ]; };

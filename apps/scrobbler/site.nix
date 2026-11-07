@@ -1,6 +1,7 @@
 { config, lib, site-lib, ... }:
 
 {
+  # Its proxy is public, like a ListenBrainz profile; Koito's own login guards editing
   options.site.apps.koito = site-lib.mkAppOption {
     health.path = "/apis/web/v1/health";
     name = "Koito";
@@ -29,6 +30,7 @@
     description = "scrobble collector";
     subdomain = "scrobbler";
     port = 9078;
+    proxy = false;
     extraOptions = {
       jellyfin-user = lib.mkOption {
         type = lib.types.nullOr lib.types.str;

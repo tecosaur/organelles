@@ -88,22 +88,4 @@ in {
     isSystemUser = true;
   };
   users.groups.${mealie-user} = {};
-
-  services.caddy.virtualHosts.${app.domain}.extraConfig =
-    ''
-    handle_path /icons/* {
-        root ${config.site.assets}/mealie
-        file_server
-    }
-    @unauth {
-      not header Cookie *mealie.access_token*
-      not path /api/* /login /login/* /favicon.ico
-    }
-    route {
-        file_server /favicon.ico {
-            root ${config.site.assets}/mealie
-        }
-        reverse_proxy :${toString app.port}
-    }
-    '';
 }

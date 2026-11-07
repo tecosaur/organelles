@@ -7,6 +7,10 @@
     description = "task and project management";
     subdomain = "tasks";
     port = 3456;
+    branding = {
+      "/favicon.ico" = "vikunja/public/favicon.ico";
+      "/images/icons/*" = "vikunja/public/images/icons/";
+    };
     auth = {
       policy.users = "two_factor";
       clients.vikunja = {

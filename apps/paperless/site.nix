@@ -11,6 +11,7 @@
     service = "paperless-web";
     subdomain = "folio";
     port = 28981;
+    branding."/favicon.ico" = "paperless/favicon.ico";
     ports = {
       tika = { port = 9998; unit = "tika"; clients = [ "paperless-task-queue" ]; };
       gotenberg = { port = 3000; unit = "gotenberg"; clients = [ "paperless-task-queue" ]; };

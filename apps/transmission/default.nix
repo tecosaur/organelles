@@ -33,9 +33,5 @@ in {
     "d ${download-dir} 0775 ${config.services.transmission.user} users - -"
     "d ${incomplete-dir} 0775 ${config.services.transmission.user} users - -"
   ];
-  services.caddy.virtualHosts.${app.domain}.extraConfig =
-    ''
-    import auth
-    reverse_proxy 127.0.0.1:${toString app.port}
-    '';
+  services.caddy.virtualHosts.${app.domain}.extraConfig = "import auth";
 }

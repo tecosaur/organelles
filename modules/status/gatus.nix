@@ -118,7 +118,6 @@ in {
           root * ${config.site.assets}/site-root
           file_server
       }
-      ${config.site.ha.primary-proxy app.port}
     '';
   };
 }

@@ -16,9 +16,5 @@ in {
     };
   };
 
-  services.caddy.virtualHosts.${app.domain}.extraConfig =
-    ''
-    import auth
-    reverse_proxy :${toString app.port}
-    '';
+  services.caddy.virtualHosts.${app.domain}.extraConfig = "import auth";
 }

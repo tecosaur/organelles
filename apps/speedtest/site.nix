@@ -10,5 +10,6 @@
     usesStateDir = false;
     subdomain = "speed";
     port = 8076;
+    proxy = false;
   };
 }

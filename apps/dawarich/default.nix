@@ -27,9 +27,4 @@ in {
     };
     extraEnvFiles = [ app.auth.clients.dawarich.secret.decrypted ];
   };
-
-  services.caddy.virtualHosts.${app.domain}.extraConfig =
-    ''
-    reverse_proxy :${toString app.port}
-    '';
 }

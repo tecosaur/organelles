@@ -27,8 +27,5 @@ in {
 
   users.groups.fava = { };
 
-  services.caddy.virtualHosts.${app.domain}.extraConfig = ''
-    import auth
-    reverse_proxy 127.0.0.1:${toString app.port}
-  '';
+  services.caddy.virtualHosts.${app.domain}.extraConfig = "import auth";
 }

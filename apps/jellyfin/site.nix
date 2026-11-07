@@ -10,6 +10,8 @@
     simpleicon = "jellyfin";
     subdomain = "media";
     port = 8096;
+    proxy = false;
+    branding."/web/*.ico" = "jellyfin/jellyfin.ico";
     clients = [ "multi-scrobbler" ];
     auth.clients.jellyfin = {
       redirects = [ "sso/OID/redirect/authelia" ];

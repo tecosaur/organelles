@@ -9,6 +9,7 @@
     service = "beszel-hub";
     subdomain = "systems";
     port = 8090;
+    branding."/static/icon.svg" = "beszel-hub/icon.svg";
     ports.agent = { port = 45876; unit = "beszel-agent"; hosts = config.site.hosts; };
     admin = null;
     extra-groups = [ "admin" ];

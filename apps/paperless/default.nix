@@ -123,14 +123,4 @@ in {
         OTEL_TRACES_EXPORTER = "none";
       };
     };
-
-  services.caddy.virtualHosts.${app.domain}.extraConfig =
-    ''
-    route {
-        file_server /favicon.ico {
-            root ${config.site.assets}/paperless
-        }
-        reverse_proxy :${toString app.port}
-    }
-    '';
 }

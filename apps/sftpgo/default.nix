@@ -109,20 +109,10 @@ in {
     ''
     encode
     header -Alt-svc
-    handle_path /static/img/* {
-        root ${config.site.assets}/sftpgo
-        file_server
-    }
-    handle /static/favicon.png {
-        uri strip_prefix /static
-        root ${config.site.assets}/sftpgo
-        file_server
-    }
     @webdav path ${webdav-prefix} ${webdav-prefix}/*
     handle @webdav {
         reverse_proxy 127.0.0.1:${toString app.ports.webdav.port}
     }
-    reverse_proxy 127.0.0.1:${toString app.port}
     '';
 }
 

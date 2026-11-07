@@ -13,8 +13,7 @@
     usesStateDir = false;
     subdomain = "auth";
     port = 9091;
-    # the other hosts' Caddy proxy /api/* to it
-    exposure = "mesh";
+    proxy = false;
     secrets = {
       jwt = { kind = "key"; generate = "rand"; };
       oidc-hmac = { kind = "key"; generate = "rand"; };
