@@ -17,7 +17,7 @@ let
     exec ${lib.getExe config.services.gatus.package}
   '';
 in {
-  config = lib.mkIf config.site.ha.may-lead {
+  config = lib.mkIf config.site.ha.may-serve {
     site.apps.gatus.enabled = true;
 
     services.ha.postgres.databases = [ "gatus" ];

@@ -43,7 +43,7 @@ in {
       default = if ha.preference == [ ] then null else lib.head ha.preference;
       description = "The most preferred member, where the cluster is first led from";
     };
-    may-lead = lib.mkOption {
+    may-serve = lib.mkOption {
       type = lib.types.bool;
       readOnly = true;
       default = lib.elem config.site.server.host ha.preference;

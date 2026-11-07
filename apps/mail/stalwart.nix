@@ -141,7 +141,7 @@ in {
       ++ stalwart-dkim
       ++ client-srv
       ++ lib.optionals (relay != null) relay.records;
-  } (lib.mkIf config.site.ha.may-lead {
+  } (lib.mkIf config.site.ha.may-serve {
     assertions = [
       {
         assertion = max-message-bytes <= gateway.max-object-bytes;

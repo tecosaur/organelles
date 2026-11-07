@@ -7,7 +7,7 @@
 let
   app = config.site.apps.vaultwarden;
 in {
-  config = lib.mkIf config.site.ha.may-lead {
+  config = lib.mkIf config.site.ha.may-serve {
     site.apps.vaultwarden.enabled = true;
 
     services.ha.postgres.databases = [ "vaultwarden" ];

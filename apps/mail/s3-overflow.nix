@@ -110,7 +110,7 @@ in {
       the largest blob spill over the slowest link.
     '';
   };
-  config = lib.mkIf config.site.ha.may-lead {
+  config = lib.mkIf config.site.ha.may-serve {
     users.users.${user} = {
       isSystemUser = true;
       group = user;
