@@ -10,7 +10,7 @@ let
   inherit (config.site.mail) gateway oidc relay;
   this-host = config.site.server.host;
   package = pkgs.callPackage ./packages/stalwart.nix { };
-  cli = pkgs.callPackage ./packages/stalwart-cli.nix { };
+  cli = pkgs.stalwart-cli;
   user = "stalwart";
   hostname = app.domain;
   inherit (config.services.ha.postgres) primary-env;
