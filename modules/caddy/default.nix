@@ -24,8 +24,7 @@
         '';
       # A Caddy snippet that can be imported to enable Authelia in front of a service
       # Taken from https://www.authelia.com/integration/proxies/caddy/#subdomain
-      extraConfig = if builtins.hasAttr "main" config.services.authelia.instances &&
-                       config.services.authelia.instances.main.enable then ''
+      extraConfig = if config.services.authelia.instances.main.enable or false then ''
           (auth) {
               forward_auth :${toString config.site.apps.authelia.port} {
                   uri /api/authz/forward-auth

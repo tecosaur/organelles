@@ -101,8 +101,6 @@ in {
       command = [ "${package}/bin/pg_isready" "--quiet" "--host=${cfg.socket-dir}" "--port=${toString ports.ha-postgres.port}" "--dbname=postgres" ];
     } ];
 
-    # Required for the REST API's unsafe methods; reads stay open, for Caddy's health checks
-
     environment.systemPackages = [ (lib.hiPrio (pkgs.writeShellScriptBin "patronictl" ''
       if [ -r ${config.site.secrets.patroni-restapi.decrypted} ]; then
         export PATRONI_RESTAPI_USERNAME=patroni PATRONI_RESTAPI_PASSWORD="$(< ${config.site.secrets.patroni-restapi.decrypted})"

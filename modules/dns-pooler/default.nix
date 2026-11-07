@@ -74,10 +74,11 @@ let
   };
   # The credential is a runtime secret, so check only warns it cannot read
   # it; every structural rejection fails the build instead of the deploy.
-  config-file = pkgs.runCommand "dns-pooler.toml" { nativeBuildInputs = [ dns-pooler-pkg ]; } ''
-    dns-pooler -config ${toml.generate "dns-pooler.toml" settings} check
-    cp ${toml.generate "dns-pooler.toml" settings} $out
-  '';
+  config-file = let generated = toml.generate "dns-pooler.toml" settings; in
+    pkgs.runCommand "dns-pooler.toml" { nativeBuildInputs = [ dns-pooler-pkg ]; } ''
+      dns-pooler -config ${generated} check
+      cp ${generated} $out
+    '';
   # A fixed path, so a changed configuration reloads rather than changing the unit
   config-path = "/etc/dns-pooler/config.toml";
 in {
@@ -99,8 +100,6 @@ in {
     })) ];
   } ];
 
-  # shared with Caddy, which answers ACME DNS challenges with it
-
   environment.etc."dns-pooler/config.toml".source = config-file;
 
   systemd.services.dns-pooler = {
@@ -108,8 +107,7 @@ in {
     reloadTriggers = [ config-file ];
     wantedBy = [ "multi-user.target" ];
     wants = [ "network-online.target" ];
-    # the mesh address must exist before the peer listener can bind it
-    after = [ "network-online.target" "systemd-networkd.service" ];
+    after = [ "network-online.target" ];
     # `wg show` for mesh receive counters, `systemctl show` for unit health
     path = [ pkgs.wireguard-tools config.systemd.package ];
     serviceConfig = {

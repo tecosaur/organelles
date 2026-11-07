@@ -11,7 +11,7 @@ let
   package = pkgs.valkey;
   address = host: config.site.mesh.addresses.${host};
   quorum = lib.length voters / 2 + 1;
-  # replica-priority: lower is promoted first, 0 never, and 1 marks the Postgres leader
+  # replica-priority: lower is promoted first, 0 never, and 1 marks the serving host
   priority = host: if lib.elem host preference
     then 100 + lib.lists.findFirstIndex (h: h == host) 0 preference
     else 0;
@@ -151,7 +151,7 @@ in {
             if [ "$serving" = ${this-host} ] && [ -n "$master" ] && [ "$master" != ${address this-host} ]; then
               if [ $((++stray)) -ge 6 ]; then
                 echo "This host serves but the Valkey master is $master; handing it over"
-                sentinel failover ha coordinated || true
+                sentinel failover ha coordinated || echo "Handing the Valkey master over failed; retrying" >&2
                 stray=0
                 sleep 60
               fi

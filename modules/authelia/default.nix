@@ -104,7 +104,6 @@ in {
         additional_groups_dn = "ou=groups";
         user = "uid=${config.services.lldap.settings.ldap_user_dn},ou=people,${config.services.lldap.settings.ldap_base_dn}";
       };
-      # PGTARGETSESSIONATTRS passes over hosts that can't take writes
       storage.postgres = {
         address = "unix://${config.services.ha.postgres.socket-dir}/.s.PGSQL.${toString ports.ha-postgres.port}";
         servers = map (host: { address = "tcp://${host}.internal:${toString ports.ha-postgres.port}"; })
@@ -122,7 +121,6 @@ in {
         disable_require_tls = true;
         disable_starttls = true;
       };
-      log.level = "debug";
       identity_providers.oidc = {
         cors = {
           endpoints = [ "authorization" "token" "revocation" "introspection" "userinfo" ];

@@ -27,8 +27,6 @@ in {
   # beside the primary: a search is eight queries, but one LDAP request
   services.ha.postgres.databases = [ lldap-user ];
 
-  # for Authelia on every node
-
   systemd.services.lldap = {
     # The primary, from primary-env: LLDAP's ORM needs a host in the URL, so PGHOST cannot supply it
     script = lib.mkBefore ''
