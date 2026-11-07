@@ -37,11 +37,6 @@ python3Packages.buildPythonApplication rec {
     requests
   ];
 
-  passthru = {
-    python = python3Packages.python;
-    pythonPath = python3Packages.makePythonPath dependencies;
-  };
-
   postBuild = ''
   PYTHONPATH=$out/${python3Packages.python.sitePackages}:$PYTHONPATH
   '';
@@ -55,7 +50,7 @@ python3Packages.buildPythonApplication rec {
     # Install the Python server code
     cp -r backend "$site/backend"
 
-    # Install static frontend assets (adjust if upstream layout changes)
+    # Install static frontend assets
     cp -r frontend/* "$out/share/warracker/static/"
     cp -r locales "$out/share/warracker/static/"
 
@@ -90,6 +85,6 @@ EOF
     license     = licenses.gpl3Only;
     platforms   = platforms.unix;
     mainProgram = "warracker-gunicorn";
-    maintainers = []; # add yourself or others if upstreamed to nixpkgs
+    maintainers = [];
   };
 }

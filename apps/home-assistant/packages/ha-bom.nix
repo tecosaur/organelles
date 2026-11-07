@@ -20,7 +20,7 @@ buildHomeAssistantComponent rec {
   dependencies = with home-assistant.python3Packages; [ iso8601 ];
 
   meta = with lib; {
-    changelog = "https://github.com/bremor/bureau_of_meteorology/releases/tag/v${version}";
+    changelog = "https://github.com/bremor/bureau_of_meteorology/releases/tag/${version}";
     description = "Custom component for retrieving weather information from the Bureau of Meteorology.";
     homepage = "https://github.com/bremor/bureau_of_meteorology";
     license = licenses.mit;

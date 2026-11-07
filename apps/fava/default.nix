@@ -11,13 +11,11 @@ in {
     wantedBy = [ "multi-user.target" ];
     after = [ "network.target" ];
     serviceConfig = {
-      Type = "simple";
       ExecStart = "${pkgs.fava}/bin/fava -H 127.0.0.1 -p ${toString app.port} ${bean-file}";
       Restart = "always";
       User = "fava";
       Group = "fava";
       StateDirectory = "fava";
-      StandardOutput = "journal";
     };
   };
 

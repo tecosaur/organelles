@@ -55,13 +55,6 @@ let
 in {
   site.apps.paperless.enabled = true;
 
-  # configureTika's gotenberg exports metrics and traces over OTLP by default, to a collector
-  # nothing runs
-  systemd.services.gotenberg.environment = {
-    OTEL_METRICS_EXPORTER = "none";
-    OTEL_TRACES_EXPORTER = "none";
-  };
-
   services.tika.port = app.ports.tika.port;
   services.gotenberg.port = app.ports.gotenberg.port;
 
@@ -103,8 +96,8 @@ in {
   system.activationScripts.paperless-env-file = {
     deps = [ "agenix" ];
     text = ''
+      # root's alone: systemd reads EnvironmentFile before dropping privileges
       mkdir -p /run/paperless-secrets
-      chown -R ${config.services.paperless.user}:${config.services.paperless.user} /run/paperless-secrets
       chmod -R 700 /run/paperless-secrets
       cp ${secret-env} /run/paperless-secrets/env-file
       ${lib.getExe pkgs.replace-secret} '##oidc_secret##' '${app.auth.clients.paperless.secret.decrypted}' /run/paperless-secrets/env-file
@@ -120,11 +113,16 @@ in {
     "${config.services.paperless.consumptionDir}".d.mode = "770";
   };
 
-  systemd.services.paperless-scheduler.serviceConfig.UMask = lib.mkForce "0027";
-  systemd.services.paperless-task-queue.serviceConfig.UMask = lib.mkForce "0027";
-  systemd.services.paperless-consumer.serviceConfig.UMask = lib.mkForce "0027";
-  systemd.services.paperless-web.serviceConfig.UMask = lib.mkForce "0027";
-  systemd.services.paperless-exporter.serviceConfig.UMask = lib.mkForce "0027";
+  systemd.services = lib.genAttrs
+    [ "paperless-scheduler" "paperless-task-queue" "paperless-consumer" "paperless-web" "paperless-exporter" ]
+    (_: { serviceConfig.UMask = lib.mkForce "0027"; })
+    // {
+      # configureTika's gotenberg exports over OTLP by default, to a collector nothing runs
+      gotenberg.environment = {
+        OTEL_METRICS_EXPORTER = "none";
+        OTEL_TRACES_EXPORTER = "none";
+      };
+    };
 
   services.caddy.virtualHosts.${app.domain}.extraConfig =
     ''

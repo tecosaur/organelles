@@ -21,7 +21,7 @@ buildHomeAssistantComponent rec {
 
   meta = with lib; {
     changelog = "https://github.com/greghesp/ha-bambulab/releases/tag/v${version}";
-    description = "Custom component for retrieving weather information from the Bureau of Meteorology.";
+    description = "Bambu Lab 3D printer integration";
     homepage = "https://github.com/greghesp/ha-bambulab";
     license = licenses.mit;
   };

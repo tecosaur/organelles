@@ -10,18 +10,14 @@ let
     sha256 = "sha256-14XqO1ZhhPS7VDBSzqW55kh6n5cFZGZmvRCtMEh8JPI=";
     stripRoot = false;
   };
-  catppuccinAutoThemes = pkgs.runCommand "catppuccin-auto-themes" { buildInputs = [ pkgs.coreutils ]; } ''
+  catppuccinAutoThemes = pkgs.runCommand "catppuccin-auto-themes" { } ''
     mkdir -p $out
-    for f in ${catppuccinThemes}/theme-catppuccin-latte-*.css; do
-      f_frappe="$(echo "$f" | sed 's/latte/frappe/')"
-      printf "@media (prefers-color-scheme: dark) {\n%s\n}\n\n@media (prefers-color-scheme: light){\n%s\n}" \
-        "$(cat "$f_frappe")" "$(cat "$f")" > "$out/$(basename "$f_frappe")"
-      f_macchiato="$(echo "$f" | sed 's/latte/macchiato/')"
-      printf "@media (prefers-color-scheme: dark) {\n%s\n}\n\n@media (prefers-color-scheme: light){\n%s\n}" \
-        "$(cat "$f_macchiato")" "$(cat "$f")" > "$out/$(basename "$f_macchiato")"
-      f_mocha="$(echo "$f" | sed 's/latte/mocha/')"
-      printf "@media (prefers-color-scheme: dark) {\n%s\n}\n\n@media (prefers-color-scheme: light){\n%s\n}" \
-        "$(cat "$f_mocha")" "$(cat "$f")" > "$out/$(basename "$f_mocha")"
+    for light in ${catppuccinThemes}/theme-catppuccin-latte-*.css; do
+      for flavour in frappe macchiato mocha; do
+        dark="''${light/latte/$flavour}"
+        printf "@media (prefers-color-scheme: dark) {\n%s\n}\n\n@media (prefers-color-scheme: light){\n%s\n}" \
+          "$(cat "$dark")" "$(cat "$light")" > "$out/$(basename "$dark")"
+      done
     done
   '';
   captcha-config = if app.qa-captcha.enabled then
@@ -92,6 +88,15 @@ in {
   # the sign-in source lives in Forgejo's database, so its secret is set there,
   # and updating it fetches Authelia's discovery
   systemd.services.forgejo = {
+    # aggressive scraping can otherwise stall the whole host
+    serviceConfig = {
+      MemoryAccounting = true;
+      MemoryHigh = "768M";
+      MemoryMax = "1G";
+      MemorySwapMax = "1G";
+      CPUAccounting = true;
+      CPUQuota = "100%";
+    };
     wants = [ "authelia-online.service" ];
     after = [ "authelia-online.service" ];
     preStart = lib.mkAfter ''
@@ -202,17 +207,6 @@ in {
     };
   };
 
-  # If forgejo is aggressively scrapped, it can
-  # stall the entire system. Limit its resource usage.
-  systemd.services.forgejo.serviceConfig = {
-    MemoryAccounting = true;
-    MemoryHigh = "768M";
-    MemoryMax = "1G";
-    MemorySwapMax = "1G";
-    CPUAccounting = true;
-    CPUQuota = "100%"; # Limit to one full core
-  };
-
   users.users.${forgejo-user} = {
     home = config.services.forgejo.stateDir;
     useDefaultShell = true;
@@ -290,7 +284,7 @@ in {
       }
       handle @not_${user} {
           rewrite /user/login /user/oauth2/authelia
-          reverse_proxy 127.0.0.1:${toString config.services.forgejo.settings.server.HTTP_PORT} {
+          reverse_proxy 127.0.0.1:${toString app.port} {
               @404 status 404
               handle_response @404 {
                   header +Set-Cookie "caddy_${user}_redirect=true; Max-Age=5"
@@ -303,7 +297,7 @@ in {
           header Cookie *caddy_${user}_redirect=true*
       }
       handle @${user}_redirect {
-          reverse_proxy 127.0.0.1:${toString config.services.forgejo.settings.server.HTTP_PORT} {
+          reverse_proxy 127.0.0.1:${toString app.port} {
               @404 status 404
               handle_response @404 {
                   header +Set-Cookie "caddy_${user}_redirect=true; Max-Age=0"

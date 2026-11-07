@@ -153,7 +153,7 @@ in {
           Sign in
         </button>
       </form>'';
-      # Might want to try <https://github.com/lscambo13/ElegantFin> for 10.11, if Zesty isn't updated quickly
+      # <https://github.com/lscambo13/ElegantFin> is the alternative, should Zesty fall behind Jellyfin
       customCss = builtins.readFile ./jellyfin.css;
     };
   };
@@ -162,9 +162,7 @@ in {
     multi-scrobbler.keyPath = config.site.apps.multi-scrobbler.secrets.jellyfin.credentials.jellyfin;
   };
 
-  # Declarative Jellyfin replaces the `ExecStart` of the `jellyfin`
-  # service with a wrapper script, which means we can safely claim
-  # `preStart` ourselves.
+  # Declarative Jellyfin's wrapper takes `ExecStart`, so `preStart` is ours; meilisearch.nix adds to it
   systemd.services.jellyfin.preStart = let
     sso-template = builtins.replaceStrings [ "#oidc_endpoint#" ]
       [ config.site.apps.authelia.url ]
@@ -176,7 +174,6 @@ in {
   in
     ''
     umask 007
-    mkdir -p '${config.services.jellyfin.configDir}/plugins/configurations'
     # Preserve folder settings that cannot (easily) be managed declaratively
     if [ -f '${sso-path}' ]; then
         JELLY_OIDC_ENABLED_FOLDERS="$(${xmlstarlet} sel -t -c '//PluginConfiguration/OidConfigs[1]/item/value/PluginConfiguration/EnabledFolders' '${sso-path}' | sed '1d;$d')"

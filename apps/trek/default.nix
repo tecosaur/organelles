@@ -172,12 +172,12 @@ in {
       cp -r ${trek-pkg}/lib/trek/server/dist ${trek-runtime}/server/dist
       chmod -R u+w ${trek-runtime}/server/dist
       ${lib.concatMapStringsSep "\n" (name: ''
-        mkdir -p /var/lib/trek/${name}
-        ln -sfn /var/lib/trek/${name} ${trek-runtime}/server/${name}
+        mkdir -p ${trek.dir}/${name}
+        ln -sfn ${trek.dir}/${name} ${trek-runtime}/server/${name}
       '') trek-pkg.stateLinks}
 
       # Copied, not linked: discovery skips realpaths outside the plugins root.
-      rm -rf ${trek-plugins-dir} || true
+      rm -rf ${trek-plugins-dir}
       install -d -m 0750 ${trek-plugins-dir}
       while read -r id path; do
         cp -r "$path" ${trek-plugins-dir}/"$id"

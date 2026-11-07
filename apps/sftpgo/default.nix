@@ -8,18 +8,12 @@ let
   webdav-prefix = "/dav";
   admin-password = app.secrets.admin-password.credential;
   sftpgo-exec = pkgs.writeShellScript "sftpgo-start" ''
-    if [ -f ${admin-password} ]; then
-      export SFTPGO_DEFAULT_ADMIN_USERNAME="${sftpgo-admin-user}"
-      export SFTPGO_DEFAULT_ADMIN_PASSWORD="$(${pkgs.coreutils}/bin/cat ${admin-password})"
-    fi
+    export SFTPGO_DEFAULT_ADMIN_USERNAME="${sftpgo-admin-user}"
+    export SFTPGO_DEFAULT_ADMIN_PASSWORD="$(< ${admin-password})"
     exec ${sftpgo-pkg}/bin/sftpgo serve ${utils.escapeSystemdExecArgs config.services.sftpgo.extraArgs}
   '';
 in {
   site.apps.sftpgo.enabled = true;
-
-  systemd.services.sftpgo.serviceConfig = {
-    ExecStart = lib.mkForce sftpgo-exec;
-  };
 
   site.unfree = [ "sftpgo" ];
 
@@ -34,6 +28,9 @@ in {
       common = {
         upload_mode = 2;
         defender.enable = true;
+        proxy_protocol = 1;
+        proxy_allowed = [ "127.0.0.1" ];
+        proxy_skipped = [ ];
       };
       data_provider = {
         driver = "sqlite";
@@ -61,7 +58,6 @@ in {
       sftpd.bindings = [
         {
           port = app.ports.sftp.port;
-          client_ip_proxy_header = "X-Forwarded-For";
           address = "0.0.0.0";
         }
       ];
@@ -95,11 +91,6 @@ in {
           };
         }
       ];
-      common = {
-        proxy_protocol = 1;
-        proxy_allowed = [ "127.0.0.1" ];
-        proxy_skipped = [ ];
-      };
     };
   };
 
@@ -108,6 +99,7 @@ in {
     (lib.optional config.services.paperless.enable "paperless");
 
   systemd.services.sftpgo.serviceConfig = {
+    ExecStart = lib.mkForce sftpgo-exec;
     UMask = lib.mkForce "0007";
     Restart = "always";
     RestartSec = 5;

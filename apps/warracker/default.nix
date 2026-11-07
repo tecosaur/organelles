@@ -27,7 +27,6 @@ in {
     wantedBy = [ "multi-user.target" ];
     environment = {
       FLASK_ENV = "production";
-      # FLASK_CONFIG = "production";
       LOG_LEVEL = "info";
       BIND_ADDR = "127.0.0.1";
       PORT = toString app.port;
@@ -38,7 +37,7 @@ in {
       DB_NAME = warracker-user;
       DB_USER = warracker-user;
       DB_PASSWORD = "";
-      UPLOAD_FOLDER = "${warracker-dir}/uploads";
+      UPLOAD_FOLDER = "${app.dir}/uploads";
       WARRACKER_FIXED_CONFIG = (pkgs.formats.json {}).generate "warracker.json" warracker-config;
       OIDC_CLIENT_SECRET_FILE = app.auth.clients.warracker.secret.credential;
       SMTP_HOST = config.site.mail.connections.warracker.host;
@@ -49,7 +48,7 @@ in {
     serviceConfig = {
       User = warracker-user;
       Group = "users";
-      WorkingDirectory = warracker-dir;
+      WorkingDirectory = app.dir;
       ExecStartPre = "${warracker-pkg}/bin/warracker-migrate";
       ExecStart = "${warracker-pkg}/bin/warracker-gunicorn";
       Restart = "on-failure";
@@ -67,7 +66,7 @@ in {
 
   users.users.${warracker-user} = {
     isSystemUser = true;
-    home = warracker-dir;
+    home = app.dir;
     createHome = true;
     group = warracker-user;
     extraGroups = [ "users" ];

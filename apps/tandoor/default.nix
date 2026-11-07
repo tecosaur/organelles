@@ -16,12 +16,10 @@ let
     }];
     SCOPE = [ "openid" "email" "profile" ];
   };
-  oidc-secret-file = pkgs.writeText "tandoor-oidc.json" (builtins.toJSON { openid_connect = oidc-config; });
+  oidc-template = pkgs.writeText "tandoor-oidc.json" (builtins.toJSON { openid_connect = oidc-config; });
   tandoor-start = pkgs.writeShellScript "tandoor-start" ''
-    [ -f "$RUNTIME_DIRECTORY/oidc.json" ] && \
-        export SOCIALACCOUNT_PROVIDERS="$(${pkgs.coreutils}/bin/cat "$RUNTIME_DIRECTORY/oidc.json")"
-    [ -f "$RUNTIME_DIRECTORY/fdc-api-key" ] && \
-        export FDC_API_KEY="$(${pkgs.coreutils}/bin/cat "$RUNTIME_DIRECTORY/fdc-api-key")"
+    export SOCIALACCOUNT_PROVIDERS="$(< "$RUNTIME_DIRECTORY/oidc.json")"
+    export FDC_API_KEY="$(< ${app.secrets.fdc-api-key.credential})"
     exec ${config.services.tandoor-recipes.package.python.pkgs.gunicorn}/bin/gunicorn recipes.wsgi \
         --workers 3 --threads 2 --timeout 60 --access-logfile - --error-logfile - --log-level info
   '';

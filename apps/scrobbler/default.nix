@@ -191,7 +191,6 @@ in {
       RuntimeDirectory = "multi-scrobbler";
       RuntimeDirectoryMode = "0700";
       EnvironmentFile = "-${scrobbler-secrets-env}";
-      # Hardening
       NoNewPrivileges = true;
       ProtectSystem = "strict";
       ProtectHome = true;

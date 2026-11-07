@@ -119,7 +119,6 @@ in lib.mkMerge [
     # server is its own unit.
     systemd.services.llama-cpp-embedding = {
       description = "llama.cpp embedding server";
-      wants = [ "network.target" ];
       after = [ "network.target" ];
       wantedBy = [ "multi-user.target" ];
       environment = gpu-environment // { LLAMA_CACHE = "/var/cache/llama-cpp"; };

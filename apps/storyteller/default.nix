@@ -4,7 +4,7 @@ let
   storyteller = config.site.apps.storyteller;
   storyteller-pkg = pkgs.callPackage ./package.nix { whisper = pkgs.whisper-cpp-vulkan; };
   storyteller-import = "/data/media/books";
-  # A user token from hardcover.app, so it does not block a deploy.
+  # optional: a user token from hardcover.app
   has-hardcover-token = builtins.pathExists storyteller.secrets.hardcover-token.file;
 in {
   site.apps.storyteller.enabled = true;
@@ -69,7 +69,6 @@ in {
       NEXT_CACHE_DIR = "%C/storyteller";
     };
     preStart = ''
-      # Generate secret key on first launch
       if [ ! -s ${storyteller.dir}/secret_key ]; then
         umask 077
         head -c 32 /dev/urandom | base64 > ${storyteller.dir}/secret_key
@@ -83,7 +82,6 @@ in {
       RestartSec = 10;
       StateDirectory = "storyteller";
       CacheDirectory = "storyteller";
-      # Hardening
       NoNewPrivileges = true;
       ProtectSystem = "strict";
       PrivateTmp = true;
