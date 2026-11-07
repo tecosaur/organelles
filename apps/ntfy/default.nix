@@ -10,7 +10,7 @@ in {
     enable = true;
     settings = {
       base-url = app.url;
-      listen-http = ":${toString app.port}";
+      listen-http = "127.0.0.1:${toString app.port}";
       upstream-base-url = "https://ntfy.sh";
       behind-proxy = true;
       web-root = "/app";
@@ -46,10 +46,10 @@ in {
     ''
     route /app {
         import auth
-        reverse_proxy localhost:${toString app.port}
+        reverse_proxy 127.0.0.1:${toString app.port}
     }
     route * {
-        reverse_proxy :${toString app.port}
+        reverse_proxy 127.0.0.1:${toString app.port}
     }
     '';
 }

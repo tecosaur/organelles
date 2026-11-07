@@ -19,7 +19,7 @@ in {
     environment = {
       NODE_ENV = "production";
       PORT = toString storyteller.port;
-      HOSTNAME = "0.0.0.0";
+      HOSTNAME = "127.0.0.1";
       READIUM_PORT = toString storyteller.ports.readium.port;
       STORYTELLER_DATA_DIR = storyteller.dir;
       STORYTELLER_LOG_LEVEL = "info";
@@ -111,6 +111,6 @@ in {
         rewrite * /logo.png
         file_server
     }
-    reverse_proxy :${toString storyteller.port}
+    reverse_proxy 127.0.0.1:${toString storyteller.port}
   '';
 }

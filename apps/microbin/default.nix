@@ -3,12 +3,7 @@
 let
   app = config.site.apps.microbin;
   short-domain = "${app.short-subdomain}.${config.site.domain}";
-  ubin-port = app.port;
-  page-name = app.title;
-in
-let
-  site.apps.microbin.enabled = true;
-
+  backend = "127.0.0.1:${toString app.port}";
   caddy-static-assets-filter =
     ''
     handle_path /static/* {
@@ -31,7 +26,7 @@ let
               <img width=100 style="margin-bottom: -6px; margin-right: 0.5rem;" src="${app.url}/static/logo.png"
                   onload="this.parentElement.href = '${config.site.apps.authelia.url}/?rd=' + encodeURIComponent(window.location.href) + '&rm=GET';">
             </a>
-            ${page-name}
+            ${app.title}
           </b>
           $1$2$3
           </div>
@@ -75,11 +70,11 @@ let
     '';
 in {
   site.apps.microbin.enabled = true;
-
   services.microbin = {
     enable = true;
     settings = {
       MICROBIN_ADMIN_PASSWORD = ""; # Security through Authelia
+      MICROBIN_BIND = "127.0.0.1";
       MICROBIN_DATA_DIR = "data"; # It's under /var/lib/microbin anyway
       MICROBIN_DISABLE_UPDATE_CHECKING = true;
       MICROBIN_EDITABLE = true;
@@ -91,28 +86,27 @@ in {
       MICROBIN_GC_DAYS = 0;
       MICROBIN_HIDE_FOOTER = true;
       MICROBIN_HIGHLIGHTSYNTAX = true;
-      MICROBIN_PORT = ubin-port;
+      MICROBIN_PORT = app.port;
       MICROBIN_PRIVATE = false; # They're all essentially private
       MICROBIN_PUBLIC_PATH = app.url;
       MICROBIN_QR = true;
       MICROBIN_SHORT_PATH = "https://${short-domain}";
       MICROBIN_SHOW_READ_STATS = true;
-      MICROBIN_TITLE = "${page-name}";
+      MICROBIN_TITLE = app.title;
     };
   };
-
   services.caddy.virtualHosts.${app.domain}.extraConfig =
     ''
     ${caddy-static-assets-filter}
     route /raw/* {
-        reverse_proxy :${toString config.services.microbin.settings.MICROBIN_PORT} {
+        reverse_proxy ${backend} {
             header_down Content-Type "text/plain; charset=UTF-8"
         }
     }
-    @public path /static/* /upload/* /file/* /p/* /raw/* /u/* /qr/* /auth/* /auth_file/*
+    @public path /static/* /upload/* /file/* /p/* /u/* /qr/* /auth/* /auth_file/*
     route @public {
         ${caddy-unauth-filter}
-        reverse_proxy :${toString config.services.microbin.settings.MICROBIN_PORT} {
+        reverse_proxy ${backend} {
             header_up Accept-Encoding identity
         }
     }
@@ -120,7 +114,7 @@ in {
         import auth
         ${caddy-settings-filter}
         ${caddy-nav-filter}
-        reverse_proxy :${toString config.services.microbin.settings.MICROBIN_PORT} {
+        reverse_proxy ${backend} {
             header_up Accept-Encoding identity
         }
     }
@@ -130,12 +124,12 @@ in {
     route /p/* {
         ${caddy-unauth-filter}
         ${caddy-nav-filter}
-        reverse_proxy :${toString config.services.microbin.settings.MICROBIN_PORT} {
+        reverse_proxy ${backend} {
             header_up Accept-Encoding identity
         }
     }
     route /u/* {
-        reverse_proxy :${toString config.services.microbin.settings.MICROBIN_PORT}
+        reverse_proxy ${backend}
     }
     route * {
         redir ${app.url}{uri}

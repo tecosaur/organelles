@@ -85,6 +85,7 @@ in {
     config = {
       http = {
         base_url = app.url;
+        server_host = [ "127.0.0.1" ];
         server_port = app.port;
         use_x_forwarded_for = true;
         trusted_proxies = "127.0.0.1";
@@ -110,6 +111,6 @@ in {
 
   services.caddy.virtualHosts.${app.domain}.extraConfig =
     ''
-    reverse_proxy :${toString app.port}
+    reverse_proxy 127.0.0.1:${toString app.port}
     '';
 }

@@ -4,13 +4,13 @@ let
   app = config.site.apps.immich;
   immich-data = "/data/immich";
   ml-port = app.ports.machine-learning.port;
+  clip = config.services.immich.settings.machineLearning.clip;
 in {
   site.apps.immich.enabled = true;
 
   services.immich = {
     enable = true;
-    openFirewall = false;
-    host = "0.0.0.0";
+    host = "127.0.0.1";
     port = app.port;
     mediaLocation = immich-data;
     settings = {
@@ -99,5 +99,5 @@ in {
   ];
 
   services.caddy.virtualHosts.${app.domain}.extraConfig =
-    ''reverse_proxy :${toString app.port}'';
+    "reverse_proxy 127.0.0.1:${toString app.port}";
 }

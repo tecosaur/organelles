@@ -21,9 +21,7 @@ in {
         enabled = true;
         allow_password_login = false;
       };
-      http = {
-        bind = "[::]:${toString app.port}";
-      };
+      http.bind = "127.0.0.1:${toString app.port}";
       oidc = {
         name = "Authelia";
         issuer = config.site.apps.authelia.url;
@@ -40,6 +38,6 @@ in {
 
   services.caddy.virtualHosts.${app.domain}.extraConfig =
     ''
-    reverse_proxy :${toString app.port}
+    reverse_proxy 127.0.0.1:${toString app.port}
     '';
 }
