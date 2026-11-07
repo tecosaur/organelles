@@ -1,7 +1,7 @@
 { config, lib, ... }:
 
-# Apps submit on loopback to Caddy, which proxies to a healthy Stalwart. Confinement admits
-# only their sending units, so they need no password.
+# Apps submit on loopback to Caddy, which proxies to a healthy Stalwart. They need no password
+# once confinement enforces, admitting only their sending units; until then any local unit can.
 
 let
   mail = config.site.apps.mail;

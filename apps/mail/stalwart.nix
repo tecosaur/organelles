@@ -48,6 +48,7 @@ let
     (lib.filterAttrs (_: app: app.mail != null && app.mail.sender != null) config.site.apps);
   settings = pkgs.writeText "stalwart-settings.ndjson" (import ./stalwart-settings.nix { inherit lib; } addressing {
     inherit domain hostname public-ports dkim-selector max-message-bytes filing-script log-dir;
+    mesh-address = config.site.mesh.addresses.${this-host};
     acme = { contact = "postmaster@${domain}"; bunny-key = credential config.site.secrets.bunny-dns-key; };
     in-memory-store = {
       "@type" = "RedisSentinel";

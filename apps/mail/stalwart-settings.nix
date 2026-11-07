@@ -29,12 +29,14 @@ addressing:
   filing-script,
   # Directory of the log file the admin UI's log viewer reads
   log-dir,
+  # This host's mesh address, which the listeners only Caddy dials bind
+  mesh-address,
   # Null, or { host; port; username; secret-file; } to send everything through
-  relay ? null,
+  relay,
   # The listener apps submit mail on, unauthenticated: only Caddy may reach it
   submission-port,
-  # The addresses apps may send as from it
-  app-senders ? [ ],
+  # The addresses apps may send as from it, in the envelope and the From header alike
+  app-senders,
   # Where mail to an app's noreply@<subdomain> is pointed
   contact,
 }:
@@ -98,6 +100,16 @@ let
   from-apps = "local_port == ${toString submission-port}";
   app-sender = if app-senders == [ ] then "false"
     else concatStringsSep " || " (map (address: "sender == ${quote address}") app-senders);
+  # The envelope alone would let an app's mail, signed for the site, claim to be from anyone;
+  # every From address must be its sender, which isSenderAllowed holds to the app's own
+  app-from-script = "app-from";
+  app-from-sieve = ''
+    require ["envelope", "variables", "relational", "reject"];
+    if envelope :all :matches "from" "*" { set "sender" "''${1}"; }
+    if anyof (not exists "from", address :all :value "ne" "from" "''${sender}") {
+      reject "550 5.7.1 An app's mail must be from its own sender address";
+    }
+  '';
   # A reply to an app's mail is answered weekly per sender and dropped; anything else is refused
   noreply-script = "noreply";
   noreply-interval-seconds = 604800;
@@ -240,14 +252,14 @@ let
       submission-mesh = {
         name = "submission-mesh";
         protocol = "smtp";
-        bind = set [ "[::]:${toString submission-port}" ];
+        bind = set [ "[${mesh-address}]:${toString submission-port}" ];
         useTls = false;
       };
-      # Only Caddy reaches it, this host's or another's over the mesh, and it terminates TLS
+      # Caddy reaches it over the mesh, and terminates TLS; the provisioner and Bulwark on loopback
       http = {
         name = "http";
         protocol = "http";
-        bind = set [ "[::]:${toString http-port}" ];
+        bind = set [ "[${mesh-address}]:${toString http-port}" "127.0.0.1:${toString http-port}" ];
         useTls = false;
       };
     }))
@@ -272,7 +284,18 @@ let
       filing = { name = filing-script; contents = filing-sieve; isActive = true; };
     })
     (upsert "SieveSystemScript" [ "name" ] {
-      noreply = { name = noreply-script; contents = noreply-sieve; isActive = true; };
+      noreply = {
+        name = noreply-script;
+        description = "Drops a person's reply to an app's noreply address, answering it once a week per sender, and rejects other mail there";
+        contents = noreply-sieve;
+        isActive = true;
+      };
+      app-from = {
+        name = app-from-script;
+        description = "Rejects an app's mail unless every From address is its envelope sender";
+        contents = app-from-sieve;
+        isActive = true;
+      };
     })
     (update "SieveSystemInterpreter" {
       defaultFromAddress."else" = quote "noreply@${domain}";
@@ -309,7 +332,10 @@ let
     })
     (update "MtaStageData" {
       maxMessageSize."else" = toString max-message-bytes;
-      script = expression [ { condition = "local_port == 25"; value = quote noreply-script; } ] "false";
+      script = expression [
+        { condition = "local_port == 25"; value = quote noreply-script; }
+        { condition = from-apps; value = quote app-from-script; }
+      ] "false";
       enableSpamFilter = expression [ { condition = from-apps; value = "false"; } ] "is_empty(authenticated_as)";
       dkimSignDomain = expression (map (name: {
         condition = "(!is_empty(authenticated_as) || ${from-apps}) && (sender_domain == ${quote name} || ends_with(sender_domain, ${quote ".${name}"}))";
