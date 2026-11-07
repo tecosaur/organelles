@@ -9,8 +9,8 @@
     simpleicon = "forgejo";
     subdomain = "code";
     port = 3002;
-    # git over SSH calls its internal API from sshd's sessions
-    clients = [ "sshd" ];
+    # git over SSH calls its internal API from the session pam_systemd gives it, outside any unit
+    client-users = [ "git" ];
     extraOptions = {
       site-name = lib.mkOption {
         type = lib.types.str;

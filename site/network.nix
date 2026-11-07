@@ -19,7 +19,7 @@ let
       probed = if app.health == null then [ ] else map (check: check.listener) app.health.ports;
       main = {
         inherit name;
-        inherit (app) port exposure hosts;
+        inherit (app) port exposure hosts client-users;
         unit = app.service;
         protocols = [ "tcp" ];
         clients = merge-clients ([
@@ -66,12 +66,14 @@ let
   # nft object names take no dashes
   counter = direction: name: "${direction}_${lib.replaceStrings [ "-" ] [ "_" ] name}";
   set = items: "{ ${lib.concatStringsSep ", " items} }";
-  # anyone may reach a public listener, and nft's socket match sees TCP alone
+  # anyone may reach a public listener, and the rules speak TCP alone
   confined = lib.filter (listener: listener.exposure != "public" && lib.elem "tcp" listener.protocols)
     config.site.listeners;
   units-here = clients: lib.attrNames (lib.filterAttrs (_: hosts: lib.elem this-host hosts) clients);
-  local-clients = lib.unique (lib.concatMap (listener: units-here listener.clients) confined);
   serves = listener: lib.elem this-host listener.hosts;
+  # a server may dial its own listener, on its own hosts
+  server-here = listener: lib.optional (serves listener && listener.unit != null) listener.unit;
+  sliced = lib.unique (lib.concatMap (listener: units-here listener.clients ++ server-here listener) confined);
   ruled = lib.filter (listener: serves listener || (listener.exposure == "mesh" && listener.hosts != [ ])) confined;
   ingress-rule = listener: let
     hosts = lib.unique (lib.concatLists (lib.attrValues listener.clients));
@@ -80,15 +82,17 @@ let
       "ip6 saddr != ${set (map address hosts)}"} counter name ${counter "in" listener.name} jump refuse
   '';
   egress-rule = listener: let
-    allowed = units-here listener.clients;
-    unit-match = lib.optionalString (allowed != [ ])
-      "socket cgroupv2 level 2 != ${set (map (unit: ''"${cgroup-of unit}"'') allowed)}";
-    to-port = "tcp dport ${toString listener.port} ${unit-match} counter name ${counter "out" listener.name} jump refuse";
+    # with no units or users to admit, every connection is refused
+    refuse-unless = units: users: lib.concatStringsSep " " ([ "tcp dport ${toString listener.port}" ]
+      ++ lib.optional (units != [ ]) "socket cgroupv2 level 2 != ${set (map (unit: ''"${cgroup-of unit}"'') units)}"
+      ++ lib.optional (users != [ ]) "meta skuid != ${set (map (user: ''"${user}"'') users)}"
+      ++ [ "counter name ${counter "out" listener.name} jump refuse" ]);
+    clients = units-here listener.clients;
     remote-servers = lib.remove this-host listener.hosts;
   in lib.optionalString (listener.exposure == "mesh" && remote-servers != [ ]) ''
-    ct state new ip6 daddr ${set (map address remote-servers)} ${to-port}
+    ct state new ip6 daddr ${set (map address remote-servers)} ${refuse-unless clients [ ]}
   '' + lib.optionalString (serves listener) ''
-    ct state new fib daddr type local ${to-port}
+    ct state new fib daddr type local ${refuse-unless (lib.unique (clients ++ server-here listener)) listener.client-users}
   '';
   ruleset = pkgs.writeText "confine.nft" ''
     table inet confine
@@ -112,6 +116,11 @@ let
         ${lib.concatMapStrings egress-rule ruled}
       }
     }
+  '';
+  # nft resolves each slice's cgroup as it loads, so a slice this generation adds must exist
+  load = ''
+    systemctl start ${lib.escapeShellArgs (map (unit: "${slice-of unit}.slice") sliced)}
+    nft -f ${ruleset}
   '';
 in {
   options.site = {
@@ -191,39 +200,48 @@ in {
   } (lib.mkIf (mode != "off" && confined != [ ]) {
     assertions = map (unit: {
       assertion = config.systemd.services ? ${unit};
-      message = "site.confine: ${unit} is named as a client on ${this-host}, which runs no such service";
-    }) local-clients;
-
+      message = "site.confine: ${unit} is named as a listener's client or server on ${this-host}, which runs no such service";
+    }) sliced;
     systemd.slices = lib.listToAttrs (map (unit: lib.nameValuePair (slice-of unit) {
       description = "Confinement of ${unit}";
-      # active from boot, so the ruleset finds its cgroup at every load
-      wantedBy = [ "multi-user.target" ];
-    }) local-clients);
-
+    }) sliced);
     systemd.services = lib.listToAttrs (map (unit: lib.nameValuePair unit {
-      # over any slice its module groups it in, which nft could not follow across restarts
+      # over any slice its module sets
       serviceConfig.Slice = lib.mkForce "${slice-of unit}.slice";
-    }) local-clients) // {
+    }) sliced) // {
       # Apart from the main firewall, so a cgroup that fails to resolve costs only this table
       confine = {
         description = "Confine units to the listeners they may reach";
         wantedBy = [ "multi-user.target" ];
-        wants = map (unit: "${slice-of unit}.slice") local-clients;
-        after = [ "nftables.service" ] ++ map (unit: "${slice-of unit}.slice") local-clients;
+        after = [ "nftables.service" ];
         reloadIfChanged = true;
-        serviceConfig = {
-          Type = "oneshot";
-          RemainAfterExit = true;
-          ExecStart = "${pkgs.nftables}/bin/nft -f ${ruleset}";
-          ExecReload = "${pkgs.nftables}/bin/nft -f ${ruleset}";
-          ExecStop = "${pkgs.nftables}/bin/nft delete table inet confine";
-        };
+        path = [ pkgs.nftables ];
+        script = load;
+        reload = load;
+        preStop = "nft delete table inet confine";
+        serviceConfig = { Type = "oneshot"; RemainAfterExit = true; };
+      };
+      # A unit only reloaded since it gained its slice stays where it started. A switch reloads
+      # before it restarts, so this runs apart from confine, after the units it checks.
+      confine-check = {
+        description = "Name units running outside their confinement slice";
+        wantedBy = [ "multi-user.target" ];
+        after = map (unit: "${unit}.service") sliced;
+        script = ''
+          for unit in ${lib.escapeShellArgs sliced}; do
+            cgroup=$(systemctl show -P ControlGroup "$unit.service")
+            case $cgroup in
+              "" | /confine.slice/*) ;;
+              *) echo "<4>$unit runs in $cgroup, outside its slice, so the ruleset refuses it; restart $unit" ;;
+            esac
+          done
+        '';
+        serviceConfig = { Type = "oneshot"; RemainAfterExit = true; };
       };
     };
-
     system.checks = [ (pkgs.runCommand "confine-ruleset-check" { nativeBuildInputs = [ pkgs.nftables ]; } ''
-      # checked as nixos-fw is, against a userspace kernel, which has no cgroups to resolve
-      sed 's/socket cgroupv2 level 2 != {[^}]*}//' ${ruleset} > ruleset.nft
+      # checked as nixos-fw is, against a userspace kernel, which has no cgroups or users to resolve
+      sed -e 's/socket cgroupv2 level 2 != {[^}]*}//' -e 's/meta skuid != {[^}]*}//' ${ruleset} > ruleset.nft
       export NIX_REDIRECTS=${lib.escapeShellArg (lib.concatStringsSep ":"
         (lib.mapAttrsToList (n: v: "${n}=${v}") config.networking.nftables.checkRulesetRedirects))}
       LD_PRELOAD="${pkgs.libredirect}/lib/libredirect.so ${pkgs.lklWithFirewall.lib}/lib/liblkl-hijack.so" \

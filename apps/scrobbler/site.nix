@@ -8,7 +8,7 @@
     description = "listening history";
     subdomain = "listens";
     port = 4110;
-    clients = [ "multi-scrobbler" "koito" ];
+    clients = [ "multi-scrobbler" ];
     extraOptions = {
       title = lib.mkOption {
         type = lib.types.str;

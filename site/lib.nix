@@ -170,7 +170,17 @@ rec {
           description = ''
             Units that may connect: a list, for units on the hosts it listens on,
             or each unit with the hosts it runs on. The health probes are added
-            for a listener an app's health check names.
+            for a listener an app's health check names, and its own unit may
+            always dial it on its hosts.
+          '';
+        };
+        client-users = lib.mkOption {
+          type = lib.types.listOf lib.types.str;
+          default = [ ];
+          example = [ "git" ];
+          description = ''
+            Users any of whose processes may connect on the hosts it listens on,
+            for clients no one unit holds, such as the commands SSH sessions run.
           '';
         };
       };
@@ -181,7 +191,7 @@ rec {
                   subdomain, port, admin ? "admin", extra-groups ? [],
                   auth ? {}, cacheSubdirs ? [], stateSubdirs ? null, health ? null,
                   followsPrimary ? false, exposure ? (if followsPrimary then "mesh" else "local"),
-                  clients ? [], ports ? {}, secrets ? {}, mail ? null, extraOptions ? {} }:
+                  clients ? [], client-users ? [], ports ? {}, secrets ? {}, mail ? null, extraOptions ? {} }:
     {
       name = lib.mkOption {
         type = lib.types.str;
@@ -298,6 +308,11 @@ rec {
           it is on the mesh) and, given a health path, the health probes; in
           the form of a listener's `clients`.
         '';
+      };
+      client-users = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = client-users;
+        description = "Users reaching the main listener; see a listener's `client-users`";
       };
       ports = lib.mkOption {
         type = declared (listener { unit = service; }) ports;

@@ -9,11 +9,7 @@
     followsPrimary = true;
     subdomain = "users";
     port = 17170;
-    ports.ldap = {
-      port = 3890;
-      exposure = "mesh";
-      clients.lldap = config.site.apps.lldap.hosts;
-    };
+    ports.ldap = { port = 3890; exposure = "mesh"; };
     secrets = {
       jwt = { kind = "key"; generate = "rand"; units = [ "lldap" ]; };
       key-seed = { kind = "key"; generate = "rand"; units = [ "lldap" ]; };

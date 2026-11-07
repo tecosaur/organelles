@@ -84,8 +84,7 @@ in {
     };
     # Postgres asks each client's host on 113, which it can't be told otherwise
     ident = mesh 113 "oidentd" { patroni = members; };
-    # its gRPC gateway dials its own client listener
-    etcd = mesh 2379 "etcd" { patroni = members; etcd = voters; };
+    etcd = mesh 2379 "etcd" { patroni = members; };
     etcd-peer = mesh 2380 "etcd" { etcd = voters; };
     etcd-metrics = local 2381 "etcd" [ "gatus-aggregator-report" ];
     patroni = mesh 8008 "patroni" { patroni = members; postgresql-ha-role = members; };

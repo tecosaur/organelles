@@ -64,7 +64,6 @@ in {
     port = 8460;
     # for the other hosts' Caddy alone, since it trusts X-Forwarded-For
     exposure = "mesh";
-    clients = [ "stalwart" ];
     ports = let
       inherit (config.site.mail.storage) heads;
       cluster-hosts = cluster: lib.attrNames config.site.mail.storage.${cluster};
@@ -96,7 +95,7 @@ in {
           (lib.mapAttrsToList (_: app: lib.genAttrs app.mail.units (_: app.hosts))
             (lib.filterAttrs (_: app: app.mail != null && app.mail.sender != null) config.site.apps));
       };
-      stalwart-recovery = { port = 8461; clients = [ "stalwart" ]; };
+      stalwart-recovery.port = 8461;
       s3-gateway = { port = 3920; unit = "s3-overflow"; clients = [ "stalwart" ]; };
       s3-gateway-status = { port = 3921; unit = "s3-overflow"; clients = [ "gatus-aggregator-report" ]; };
       garage-primary-s3 = s3 "primary" 3900;
