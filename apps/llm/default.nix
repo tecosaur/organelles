@@ -2,7 +2,7 @@
 
 let
   llm = config.site.apps.llm;
-  pool = llm.proxy ++ lib.optional llm.local ":${toString llm.port}";
+  pool = llm.remotes ++ lib.optional llm.local ":${toString llm.port}";
   lb-policy = if llm.local-fallback || lib.length pool < 2 then "first" else "round_robin";
   pool-proxy =
     ''
@@ -35,8 +35,8 @@ let
 in lib.mkMerge [
   {
     assertions = [
-      { assertion = llm.local || llm.proxy != [ ] || llm.embedding.enable;
-        message = "site.apps.llm has no endpoints: enable `local`, `embedding`, or populate `proxy`.";
+      { assertion = llm.local || llm.remotes != [ ] || llm.embedding.enable;
+        message = "site.apps.llm has no endpoints: enable `local`, `embedding`, or populate `remotes`.";
       }
     ];
 

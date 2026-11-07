@@ -24,7 +24,7 @@
           endpoint is unhealthy, instead of participating in load balancing.
         '';
       };
-      proxy = lib.mkOption {
+      remotes = lib.mkOption {
         type = lib.types.listOf lib.types.str;
         default = [ ];
         example = [ "workstation.lan:8089" "192.168.1.20:8089" ];
