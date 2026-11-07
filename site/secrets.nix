@@ -52,7 +52,12 @@ in {
       ${unit}.serviceConfig.LoadCredential = [ "${secret.credential-name}:${secret.decrypted}" ];
     }) (units-here secret)) installed);
 
-    assertions = lib.concatMap (secret: map (unit: {
+    assertions = map (secret: {
+      assertion = secret.recipients == null || lib.elem this-host secret.recipients;
+      message = "site: secrets/${secret.path} is installed on ${this-host} but encrypted only to "
+        + "${toString secret.recipients}; add ${this-host} to its recipients or narrow its units and hosts";
+    }) installed
+    ++ lib.concatMap (secret: map (unit: {
       assertion = let service = config.systemd.services.${unit}; in
         service.script != "" || service.serviceConfig ? ExecStart;
       message = "site: secrets/${secret.path} is loaded on ${this-host} by ${unit}, which runs no service here; "
