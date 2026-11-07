@@ -96,7 +96,7 @@ in {
         };
       };
       authentication_backend.ldap = {
-        address = "ldap://{{ env \"HA_PRIMARY\" }}.internal:${toString config.services.lldap.settings.ldap_port}";
+        address = "ldap://{{ env \"HA_SERVING\" }}.internal:${toString config.services.lldap.settings.ldap_port}";
         base_dn = config.services.lldap.settings.ldap_base_dn;
         users_filter = "(&({username_attribute}={input})(objectClass=person))";
         groups_filter = "(member={dn})";
@@ -163,7 +163,7 @@ in {
     # its LDAP check at startup is fatal, and LLDAP may still be starting
     serviceConfig.ExecStartPre = lib.mkBefore [
       (pkgs.writeShellScript "authelia-await-ldap" ''
-        until (: </dev/tcp/"$HA_PRIMARY".internal/${toString config.services.lldap.settings.ldap_port}) 2>/dev/null; do sleep 1; done
+        until (: </dev/tcp/"$HA_SERVING".internal/${toString config.services.lldap.settings.ldap_port}) 2>/dev/null; do sleep 1; done
       '')
     ];
   };

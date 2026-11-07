@@ -240,9 +240,8 @@ in {
           if [ -n "$primary" ]; then
             env=$(printf 'HA_PRIMARY=%s\nHA_SERVING=%s\nPGHOST=%s.internal\nPGPORT=%s' "$primary" "$serving" "$primary" ${toString ports.ha-postgres.port})
             if [ "$env" != "$(cat ${primary-env} 2>/dev/null)" ]; then
-              moved=$(grep -qx "HA_PRIMARY=$primary" ${primary-env} 2>/dev/null || echo 1)
               echo "$env" > ${primary-env}
-              ${lib.optionalString (trackers != [ ]) ''[ -z "$moved" ] || systemctl try-restart --no-block ${toString trackers}''}
+              ${lib.optionalString (trackers != [ ]) "systemctl try-restart --no-block ${toString trackers}"}
             fi
             if [ "$serving" = ${this-host} ]; then touch ${serving-flag}; else rm -f ${serving-flag}; fi
           fi

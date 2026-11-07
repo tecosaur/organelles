@@ -1,9 +1,8 @@
-{ config, lib, ... }:
-
-with lib;
+{ config, lib, pkgs, ... }:
 
 let
   app = config.site.apps.syncthing;
+  ldap-port = config.services.lldap.settings.ldap_port;
   domain = config.site.domain;
   public-domain = "public.${domain}";
   my-computers = [ "tranquillity" "demure" "ict1634" ];
@@ -20,8 +19,8 @@ in {
       gui = {
         authMode = "ldap";
       };
+      # its address follows the serving host, set by syncthing-init's postStart
       ldap = {
-        address = "localhost:${toString config.services.lldap.settings.ldap_port}";
         bindDN = "uid=%s,ou=people,${config.services.lldap.settings.ldap_base_dn}";
         transport = "nontls";
         searchBaseDN = "ou=people,${config.services.lldap.settings.ldap_base_dn}";
@@ -68,7 +67,20 @@ in {
     };
   };
 
-  users.users = (mkIf config.services.caddy.enable {
+  # LLDAP runs only where the replicated Postgres is served
+  services.ha.postgres.track-primary = [ "syncthing-init" ];
+  systemd.services.syncthing-init.postStart = ''
+    # left active, so the role watcher's restart once a host serves sets it
+    if [ -z "''${HA_SERVING:-}" ]; then
+      echo "No host serves LLDAP yet; its address is set once one does"
+      exit 0
+    fi
+    address="$HA_SERVING.internal:${toString ldap-port}"
+    ${lib.getExe pkgs.jq} -n --arg address "$address" '{ $address }' |
+      ${lib.getExe pkgs.curl} -sSf -H "@$RUNTIME_DIRECTORY/headers" -X PATCH -d @- \
+        http://${config.services.syncthing.guiAddress}/rest/config/ldap
+  '';
+  users.users = (lib.mkIf config.services.caddy.enable {
     syncthing = {
         homeMode = "750";
     };
