@@ -59,10 +59,12 @@ let
         log_append captcha_answer {http.request.cookie.caddy_qa_captcha}
 
         route @challenge {
+            # a same-site path only, so a crafted link can't redirect off-site
             @captcha_submit {
                 method GET
                 path /captcha
                 query answer=*
+                expression `{query.next}.matches("^/([^/\\\\]|$)")`
             }
             handle @captcha_submit {
                 header Set-Cookie "caddy_qa_captcha={query.answer}; Path=/; Max-Age=31536000; HttpOnly; SameSite=Lax; Secure"
@@ -312,17 +314,6 @@ in {
           }
       }
       '' else "";
-    caddy-config = captcha-config + ''
-      handle {
-          rewrite /user/login /user/oauth2/authelia
-          reverse_proxy 127.0.0.1:${toString config.services.forgejo.settings.server.HTTP_PORT}
-      }
-      '' + caddy-user-conf;
-     indent = prefix: str:
-       lib.concatStringsSep "\n"
-         (map
-           (line: if line == "" then "" else prefix + line)
-           (lib.splitString "\n" str));
   in {
     globalConfig = lib.mkAfter (lib.concatStringsSep "\n" (map mkFsConfig processed-repos));
     virtualHosts =
@@ -330,8 +321,16 @@ in {
       {
         "git.${config.site.domain}".extraConfig =
           "redir ${app.url}{uri} 301";
-        "${app.domain}".extraConfig =
-          "route {\n" + (indent "    " caddy-config) + "\n}";
+        # handles are tried in order, so the catch-all goes last
+        "${app.domain}".extraConfig = ''
+          route {
+          ${captcha-config}${caddy-user-conf}
+          handle {
+              rewrite /user/login /user/oauth2/authelia
+              reverse_proxy 127.0.0.1:${toString app.port}
+          }
+          }
+        '';
       };
   };
 }
