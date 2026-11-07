@@ -16,12 +16,12 @@ in {
     usesStateDir = false;
     subdomain = "status";
     port = 3001;
-    clients = { gatus-aggregator-report = config.site.hosts; gatus-aggregator-aggregate = config.site.ha.preference; };
+    clients = { gatus-aggregator-report = hosts; gatus-aggregator-aggregate = preference; };
     secrets = let
       units = {
         gatus = config.site.apps.gatus.hosts;
-        gatus-aggregator-report = config.site.hosts;
-        gatus-aggregator-aggregate = config.site.ha.preference;
+        gatus-aggregator-report = hosts;
+        gatus-aggregator-aggregate = preference;
       };
     in {
       push = { kind = "key"; generate = "rand"; inherit units; };

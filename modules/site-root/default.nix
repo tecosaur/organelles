@@ -1,7 +1,5 @@
 { config, lib, pkgs, ... }:
 
-with lib;
-
 let
   # the template test of whether the visitor's groups may use an app
   access-of = app: let
@@ -19,7 +17,7 @@ let
       } else
         {
           "${prefix}_SUBDOMAIN" = "<unknown>";
-          "${prefix}_URL" = "${config.site.domain}";
+          "${prefix}_URL" = config.site.domain;
           "${prefix}_ACCESS" = "false";
           "${prefix}_ENABLED" = "false";
         };
@@ -29,16 +27,15 @@ let
     apps-exports);
   app-env-vars = lib.concatStringsSep " " (lib.mapAttrsToList (k: _: "\$${k}") apps-exports);
   guides = lib.filter (app: app.enabled && app.guide != null) (lib.attrValues config.site.apps);
-  static-root = pkgs.runCommand "static-root" { buildInputs = [ pkgs.gettext ]; } ''
+  static-root = pkgs.runCommand "static-root" { nativeBuildInputs = [ pkgs.gettext ]; } ''
       export DOMAIN='${config.site.domain}'
       export ACCENT='${config.site.accent.primary}'
       ${apps-env-export}
       export APPS_TEXT=$(cat <<'HEREDOC'
-      ${concatStringsSep "\n" (map (app: "• ${app.name} (${app.description})")
+      ${lib.concatStringsSep "\n" (map (app: "• ${app.name} (${app.description})")
         (builtins.filter (app: app.enabled) (builtins.attrValues config.site.apps)))}
       HEREDOC
       )
-
       apply_template() {
           for file in "$@"; do
               tmpout=$(mktemp)
@@ -46,7 +43,6 @@ let
               mv "$tmpout" "$file"
           done
       }
-
       mkdir -p $out
       cp -r ${config.site.assets}/site-root/* $out
       cd $out
@@ -64,7 +60,7 @@ let
       '') guides}
       export GUIDES=`sed 's/^/            /g' guides.html`
       rm guides.html
-      apply_template services.html # about.html
+      apply_template services.html
     '';
 in {
   services.caddy = {

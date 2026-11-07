@@ -1,7 +1,6 @@
 { config, lib, pkgs, ... }:
 
 {
-
   services.beszel.agent = {
     enable = true;
     # The agent dials the hub over a WebSocket; its SSH listener is only a fallback

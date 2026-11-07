@@ -19,36 +19,15 @@ let
     after = [ "network-online.target" "dns-pooler.service" ];
     # systemctl reads unit state for the reporter
     path = [ config.systemd.package ];
+    sandboxed = true;
     serviceConfig = {
       ExecStart = "${lib.getExe package} -plan ${plan-file} ${command}";
       Restart = "always";
       RestartSec = "5s";
       DynamicUser = true;
-      NoNewPrivileges = true;
-      ProtectSystem = "strict";
-      ProtectHome = true;
-      PrivateTmp = true;
-      PrivateDevices = true;
-      ProtectKernelTunables = true;
-      ProtectKernelModules = true;
-      ProtectKernelLogs = true;
-      ProtectControlGroups = true;
-      ProtectClock = true;
-      ProtectHostname = true;
-      RestrictNamespaces = true;
-      RestrictRealtime = true;
-      RestrictSUIDSGID = true;
-      LockPersonality = true;
-      MemoryDenyWriteExecute = true;
-      RestrictAddressFamilies = [ "AF_INET" "AF_INET6" "AF_UNIX" ];
-      SystemCallArchitectures = "native";
-      SystemCallFilter = [ "@system-service" ];
-      CapabilityBoundingSet = "";
-      UMask = "0077";
     };
   };
 in {
-
   systemd.services.gatus-aggregator-report = service "report" "Status reports to Gatus";
   services.ha.postgres.probe-roles = [ "gatus-aggregator-report" ];
   services.postgresql.ensureUsers = lib.mkIf config.services.postgresql.enable [ { name = "gatus-aggregator-report"; } ];

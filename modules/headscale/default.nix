@@ -82,7 +82,7 @@ in {
         head -c 32 /dev/urandom | base64 | head -c 32 > /var/lib/headplane/cookie_secret
     fi
     if [ ! -s /var/lib/headplane/api_key ]; then
-        ${lib.getExe pkgs.headscale} apikeys create -e 99y > /var/lib/headplane/api_key
+        ${lib.getExe config.services.headscale.package} apikeys create -e 99y > /var/lib/headplane/api_key
     fi
   '';
 

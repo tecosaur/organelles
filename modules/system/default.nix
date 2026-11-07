@@ -5,5 +5,6 @@
     ./hardened.nix
     ./sandbox.nix
     ./unfree.nix
+    ../postgresql-upgrade.nix
   ];
 }

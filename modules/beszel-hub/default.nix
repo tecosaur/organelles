@@ -14,7 +14,7 @@ in {
       USER_CREATION = "true";
       USER_EMAIL = "admin@${config.site.domain}";
       USER_PASSWORD = "letmeinn";
-      DISABLE_PASSWORD_AUTH = "true"; # Uncomment after setting up web UI
+      DISABLE_PASSWORD_AUTH = "true";
     };
   };
 
