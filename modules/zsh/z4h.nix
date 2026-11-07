@@ -166,17 +166,17 @@ in
         setopt no_auto_menu  # require an extra TAB press to open the completion menu
         unsetopt hist_save_by_copy  # the shared histfile is root-owned, so a copy-then-rename save is skipped
         setopt hist_fcntl_lock
-        setopt inc_append_history_time
         ''
       ];
     };
 
     systemd.tmpfiles.rules = [
       "d ${cfg.path} 0755 root wheel"
-      "d ${cfg.path}/tmp 0777 root wheel"
-      "d ${cfg.path}/cache 0777 root wheel"
-      "d ${cfg.path}/stickycache 0777 root wheel"
-      "f ${cfg.histFile} 0666 root wheel"
+      # root's shell runs what these hold, so only the admins may write them
+      "d ${cfg.path}/tmp 0770 root wheel"
+      "d ${cfg.path}/cache 0770 root wheel"
+      "d ${cfg.path}/stickycache 0770 root wheel"
+      "f ${cfg.histFile} 0660 root wheel"
     ] ++ (map
       (stub: "L+ ${cfg.path}/${stub} - - - - ${package}/share/z4h/${stub}")
       (["bin" "fn" "fzf" "powerlevel10k" "systemd"
