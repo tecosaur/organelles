@@ -10,7 +10,7 @@ readonly secrets_pid=$$
 readonly recipients_file="$(dirname "$rules")/recipients.nix"
 readonly manifest="$(dirname "$rules")/../site/manifest.nix"
 
-declare -a keys=() # recipient names: the admin, then each host
+declare -a recipients=() # the admin, then each host
 
 readonly colour_present=$'\e[32m'
 readonly colour_absent=$'\e[31m'
@@ -64,7 +64,7 @@ function secret_descriptions() {
       in builtins.concatStringsSep \"\n\" (builtins.filter (s: s != \"\")
         (builtins.attrValues (builtins.mapAttrs
           (name: v: if v ? description then name + \"\t\" + v.description else \"\")
-          rules)))" 2>/dev/null || true
+          rules)))"
 }
 
 # A secret typed at the terminal, echoed as asterisks so its length is visible
@@ -96,9 +96,9 @@ function read_secret() {
 }
 
 # `name = "ssh-..."` in recipients.nix is a recipient's key.
-function read_rules() {
-    mapfile -t keys < <(sed -n 's/^[[:space:]]*\([a-zA-Z_][a-zA-Z0-9_-]*\)[[:space:]]*=[[:space:]]*"ssh-.*/\1/p' "$recipients_file")
-    [ ${#keys[@]} -gt 0 ] || die "no recipient keys found in $recipients_file"
+function read_recipients() {
+    mapfile -t recipients < <(sed -n 's/^[[:space:]]*\([a-zA-Z_][a-zA-Z0-9_-]*\)[[:space:]]*=[[:space:]]*"ssh-.*/\1/p' "$recipients_file")
+    [ ${#recipients[@]} -gt 0 ] || die "no recipient keys found in $recipients_file"
 }
 
 # Matched on the key body alone: the trailing comment is free text.
@@ -127,12 +127,12 @@ function register_secret() {
 # run from. Generators encrypt to a node plus the workstation, so mistaking one
 # for the other would put node keys where they do not belong.
 function node_names() {
-    local self key
+    local self recipient
     self="$(local_binding)"
     [ -n "$self" ] ||
         die "no ~/.ssh/id_*.pub is a recipient in $recipients_file, so the machines" \
             "cannot be told apart from the workstation running this"
-    for key in "${keys[@]}"; do
-        [ "$key" = "$self" ] || printf '%s\n' "$key"
+    for recipient in "${recipients[@]}"; do
+        [ "$recipient" = "$self" ] || printf '%s\n' "$recipient"
     done
 }

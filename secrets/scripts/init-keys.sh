@@ -15,8 +15,10 @@ tool_name="init-keys"
 # shellcheck source=lib.sh
 . "$secrets_dir/scripts/lib.sh"
 
-# A meilisearch key derives from meilisearch-master, so follows it
-mapfile -t service_keys < <(generated_keys | grep -v ':wireguard$' | sort)
+declared_keys="$(generated_keys)"
+# a meilisearch key derives from meilisearch-master, so comes after every other key
+mapfile -t service_keys < <(awk -F: 'NF && $2 != "wireguard" { print ($2 == "meilisearch"), $0 }' <<<"$declared_keys" |
+    sort | cut -d' ' -f2-)
 
 function usage() {
     printf '\e[1mUsage:\e[0m init-keys.sh [\e[36m--list\e[0m]
@@ -128,15 +130,17 @@ function list_keys() {
 }
 
 function init_key() {
-    local name="$1" kind="$2"
+    local name="$1" kind="$2" value
     local age_file="keys/$name.age"
     if [ -e "$keys_dir/$name.age" ]; then
         return 1
     fi
     echo "$name:"
     register_secret "$age_file"
+    # generated before agenix runs, which would encrypt an empty stdin; the x keeps trailing newlines
+    value="$(generate "$kind" "$name" && printf x)" || die "could not generate $age_file"
     # A non-interactive stdin makes agenix use `cp /dev/stdin` as its editor.
-    generate "$kind" "$name" |
+    printf '%s' "${value%x}" |
         (cd "$secrets_dir" && nix_run github:ryantm/agenix -- -e "$age_file") ||
         die "agenix failed to encrypt $age_file"
     printf '  %s %s\n' "$mark_wrote" "$age_file"
@@ -151,7 +155,7 @@ case "${1-}" in
 esac
 
 [ -f "$rules" ] || die "no secrets.nix at $rules"
-read_rules
+read_recipients
 mkdir -p "$keys_dir"
 
 created=0

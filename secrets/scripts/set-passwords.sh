@@ -97,14 +97,15 @@ done
 set -- "${args[@]+"${args[@]}"}"
 
 [ -f "$rules" ] || die "no secrets.nix at $rules"
-read_rules
+read_recipients
 
+descriptions="$(secret_descriptions)"
 declare -A secret_help=()
 while IFS=$'\t' read -r path help; do
     [ -n "$path" ] && secret_help["$path"]="$help"
-done < <(secret_descriptions)
+done <<<"$descriptions"
 [ -n "$(local_binding)" ] ||
-    printf '%s: warning: no ~/.ssh/id_*.pub is a recipient in secrets.nix; you will not be able to decrypt these secrets\n' \
+    printf '%s: warning: no ~/.ssh/id_*.pub is a recipient in recipients.nix; you will not be able to decrypt these secrets\n' \
            "$tool_name" >&2
 
 wanted=()

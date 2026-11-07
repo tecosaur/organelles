@@ -57,14 +57,14 @@ function make_oidc() {
     register_secret "$age_file"
     local secret digest
     { IFS= read -r -d '' secret; IFS= read -r -d '' digest; } < <(generate_credentials)
-    printf '%s\n' "$digest" > "$secrets_dir/$txt_file" ||
-        die "could not write $secrets_dir/$txt_file"
-    printf '  %s %s\n' "$mark_wrote" "$txt_file"
-    # A non-interactive stdin makes agenix use `cp /dev/stdin` as its editor.
+    # The digest follows its secret, so a failed encryption leaves the old pair matched
     printf '%s' "$secret" |
         (cd "$secrets_dir" && nix_run github:ryantm/agenix -- -e "$age_file") ||
-        die "agenix failed to encrypt $age_file, leaving $txt_file without its secret"
+        die "agenix failed to encrypt $age_file; $txt_file is unchanged"
     printf '  %s %s\n' "$mark_wrote" "$age_file"
+    printf '%s\n' "$digest" > "$secrets_dir/$txt_file" ||
+        die "could not write $secrets_dir/$txt_file, so it no longer matches $age_file; re-run for $name"
+    printf '  %s %s\n' "$mark_wrote" "$txt_file"
 }
 
 # ----------------------------------------------------------------------- main
@@ -111,7 +111,7 @@ function all_refreshable() {
 }
 
 [ -f "$rules" ] || die "no secrets.nix at $rules"
-read_rules
+read_recipients
 
 refresh=false
 all=false
@@ -123,7 +123,7 @@ parse_args "$@"
 binding="$(local_binding)"
 [ -n "$binding" ] ||
     echo "make-oidc: warning: no ~/.ssh/id_*.pub is a recipient in" \
-         "secrets.nix; you will not be able to decrypt these secrets" >&2
+         "recipients.nix; you will not be able to decrypt these secrets" >&2
 
 if [ "$all" = true ]; then
     [ ${#names[@]} -eq 0 ] || die "--all takes no app names"

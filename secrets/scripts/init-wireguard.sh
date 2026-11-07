@@ -18,14 +18,14 @@ tool_name="init-wireguard"
 function usage() {
     printf '\e[1mUsage:\e[0m init-wireguard.sh [\e[36m--list\e[0m]
 
-Generate a WireGuard keypair for any node that does not yet have one, and
-register the private key in secrets.nix. Existing keys are left untouched.
+Generate a WireGuard keypair for any node that does not yet have one; each is
+declared in site/default.nix. Existing keys are left untouched.
 
   \e[36m--list\e[0m   show each node and whether it has a key, without generating
   \e[36m--help\e[0m   show this help
 
-Nodes are read from secrets.nix, so a new machine joins the mesh by having its
-host key added there; there is no roster to update here.
+Nodes are read from recipients.nix, so a new machine joins the mesh once its
+host key is added there; there is no roster to update here.
 
 To rotate a key, delete both secrets/keys/wg-<node>.age and
 secrets/keys/wg-<node>.pub, re-run, then redeploy EVERY node: peers reject a
@@ -68,13 +68,13 @@ function init_node() {
 
 case "${1-}" in
     --help) usage; exit 0 ;;
-    --list) read_rules; list_nodes; exit 0 ;;
+    --list) read_recipients; list_nodes; exit 0 ;;
     "") ;;
     *) die "unknown option '$1'" ;;
 esac
 
 [ -f "$rules" ] || die "no secrets.nix at $rules"
-read_rules
+read_recipients
 mkdir -p "$keys_dir"
 
 created=0
