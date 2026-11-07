@@ -1,39 +1,59 @@
-# Stalwart's release build, which carries every feature the site uses; built from source it takes
-# hours and a newer RocksDB than nixpkgs has
-{ lib, stdenv, fetchurl, autoPatchelfHook }:
+# Stalwart 1.0.3 built without the enterprise feature: the store's schema is tied to the edition that wrote it, and
+# this site's was written AGPL-only. Vendored from nixpkgs' stalwart_1_0 until nixpkgs reaches 1.0.3, then deleted.
+{ lib, rustPlatform, fetchFromGitHub, fetchurl, pkg-config, protobuf, bzip2, openssl, zstd, stalwart_1_0 ? null }:
 
-stdenv.mkDerivation (finalAttrs: {
-  pname = "stalwart";
-  version = "1.0.3";
+let
+  vendored = rustPlatform.buildRustPackage (finalAttrs: {
+    pname = "stalwart";
+    version = "1.0.3";
 
-  src = fetchurl {
-    url = "https://github.com/stalwartlabs/stalwart/releases/download/v${finalAttrs.version}/stalwart-x86_64-unknown-linux-gnu.tar.gz";
-    hash = "sha256-iuSB/0EM0J3VPX9J9SjcrTXZC0sv+wxJya4jqvQ8SDE=";
-  };
-  sourceRoot = ".";
+    __structuredAttrs = true;
 
-  nativeBuildInputs = [ autoPatchelfHook ];
+    src = fetchFromGitHub {
+      owner = "stalwartlabs";
+      repo = "stalwart";
+      tag = "v${finalAttrs.version}";
+      hash = "sha256-4NUb6Peivb5yG4jZSKUSwYijoF4JTvw4+u2uvN4tGqU=";
+    };
 
-  installPhase = ''
-    runHook preInstall
-    install -Dm755 stalwart $out/bin/stalwart
-    runHook postInstall
-  '';
+    cargoHash = "sha256-QOdPdcCa5HxckfMiNkgnkGMuOlRGIfMMylQs7QUGI5Q=";
 
-  # The bundle Stalwart would otherwise fetch from GitHub at start
-  passthru.webui = fetchurl {
-    url = "https://github.com/stalwartlabs/webui/releases/download/v2.0.5/webui.zip";
-    hash = "sha256-FSpj80uy9HDDL+nGj5fjlZlMdhMDNks5KizkGbLwYWI=";
-  };
+    env = {
+      OPENSSL_NO_VENDOR = true;
+      OPENSSL_DIR = lib.getDev openssl;
+      OPENSSL_LIB_DIR = "${lib.getLib openssl}/lib";
+      ZSTD_SYS_USE_PKG_CONFIG = true;
+    };
 
-  meta = {
-    description = "Secure, modern, all-in-one mail and collaboration server";
-    homepage = "https://github.com/stalwartlabs/stalwart";
-    changelog = "https://github.com/stalwartlabs/stalwart/blob/v${finalAttrs.version}/CHANGELOG.md";
-    # The release build includes the enterprise code, inert without a licence
-    license = [ lib.licenses.agpl3Only lib.licenses.stalwart ];
-    sourceProvenance = [ lib.sourceTypes.binaryNativeCode ];
-    platforms = [ "x86_64-linux" ];
-    mainProgram = "stalwart";
-  };
-})
+    depsBuildBuild = [ pkg-config zstd ];
+    nativeBuildInputs = [ protobuf rustPlatform.bindgenHook ];
+    buildInputs = [ bzip2 openssl zstd ];
+
+    # Only the stores the site uses: PostgreSQL data, S3 blobs, Redis Sentinel for in-memory state.
+    # RocksDB, the default, needs a newer release than nixpkgs has.
+    buildNoDefaultFeatures = true;
+    buildFeatures = [ "postgres" "s3" "redis" ];
+    cargoBuildFlags = [ "-p" "stalwart" ];
+
+    # Upstream's suites need RocksDB and live services, and nixpkgs runs them for its own build
+    doCheck = false;
+
+    # The bundle Stalwart would otherwise fetch from GitHub at start
+    passthru.webui = fetchurl {
+      url = "https://github.com/stalwartlabs/webui/releases/download/v2.0.5/webui.zip";
+      hash = "sha256-FSpj80uy9HDDL+nGj5fjlZlMdhMDNks5KizkGbLwYWI=";
+    };
+
+    meta = {
+      description = "Secure, modern, all-in-one mail and collaboration server";
+      homepage = "https://github.com/stalwartlabs/stalwart";
+      changelog = "https://github.com/stalwartlabs/stalwart/blob/${finalAttrs.src.tag}/CHANGELOG.md";
+      license = lib.licenses.agpl3Only;
+      platforms = lib.platforms.linux;
+      mainProgram = "stalwart";
+    };
+  });
+in
+if stalwart_1_0 != null && lib.versionAtLeast stalwart_1_0.version vendored.version
+then lib.warn "nixpkgs' stalwart_1_0 has caught up: delete apps/mail/packages/stalwart.nix and use pkgs.stalwart_1_0 (its webui passthru may differ)." vendored
+else vendored

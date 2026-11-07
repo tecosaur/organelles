@@ -182,7 +182,6 @@ in {
       "::1" = [ auth-domain ];
     };
     site.apps.mail.enabled = true;
-    site.unfree = [ "stalwart" ];
     users.users.${user} = {
       isSystemUser = true;
       group = user;
