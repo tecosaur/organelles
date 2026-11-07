@@ -29,7 +29,9 @@ in {
     enable = true;
     rules."50-tailscale" = {
       onState = ["routable"];
-      script = "${lib.getExe pkgs.ethtool} -K enp1s0 rx-udp-gro-forwarding on rx-gro-list off";
+      script = let
+        uplink = config.systemd.network.networks."10-uplink".matchConfig.Name;
+      in ''[ "$IFACE" != ${uplink} ] || ${lib.getExe pkgs.ethtool} -K ${uplink} rx-udp-gro-forwarding on rx-gro-list off'';
     };
   };
 }
