@@ -1,13 +1,11 @@
 { config, lib, pkgs, ... }:
 
 let
+  app = config.site.apps.transmission;
   download-dir = "/data/media/downloads";
   incomplete-dir = "${download-dir}/.incomplete";
-  extra-dirs = [ "/data/media" ];
-  peer-port = config.site.apps.transmission.ports.peer.port;
 in {
   site.apps.transmission.enabled = true;
-
   services.transmission = {
     enable = true;
     group = "users";
@@ -15,28 +13,29 @@ in {
     openRPCPort = false;
     webHome = pkgs.flood-for-transmission;
     settings = {
-      rpc-bind-address = "0.0.0.0";
-      rpc-port = config.site.apps.transmission.port;
-      rpc-whitelist = "127.0.0.1,192.168.1.*,100.*.*.*"; # Self, LAN, Tailnet
-      rpc-host-whitelist = "192.168.1.*,${config.site.apps.transmission.domain},100.*.*.*,nas.lan,${config.site.server.host}.${config.site.apps.headscale.magicdns-subdomain}.${config.site.domain}";
+      # RPC runs whatever torrent-done script it is told to, so only Caddy, behind Authelia, reaches it
+      rpc-bind-address = "127.0.0.1";
+      rpc-port = app.port;
+      rpc-whitelist = "127.0.0.1,::1";
+      rpc-host-whitelist = app.domain;
       rpc-authentication-required = false;
       ratio-limit-enabled = true;
       ratio-limit = 2;
-      peer-port = peer-port;
-      download-dir = download-dir;
-      incomplete-dir = incomplete-dir;
+      peer-port = app.ports.peer.port;
+      inherit download-dir incomplete-dir;
       rename-partial-files = true;
+      # applied by Transmission itself, over the unit's UMask
       umask = "002";
     };
   };
-
-  systemd.services.transmission.serviceConfig = {
-    UMask = lib.mkForce "0007";
-    BindPaths = extra-dirs;
-  };
-
+  systemd.services.transmission.serviceConfig.BindPaths = [ "/data/media" ];
   systemd.tmpfiles.rules = [
     "d ${download-dir} 0775 ${config.services.transmission.user} users - -"
     "d ${incomplete-dir} 0775 ${config.services.transmission.user} users - -"
   ];
+  services.caddy.virtualHosts.${app.domain}.extraConfig =
+    ''
+    import auth
+    reverse_proxy 127.0.0.1:${toString app.port}
+    '';
 }

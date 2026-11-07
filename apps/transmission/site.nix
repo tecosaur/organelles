@@ -8,8 +8,8 @@
     simpleicon = "transmission";
     subdomain = "torrent";
     port = 9092;
-    exposure = "public";
     ports.peer = { port = 58193; exposure = "public"; };
     stateSubdirs = [ ".config/transmission-daemon" ];
+    auth.access = { policy = "two_factor"; subject = [ "group:${config.site.apps.transmission.groups.admin}" ]; };
   };
 }
