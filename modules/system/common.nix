@@ -13,6 +13,9 @@
 
   boot.loader.systemd-boot.configurationLimit = 5; # Limit bootloader entries
 
+  # Every server an app asks of services.redis, as the shared data's own are
+  services.redis.package = pkgs.valkey;
+
   nix = {
     # Currently needed for flake support, might not be needed in the future
     package = pkgs.nixVersions.latest;
