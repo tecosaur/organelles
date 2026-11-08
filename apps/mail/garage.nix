@@ -3,7 +3,8 @@
 # Mail bodies live in the primary Garage, and the overflow cluster keeps what the primary
 # cannot take while it is down. No host runs both. A meshed cluster's node keys are
 # pre-generated, so its peers are declared; a lone node, on loopback, makes its own key and
-# RPC secret.
+# RPC secret. Each node keeps its state in /var/lib/garage, which data-mounts binds to the
+# bulk volume where there is one.
 
 let
   inherit (lib) attrNames length mapAttrs;
@@ -25,7 +26,6 @@ let
     primary = cluster-of storage.primary // {
       head-host = storage.heads.primary;
       db-engine = "sqlite";
-      root = "/data/garage";
       ports = { s3 = ports.garage-primary-s3.port; rpc = ports.garage-primary-rpc.port; };
       bucket = "mail";
       quota-bytes = null;
@@ -35,7 +35,6 @@ let
       head-host = storage.heads.overflow;
       # Each node can rebuild LMDB from the other after an unclean shutdown
       db-engine = "lmdb";
-      root = "/var/lib/garage-overflow";
       ports = { s3 = ports.garage-overflow-s3.port; rpc = ports.garage-overflow-rpc.port; };
       bucket = "mail-overflow";
       quota-bytes = storage.overflow-quota-bytes;
@@ -49,7 +48,7 @@ let
   rpc-addr = host:
     if is-meshed then "[${address host}]:${toString cluster.ports.rpc}"
     else "127.0.0.1:${toString cluster.ports.rpc}";
-  meta-dir = "${cluster.root}/meta";
+  meta-dir = "/var/lib/garage/meta";
   rpc-secret = if is-meshed then config.site.apps.mail.secrets."garage-${this-cluster-name}-rpc".decrypted else "${meta-dir}/rpc_secret";
   # node_key is libsodium's 64-byte ed25519 secret key; the CLI reads the node ID from node_key.pub
   install-node-key = pkgs.writeShellScript "garage-node-key" ''
@@ -61,11 +60,12 @@ let
       exit 1
     fi
     umask 077
+    mkdir -p ${meta-dir}
     base64 -d "$key" > ${meta-dir}/node_key
     base64 -d "$key" | tail -c 32 > ${meta-dir}/node_key.pub
   '';
   generate-rpc-secret = pkgs.writeShellScript "garage-rpc-secret" ''
-    [ -s ${rpc-secret} ] || (umask 077; ${lib.getExe pkgs.openssl} rand -hex 32 > ${rpc-secret})
+    [ -s ${rpc-secret} ] || (umask 077; mkdir -p ${meta-dir}; ${lib.getExe pkgs.openssl} rand -hex 32 > ${rpc-secret})
   '';
   # A lone node's key is its own, so the setup reads its ID at runtime
   roles = map (host: {
@@ -152,8 +152,6 @@ in {
         group = "garage";
       };
       users.groups.garage = { };
-      # The unit may bind meta and data read-write, so they must exist before it starts
-      systemd.tmpfiles.rules = map (dir: "d ${dir} 0700 garage garage -") [ cluster.root meta-dir "${cluster.root}/data" ];
       services.garage = {
         enable = true;
         inherit package;
@@ -162,7 +160,7 @@ in {
           consistency_mode = "consistent";
           db_engine = cluster.db-engine;
           metadata_dir = meta-dir;
-          data_dir = "${cluster.root}/data";
+          data_dir = "/var/lib/garage/data";
           # Mail is acknowledged once written, so the write must survive power loss
           metadata_fsync = true;
           data_fsync = true;
@@ -184,12 +182,10 @@ in {
         };
       };
       systemd.services.garage = {
-        unitConfig.RequiresMountsFor = [ cluster.root ];
         serviceConfig = {
           DynamicUser = false;
           User = "garage";
           Group = "garage";
-          StateDirectory = lib.mkForce [ ];
           ExecStartPre = [ (if is-meshed then install-node-key else generate-rpc-secret) ];
           Restart = "always";
         };

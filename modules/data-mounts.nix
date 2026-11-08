@@ -69,6 +69,7 @@ let
   backingServices = lib.filterAttrs (name: _: config.services.${name}.enable or false) {
     postgresql = "postgres";
     influxdb2 = "influxdb2";
+    garage = "garage";
   };
   dataMounted = dataMountApps ++ lib.mapAttrsToList (name: owner: {
     service = name; safeName = name; stateDir = name; private = false;
