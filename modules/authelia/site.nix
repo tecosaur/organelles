@@ -13,7 +13,6 @@
     usesStateDir = false;
     subdomain = "auth";
     port = 9091;
-    proxy = false;
     secrets = {
       jwt = { kind = "key"; generate = "rand"; };
       oidc-hmac = { kind = "key"; generate = "rand"; };

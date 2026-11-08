@@ -177,8 +177,5 @@ in {
     handle /api/* {
       ${config.site.ha.primary-proxy authelia-port}
     }
-    handle {
-      reverse_proxy localhost:${toString authelia-port}
-    }
   '';
 }

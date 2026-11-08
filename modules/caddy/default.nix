@@ -1,6 +1,8 @@
 { config, lib, pkgs, ... }:
 
-{
+let
+  authelia = config.site.upstream config.site.apps.authelia;
+in {
   services.caddy = {
       enable = true;
       package = pkgs.caddy.withPlugins {
@@ -26,9 +28,10 @@
       # Taken from https://www.authelia.com/integration/proxies/caddy/#subdomain
       extraConfig = if config.services.authelia.instances.main.enable or false then ''
           (auth) {
-              forward_auth :${toString config.site.apps.authelia.port} {
+              forward_auth ${authelia.to} {
                   uri /api/authz/forward-auth
                   copy_headers Remote-User Remote-Groups Remote-Email Remote-Name
+                  ${authelia.balancing}
               }
           }
         '' else ''

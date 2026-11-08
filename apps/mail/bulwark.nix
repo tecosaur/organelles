@@ -4,7 +4,7 @@ let
   app = config.site.apps.mail;
   inherit (config.site) domain;
   hostname = app.domain;
-  stalwart = "127.0.0.1:${toString app.port}";
+  stalwart = config.site.upstream app;
   bulwark-port = app.ports.bulwark.port;
   # Next.js spells any loopback address localhost in a middleware rewrite, and proxies one not
   # at its own origin, which behind Caddy means to itself over https: so it listens as localhost
@@ -26,14 +26,14 @@ let
   to-stalwart = paths: ''
     @stalwart path ${toString paths}
     handle @stalwart {
-        # This host's own calls, Bulwark's, stay here unforwarded: Stalwart refuses a forwarded loopback address
+        # Bulwark's own calls go unforwarded: Stalwart refuses a forwarded loopback address
         @loopback remote_ip 127.0.0.0/8 ::1
-        reverse_proxy @loopback ${stalwart} {
+        reverse_proxy @loopback ${stalwart.to} {
+            ${stalwart.balancing}
             flush_interval -1
             header_up -X-Forwarded-For
         }
-        # The rest to the Stalwart beside the primary: one trip to it, rather than one per query
-        ${config.site.ha.primary-proxy app.port}
+        ${config.site.proxy app}
     }
   '';
 in {
@@ -61,28 +61,13 @@ in {
         stalwartAdminAccess = "off";
       };
     };
-    # Bulwark's server-side JMAP calls then reach this host's Stalwart
+    # Bulwark's server-side JMAP calls then go through this host's Caddy
     networking.hosts = {
       "127.0.0.1" = [ hostname ];
       "::1" = [ hostname ];
     };
     services.caddy.virtualHosts = {
       ${hostname}.extraConfig = ''
-        # The site's icons in place of the apps' own, ahead of the routes to them: Stalwart's UIs ask
-        # for favicon.ico beneath their own prefix, and Bulwark for the rest
-        @stalwart-icon path /favicon.ico /admin/favicon.ico /account/favicon.ico
-        handle @stalwart-icon {
-            rewrite * /favicon.ico
-            root * ${config.site.assets}/mail/stalwart
-            file_server
-        }
-        @bulwark-icons path /branding/Bulwark_Favicon.svg /branding/Bulwark_Logo_Color.svg /branding/Bulwark_Logo_White.svg /apple-touch-icon.png /icon-*.png
-        handle @bulwark-icons {
-            # Its logos too, light and dark, as the login and About pages show them
-            rewrite /branding/* /favicon.svg
-            root * ${config.site.assets}/mail/bulwark
-            file_server
-        }
         ${to-stalwart (stalwart-paths ++ autoconfig-paths)}
         handle {
             reverse_proxy ${bulwark}

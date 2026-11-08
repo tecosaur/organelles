@@ -63,6 +63,18 @@ in {
     subdomain = "mail";
     port = 8460;
     proxy = false;
+    # each query of Stalwart's goes to the primary, so a request had best go beside it
+    prefersPrimary = true;
+    branding = {
+      "/favicon.ico" = "mail/stalwart/favicon.ico";
+      "/admin/favicon.ico" = "mail/stalwart/favicon.ico";
+      "/account/favicon.ico" = "mail/stalwart/favicon.ico";
+      "/branding/Bulwark_Favicon.svg" = "mail/bulwark/favicon.svg";
+      "/branding/Bulwark_Logo_Color.svg" = "mail/bulwark/favicon.svg";
+      "/branding/Bulwark_Logo_White.svg" = "mail/bulwark/favicon.svg";
+      "/apple-touch-icon.png" = "mail/bulwark/apple-touch-icon.png";
+      "/icon-*.png" = "mail/bulwark/";
+    };
     ports = let
       inherit (config.site.mail.storage) heads;
       cluster-hosts = cluster: lib.attrNames config.site.mail.storage.${cluster};
@@ -102,7 +114,10 @@ in {
       garage-overflow-s3 = s3 "overflow" 3910;
       garage-overflow-rpc = rpc "overflow" 3911;
     };
-    health.ports = [ { listener = "smtp"; } { listener = "imaps"; tls = true; } ];
+    health = {
+      path = "/healthz/ready";
+      ports = [ { listener = "smtp"; } { listener = "imaps"; tls = true; } ];
+    };
     auth.clients = let
       inherit (config.site.mail) oidc;
       # SUPPORTED_LOCALES in Bulwark 1.14.2's i18n/routing.ts; its redirect is /<locale>/auth/callback
