@@ -171,11 +171,19 @@ in {
       description = "Follow where the replicated PostgreSQL leads and is served";
       wantedBy = [ "multi-user.target" ];
       after = [ "patroni.service" ];
-      path = [ config.systemd.package pkgs.curl pkgs.jq ];
+      path = [ config.systemd.package pkgs.curl pkgs.jq pkgs.gawk ];
       # Serving stops only after 30 s of misses, outlasting blips and adoption
       script = ''
-        misses=0 streaming= since=0
+        # by /proc/locks: taking the lock, even briefly, can make a switch give up
+        switching() {
+          local inode
+          inode=$(stat -c %i /run/nixos/switch-to-configuration.lock 2>/dev/null) || return 1
+          awk -v inode="$inode" '$2 == "FLOCK" { n = split($6, id, ":"); if (id[n] == inode) held = 1 } END { exit !held }' /proc/locks
+        }
+        misses=0 streaming= since=0 fresh=1
         while :; do
+          # Leave a switch's units to it, but for a first pass, which the trackers it starts wait on
+          if [ -z "$fresh" ] && switching; then sleep 1; continue; fi
           cluster=$(curl -sf --max-time 3 ${patroni-api}/cluster) || cluster='{"members": []}'
           primary=$(jq -r '.members[] | select(.role == "leader") | .name' <<<"$cluster")
           # The leader serves if preferred, else the most preferred member still running
@@ -211,6 +219,7 @@ in {
             fi
           ''}
           systemd-notify --ready
+          fresh=
           sleep 5
         done
       '';
