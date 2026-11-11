@@ -22,7 +22,7 @@ let
     # Every node holds a copy
     replication-factor = length (attrNames capacity-bytes);
   };
-  clusters = {
+  clusters = lib.filterAttrs (_: cluster: cluster.capacity-bytes != { }) {
     primary = cluster-of storage.primary // {
       head-host = storage.heads.primary;
       db-engine = "sqlite";
@@ -140,7 +140,7 @@ in {
         else "http://${c.head-host}.internal:${toString c.ports.s3}";
     }) clusters;
     description = ''
-      The mail buckets by cluster (primary, overflow), each with its quota,
+      The mail buckets by cluster (primary, and overflow if any), each with its quota,
       region, client key and `endpoint host`, the S3 URL to reach it by
       from that host.
     '';

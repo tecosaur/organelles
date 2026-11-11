@@ -1,7 +1,8 @@
 { config, lib, pkgs, ... }:
 
-# The S3 gateway beside each Stalwart; gateways on several hosts share locks (Postgres) and
-# heat (Valkey).
+# The S3 gateway beside each Stalwart, where there is an overflow cluster to spill to;
+# gateways on several hosts share locks (Postgres) and heat (Valkey). Without one,
+# Stalwart is the primary Garage's client itself.
 
 let
   inherit (config.site) databases ports;
@@ -16,15 +17,24 @@ let
   store-timeouts = { connect-seconds = 10; stall-seconds = 30; };
   # The slowest link a blob may cross
   slowest-link-bytes-per-second = 2000000;
-  gateway = {
+  spills = config.site.mail.storage.overflow != { };
+  # Seconds for the largest PUT to cross the slowest link so many times, waiting out each store's timeouts
+  crossing-seconds = times: (times * max-object-bytes + slowest-link-bytes-per-second - 1) / slowest-link-bytes-per-second
+    + times * (store-timeouts.connect-seconds + store-timeouts.stall-seconds);
+  blob-store = if spills then {
     endpoint = "http://127.0.0.1:${toString mail-ports.s3-gateway.port}";
     bucket = "mail";
     inherit (garage.primary) region;
     access-key-id = lib.removeSuffix "\n" (builtins.readFile ../../secrets/keys/s3-overflow-client.id);
+    secret = config.site.apps.mail.secrets.s3-overflow-client;
     inherit max-object-bytes;
-    # The largest PUT crosses the slowest link twice, and may wait out both stores' timeouts
-    timeout-seconds = (2 * max-object-bytes + slowest-link-bytes-per-second - 1) / slowest-link-bytes-per-second
-      + 2 * (store-timeouts.connect-seconds + store-timeouts.stall-seconds);
+    # it may try the primary, then spill to the overflow
+    timeout-seconds = crossing-seconds 2;
+  } else {
+    endpoint = garage.primary.endpoint this-host;
+    inherit (garage.primary) bucket region access-key-id secret;
+    inherit max-object-bytes;
+    timeout-seconds = crossing-seconds 1;
   };
   # The volume's budget holds a full overflow replica, the whole cache and the reserve
   caches = lib.mapAttrs (_: target-bytes: {
@@ -53,10 +63,10 @@ let
     stall_timeout_seconds = store-timeouts.stall-seconds;
   };
   settings = {
-    listen = lib.removePrefix "http://" gateway.endpoint;
+    listen = lib.removePrefix "http://" blob-store.endpoint;
     status_listen = status-listen;
-    inherit (gateway) bucket region;
-    access_key_id = gateway.access-key-id;
+    inherit (blob-store) bucket region;
+    access_key_id = blob-store.access-key-id;
     secret_access_key_file = secrets.client.credential-name;
     max_object_bytes = max-object-bytes;
     primary = store "primary";
@@ -101,18 +111,18 @@ let
     s3-overflow -config $out check
   '';
 in {
-  options.site.mail.gateway = lib.mkOption {
+  options.site.mail.blob-store = lib.mkOption {
     type = lib.types.attrsOf lib.types.raw;
     readOnly = true;
-    default = gateway;
+    default = blob-store;
     description = ''
       The S3 bucket Stalwart stores blobs in, on every host that may lead:
-      its endpoint, region, client key, `max-object-bytes`, the largest blob
-      it takes, and `timeout-seconds`, the least client timeout that lets
-      the largest blob spill over the slowest link.
+      its endpoint, region, client key and `secret`, `max-object-bytes`, the
+      largest blob it takes, and `timeout-seconds`, the least client timeout
+      that lets the largest blob cross the slowest link.
     '';
   };
-  config = lib.mkIf databases.may-serve {
+  config = lib.mkIf (databases.may-serve && spills) {
     users.users.${user} = {
       isSystemUser = true;
       group = user;

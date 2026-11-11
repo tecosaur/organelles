@@ -5,6 +5,9 @@ let
   # Lowercase and quote-free, so values drop straight into Stalwart's and Authelia's expressions
   login = types.strMatching "[a-z0-9][a-z0-9_-]*";
   capacities = description: mkOption { type = types.attrsOf types.ints.positive; inherit description; };
+  # Blobs spill to an overflow cluster through a gateway, which is then the primary's client in Stalwart's stead
+  spills = config.site.mail.storage.overflow != { };
+  blob-client = if spills then "s3-overflow" else "stalwart";
   domain.options = {
     users = mkOption {
       type = types.listOf login;
@@ -84,7 +87,7 @@ in {
         unit = "garage";
         hosts = [ heads.${cluster} ];
         exposure = "mesh";
-        clients = setup cluster // { s3-overflow = config.site.apps.mail.hosts; };
+        clients = setup cluster // { ${blob-client} = config.site.apps.mail.hosts; };
       };
       rpc = cluster: port: {
         inherit port;
@@ -107,10 +110,11 @@ in {
             (lib.filterAttrs (_: app: app.mail != null && app.mail.sender != null) config.site.apps));
       };
       stalwart-recovery.port = 8461;
-      s3-gateway = { port = 3920; unit = "s3-overflow"; clients = [ "stalwart" ]; };
-      s3-gateway-status = { port = 3921; unit = "s3-overflow"; clients = [ "gatus-aggregator-report" ]; };
       garage-primary-s3 = s3 "primary" 3900;
       garage-primary-rpc = rpc "primary" 3901;
+    } // lib.optionalAttrs spills {
+      s3-gateway = { port = 3920; unit = "s3-overflow"; clients = [ "stalwart" ]; };
+      s3-gateway-status = { port = 3921; unit = "s3-overflow"; clients = [ "gatus-aggregator-report" ]; };
       garage-overflow-s3 = s3 "overflow" 3910;
       garage-overflow-rpc = rpc "overflow" 3911;
     };
@@ -160,22 +164,23 @@ in {
     # Stalwart and the gateway run where the primary may
     secrets = let
       stalwart.stalwart = config.site.databases.hosts;
-      gateway.s3-overflow = config.site.databases.hosts;
+      blobs.${blob-client} = config.site.databases.hosts;
     in lib.mapAttrs (name: secret: secret // { file-name = name; }) ({
       bulwark-session = { kind = "key"; generate = "rand"; units = [ "bulwark" ]; };
-      s3-overflow-client = { kind = "key"; generate = "s3-key"; units = stalwart // gateway; };
       meilisearch-stalwart = { kind = "key"; generate = "meilisearch"; units = stalwart; };
+    } // lib.optionalAttrs spills {
+      s3-overflow-client = { kind = "key"; generate = "s3-key"; units = stalwart // blobs; };
     } // lib.optionalAttrs (config.site.mail.relay != null) {
       stalwart-relay = { kind = "credential"; description = "Stalwart's password at its relay, ${config.site.mail.relay.host}"; units = stalwart; };
     } // (let
       inherit (config.site.mail) addressing storage;
-      clusters = { inherit (storage) primary overflow; };
+      clusters = lib.filterAttrs (_: capacity: capacity != { }) { inherit (storage) primary overflow; };
       meshed = lib.filterAttrs (_: capacity: lib.length (lib.attrNames capacity) > 1) clusters;
     in lib.listToAttrs (
       map (domain: lib.nameValuePair "dkim-${domain.name}" { kind = "key"; generate = "dkim"; units = stalwart; })
         (lib.filter (domain: domain.signs) addressing.domains)
       ++ lib.mapAttrsToList (cluster: _: lib.nameValuePair "garage-mail-${cluster}" {
-        kind = "key"; generate = "s3-key"; units = { garage-mail-setup = [ storage.heads.${cluster} ]; } // gateway;
+        kind = "key"; generate = "s3-key"; units = { garage-mail-setup = [ storage.heads.${cluster} ]; } // blobs;
       }) clusters
       # Garage refuses a secret its owner alone cannot read, so not systemd's 0440 credential copy
       ++ lib.mapAttrsToList (cluster: capacity: lib.nameValuePair "garage-${cluster}-rpc" {
@@ -308,10 +313,15 @@ in {
     };
     storage = {
       primary = capacities "The primary Garage's hosts, by the bytes each offers. Each holds every blob.";
-      overflow = capacities ''
-        The overflow Garage's hosts, by the bytes each offers, holding what the
-        primary cannot take while it is down. Each holds every such blob.
-      '';
+      overflow = mkOption {
+        type = types.attrsOf types.ints.positive;
+        default = { };
+        description = ''
+          The overflow Garage's hosts, by the bytes each offers, holding what the
+          primary cannot take while it is down. Each holds every such blob. With
+          none, Stalwart writes to the primary directly and waits out its outages.
+        '';
+      };
       overflow-quota-bytes = mkOption {
         type = types.ints.positive;
         description = "The most the overflow bucket holds";
@@ -321,7 +331,7 @@ in {
         readOnly = true;
         default = lib.mapAttrs (_: capacity-bytes:
           lib.findFirst (host: capacity-bytes ? ${host}) (lib.head (lib.attrNames capacity-bytes)) config.site.databases.hosts)
-          { inherit (config.site.mail.storage) primary overflow; };
+          (lib.filterAttrs (_: capacity: capacity != { }) { inherit (config.site.mail.storage) primary overflow; });
         description = "Each cluster's head, which serves its S3 to the mesh and applies layouts: the member likeliest to run a gateway";
       };
       cache-bytes = mkOption {
@@ -336,16 +346,16 @@ in {
       { postgres.stalwart.units.stalwart = hosts; }
       # Stalwarts on several hosts share their in-memory state, and their gateways locks and heat
       (lib.mkIf config.site.databases.replicated {
+        valkey.stalwart = {
+          units.stalwart = hosts;
+          acl = "~* &stwt.agora +@all -@dangerous +eval +evalsha +scan +info +role";
+        };
+      })
+      (lib.mkIf (config.site.databases.replicated && spills) {
         postgres.s3-overflow.units.s3-overflow = hosts;
-        valkey = {
-          stalwart = {
-            units.stalwart = hosts;
-            acl = "~* &stwt.agora +@all -@dangerous +eval +evalsha +scan +info +role";
-          };
-          s3-overflow = {
-            units.s3-overflow = hosts;
-            acl = "~s3o:* resetchannels +@read +@write +@scripting +@connection -@dangerous +time +wait +role";
-          };
+        valkey.s3-overflow = {
+          units.s3-overflow = hosts;
+          acl = "~s3o:* resetchannels +@read +@write +@scripting +@connection -@dangerous +time +wait +role";
         };
       })
     ];

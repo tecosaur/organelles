@@ -6,7 +6,7 @@
 let
   app = config.site.apps.mail;
   inherit (config.site) databases domain ports;
-  inherit (config.site.mail) gateway oidc relay;
+  inherit (config.site.mail) blob-store oidc relay;
   this-host = config.site.server.host;
   package = pkgs.callPackage ./packages/stalwart.nix { };
   cli = pkgs.stalwart-cli;
@@ -61,11 +61,11 @@ let
     coordinator."@type" = if databases.replicated then "Default" else "Disabled";
     blob-store = {
       "@type" = "S3";
-      inherit (gateway) bucket;
-      region = { "@type" = "Custom"; url = gateway.endpoint; inherit (gateway) region; };
-      accessKeyId = { "@type" = "Value"; value = gateway.access-key-id; };
-      secretKey = file app.secrets.s3-overflow-client;
-      timeout = gateway.timeout-seconds * 1000;
+      inherit (blob-store) bucket;
+      region = { "@type" = "Custom"; url = blob-store.endpoint; inherit (blob-store) region; };
+      accessKeyId = { "@type" = "Value"; value = blob-store.access-key-id; };
+      secretKey = file blob-store.secret;
+      timeout = blob-store.timeout-seconds * 1000;
     };
     search-store = {
       "@type" = "Meilisearch";
@@ -145,8 +145,8 @@ in {
   } (lib.mkIf databases.may-serve {
     assertions = [
       {
-        assertion = max-message-bytes <= gateway.max-object-bytes;
-        message = "mail: Stalwart takes messages of ${toString max-message-bytes} bytes, more than the gateway's ${toString gateway.max-object-bytes}";
+        assertion = max-message-bytes <= blob-store.max-object-bytes;
+        message = "mail: Stalwart takes messages of ${toString max-message-bytes} bytes, more than its blob store's ${toString blob-store.max-object-bytes}";
       }
       {
         assertion = config.site.mail.domains ? ${domain};
