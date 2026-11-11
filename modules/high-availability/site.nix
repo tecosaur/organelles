@@ -60,19 +60,12 @@ in {
     primary-proxy = lib.mkOption {
       type = lib.types.functionTo lib.types.lines;
       readOnly = true;
-      default = port: ''
-        reverse_proxy ${toString (map (host: "${host}.internal:${toString port}") ha.preference)} {
-          lb_policy first
-          health_uri /serving
-          health_port ${toString config.site.ports.ha-serving.port}
-          health_interval 2s
-          lb_try_duration 15s
-        }
-      '';
+      default = ports: config.site.proxy-to
+        (lib.concatMap (host: map (port: "${host}.internal:${toString port}") (lib.toList ports)) ha.preference);
       description = ''
-        A Caddy directive proxying to a port on whichever preferred member
-        serves: for an app that runs beside the primary alone, reachable
-        through every host.
+        A Caddy directive proxying to ports, tried in turn, on whichever
+        preferred member serves: for an app that runs beside the primary
+        alone, reachable through every host. The others refuse it.
       '';
     };
   };
@@ -88,8 +81,6 @@ in {
     etcd-peer = mesh 2380 "etcd" { etcd = voters; };
     etcd-metrics = local 2381 "etcd" [ "gatus-aggregator-report" ];
     patroni = mesh 8008 "patroni" { patroni = members; postgresql-ha-role = members; };
-    # /serving answers 200 only on the serving member, for Caddy's health checks
-    ha-serving = mesh 8009 "caddy" { caddy = hosts; } // { hosts = preference; };
     ha-valkey = mesh 6380 "valkey-ha" valkey-units;
     ha-sentinel = mesh 26379 "valkey-ha-sentinel" config.site.ports.ha-valkey.clients;
   };

@@ -21,8 +21,6 @@ in {
             lb_try_duration 10s
             fail_duration 30s
             max_fails 1
-            health_interval 10s
-            health_timeout 3s
           }
         }
       }

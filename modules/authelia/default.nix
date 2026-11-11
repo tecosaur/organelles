@@ -172,10 +172,28 @@ in {
   };
   users.groups.${authelia-user} = {};
 
-  # only the API needs the primary; the page is the same from any instance
+  # Only the API needs the primary, the page being the same from any instance: its port listens on
+  # the serving host alone, so the others refuse it and Caddy passes them over
+  services.ha.postgres.follow-primary-sockets = lib.mkIf config.site.ha.may-serve [ "authelia-api" ];
+  systemd.sockets.authelia-api = lib.mkIf config.site.ha.may-serve {
+    description = "Authelia's API, beside the primary";
+    listenStreams = [ (toString authelia.ports.api.port) ];
+  };
+  systemd.services.authelia-api = lib.mkIf config.site.ha.may-serve {
+    description = "Authelia's API, relayed beside the primary";
+    requires = [ "authelia-api.socket" ];
+    after = [ "authelia-api.socket" "authelia-main.service" ];
+    # it holds the listener too, so it must close with the socket
+    partOf = [ "authelia-api.socket" ];
+    sandboxed = true;
+    serviceConfig = {
+      ExecStart = "${config.systemd.package}/lib/systemd/systemd-socket-proxyd 127.0.0.1:${toString authelia-port}";
+      DynamicUser = true;
+    };
+  };
   services.caddy.virtualHosts.${authelia.domain}.extraConfig = ''
     handle /api/* {
-      ${config.site.ha.primary-proxy authelia-port}
+      ${config.site.ha.primary-proxy authelia.ports.api.port}
     }
   '';
 }

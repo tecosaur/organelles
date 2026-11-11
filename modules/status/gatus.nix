@@ -103,16 +103,7 @@ in {
       # without Gatus reloading, else from Gatus itself, without one
       @config path /api/v1/config
       handle @config {
-          reverse_proxy ${toString (lib.concatMap (host: [
-            "${host}.internal:${toString status.announcement-port}"
-            "${host}.internal:${toString app.port}"
-          ]) config.site.ha.preference)} {
-              lb_policy first
-              health_uri /serving
-              health_port ${toString config.site.ports.ha-serving.port}
-              health_interval 2s
-              lb_try_duration 5s
-          }
+          ${config.site.ha.primary-proxy [ status.announcement-port app.port ]}
       }
       handle_path /brand/* {
           root * ${config.site.assets}/site-root

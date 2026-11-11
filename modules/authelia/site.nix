@@ -13,6 +13,9 @@
     usesStateDir = false;
     subdomain = "auth";
     port = 9091;
+    # The API, beside the primary: a relay to the local instance, run where the data is served
+    ports.api = { port = 9093; unit = "authelia-api"; exposure = "mesh"; hosts = config.site.ha.preference; clients.caddy = config.site.hosts; };
+    clients.authelia-api = config.site.ha.preference;
     secrets = {
       jwt = { kind = "key"; generate = "rand"; };
       oidc-hmac = { kind = "key"; generate = "rand"; };

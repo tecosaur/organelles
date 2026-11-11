@@ -33,7 +33,6 @@ let
   serves = pkgs.writeShellScript "postgresql-ha-serves" ''
     grep -qx 'HA_SERVING=${this-host}' ${primary-env}
   '';
-  serving-flag = "/run/postgresql-ha-role/serving";
   # The members a leader here hands over to, once one has streamed for failback-minutes
   ahead = lib.take (lib.lists.findFirstIndex (h: h == this-host) (lib.length preference) preference) preference;
   trackers = lib.unique (cfg.track-primary ++ cfg.follow-primary);
@@ -75,6 +74,12 @@ in {
       default = [ ];
       example = [ "lldap" ];
       description = "Services run only on the serving member, once its databases exist, reaching the primary as track-primary's do";
+    };
+    follow-primary-sockets = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ ];
+      example = [ "authelia-api" ];
+      description = "Sockets listening on the serving member alone, for services reached beside the primary";
     };
     track-primary = lib.mkOption {
       type = lib.types.listOf lib.types.str;
@@ -241,7 +246,6 @@ in {
               echo "$env" > ${primary-env}
               ${lib.optionalString (trackers != [ ]) "systemctl try-restart --no-block ${toString trackers}"}
             fi
-            if [ "$serving" = ${this-host} ]; then touch ${serving-flag}; else rm -f ${serving-flag}; fi
           fi
           if [ -n "$primary" ] && [ "$serving" = ${this-host} ]; then
             misses=0
@@ -278,21 +282,6 @@ in {
       };
     };
 
-    # Caddy's primary-proxy health check, on members that may serve
-    services.caddy.virtualHosts = lib.mkIf (lib.elem this-host preference) {
-      # Any Host, since a health check names the upstream; reachable on the mesh alone
-      "http://:${toString ports.ha-serving.port}" = {
-        listenAddresses = [ config.site.mesh.addresses.${this-host} ];
-        # every host's Caddy asks every two seconds
-        logFormat = null;
-        extraConfig = ''
-        root * ${dirOf serving-flag}
-        @serving file /${baseNameOf serving-flag}
-        respond @serving 200
-        respond 503
-      '';
-      };
-    };
     services.oidentd.enable = true;
     systemd.services.oidentd = {
       script = lib.mkForce "${pkgs.oidentd}/sbin/oidentd -u oidentd -g nogroup -a ${config.site.mesh.addresses.${this-host}}";
@@ -325,6 +314,10 @@ in {
       message = "${app.name} runs beside the primary, so must be on every host in site.ha.preference (${toString preference}), not only ${toString app.hosts}";
     }) beside-primary;
   }) {
+    systemd.sockets = lib.genAttrs cfg.follow-primary-sockets (_: {
+      wantedBy = lib.mkForce [ "postgresql-ha-serving.target" ];
+      partOf = [ "postgresql-ha-serving.target" ];
+    });
     systemd.services = lib.genAttrs cfg.follow-primary (_: {
       # restarted after the reload: stopped before it, the role watcher
       # would start the old unit again before the switch could
