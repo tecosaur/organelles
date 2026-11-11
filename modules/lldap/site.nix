@@ -20,5 +20,6 @@
       };
     };
   };
-  config.site.ports.ha-postgres.clients.lldap = config.site.apps.lldap.hosts;
+  # beside the primary: a search is eight queries, but one LDAP request
+  config.site.databases.postgres.lldap.units.lldap = config.site.apps.lldap.hosts;
 }

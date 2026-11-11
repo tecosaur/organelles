@@ -7,7 +7,7 @@ let
   mail = config.site.apps.mail;
   this-host = config.site.server.host;
   servers = lib.filter (host: lib.elem host mail.hosts)
-    (lib.unique ([ this-host ] ++ config.site.ha.preference ++ mail.hosts));
+    (lib.unique ([ this-host ] ++ config.site.databases.hosts ++ mail.hosts));
 in {
   services.caddy.globalConfig = ''
     layer4 {

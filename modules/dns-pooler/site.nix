@@ -2,7 +2,7 @@
 
 let
   inherit (config.site) hosts;
-  inherit (config.site.ha) preference;
+  preference = config.site.databases.hosts;
   inherit (site-lib) mesh local;
 in {
   config.site.reach.probes = [ "dns-pooler" ];

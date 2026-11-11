@@ -206,7 +206,7 @@ in {
       inherit domain;
       url = "https://${domain}";
       # every host's Caddy proxies to each instance
-      exposure = lib.mkOptionDefault (if app.followsPrimary || lib.length app.hosts > 1 then "mesh" else "local");
+      exposure = lib.mkOptionDefault (if lib.length app.hosts > 1 then "mesh" else "local");
     }) options.site.apps;
     site.ports.wireguard = site-lib.public 51820 "systemd-networkd" // { protocols = [ "udp" ]; };
     # each host's mesh key, for it alone, readable by networkd as systemd.netdev(5) asks

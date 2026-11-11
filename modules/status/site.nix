@@ -2,17 +2,18 @@
 
 let
   inherit (config.site) hosts;
-  inherit (config.site.ha) preference;
+  preference = config.site.databases.hosts;
   inherit (site-lib) mesh;
 in {
   config.site.reach.probes = [ "gatus-aggregator-report" ];
+  config.site.databases.postgres.gatus.units.gatus = config.site.apps.gatus.hosts;
   options.site.apps.gatus = site-lib.mkAppOption {
     health = { path = "/health"; body = ''"status":"UP"''; };
     name = "Gatus";
     homepage = "https://gatus.io";
     description = "status page";
     followsPrimary = true;
-    # its history lives in the replicated Postgres instance
+    # its history lives in the shared Postgres
     usesStateDir = false;
     subdomain = "status";
     port = 3001;
@@ -29,7 +30,6 @@ in {
     };
   };
   config.site.ports = {
-    ha-postgres.clients.gatus = config.site.apps.gatus.hosts;
     status-conditions = mesh 9435 "gatus-aggregator-report" { gatus-aggregator-report = hosts; gatus-aggregator-aggregate = preference; };
     status-announcement = mesh 9436 "gatus-aggregator-aggregate" { caddy = preference; };
   };

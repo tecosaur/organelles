@@ -1,12 +1,15 @@
 { config, lib, pkgs, ... }:
 
-# A replicated Postgres beside each host's local cluster
+# The shared Postgres replicated, by Patroni, beside each host's local cluster
 
 let
-  cfg = config.services.ha.postgres;
-  inherit (config.site.ha) primary members preference voters;
+  cfg = config.services.databases;
+  inherit (config.site.ha) members preference voters;
   inherit (config.site) ports;
   this-host = config.site.server.host;
+  inherit (cfg.postgres) probe-roles;
+  inherit (config.site.databases.servers) primary-env;
+  inherit (config.site.databases.servers.postgres) socket-dir;
   package = pkgs.postgresql_18;
   data-dir = "/var/lib/postgresql-ha/${package.psqlSchema}";
   address = host: "[${config.site.mesh.addresses.${host}}]";
@@ -19,91 +22,30 @@ let
   '' + lib.concatMapStrings (role: ''
     SELECT 'CREATE ROLE "${role}" LOGIN'
       WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '${role}') \gexec
-  '') cfg.probe-roles
+  '') probe-roles
   # a durable commit waits for a standby's write, not its disk sync, which on the nearest is slow
-  + lib.concatMapStrings (db: ''
+  + lib.concatStrings (lib.mapAttrsToList (db: { local-commits, ... }: ''
     SELECT 'CREATE ROLE "${db}" LOGIN'
       WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '${db}') \gexec
     SELECT 'CREATE DATABASE "${db}" OWNER "${db}"'
       WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '${db}') \gexec
     REVOKE CONNECT, TEMPORARY ON DATABASE "${db}" FROM PUBLIC;
-    ALTER ROLE "${db}" SET synchronous_commit = ${if lib.elem db cfg.local-commits then "local" else "remote_write"};
-  '') cfg.databases);
+    ALTER ROLE "${db}" SET synchronous_commit = ${if local-commits then "local" else "remote_write"};
+  '') config.site.databases.postgres));
   patroni-api = "http://${address this-host}:${toString ports.patroni.port}";
   serves = pkgs.writeShellScript "postgresql-ha-serves" ''
-    grep -qx 'HA_SERVING=${this-host}' ${primary-env}
+    grep -qx 'DB_SERVING=${this-host}' ${primary-env}
   '';
   # The members a leader here hands over to, once one has streamed for failback-minutes
   ahead = lib.take (lib.lists.findFirstIndex (h: h == this-host) (lib.length preference) preference) preference;
   trackers = lib.unique (cfg.track-primary ++ cfg.follow-primary);
-  primary-env = cfg.primary-env;
 in {
-  options.services.ha.postgres = {
-    primary-env = lib.mkOption {
-      type = lib.types.str;
-      default = "/run/postgresql-ha-role/primary.env";
-      readOnly = true;
-      description = ''
-        Environment file kept by each member's watcher: the leading host as
-        HA_PRIMARY, the serving host as HA_SERVING, and its Postgres as
-        PGHOST and PGPORT.
-      '';
-    };
-    socket-dir = lib.mkOption {
-      type = lib.types.str;
-      default = "/run/postgresql-ha";
-      readOnly = true;
-      description = "Directory of the replicated Postgres's socket, through which services connect by peer authentication";
-    };
-    databases = lib.mkOption {
-      type = lib.types.listOf lib.types.str;
-      default = [ ];
-      description = ''
-        Databases, each owned by a role of its name, so the service using it
-        runs as a system user of that name.
-      '';
-    };
-    probe-roles = lib.mkOption {
-      type = lib.types.listOf lib.types.str;
-      default = [ ];
-      example = [ "gatus-aggregator-report" ];
-      description = "Unprivileged login roles for the system users whose probes connect by peer authentication";
-    };
-    follow-primary = lib.mkOption {
-      type = lib.types.listOf lib.types.str;
-      default = [ ];
-      example = [ "lldap" ];
-      description = "Services run only on the serving member, once its databases exist, reaching the primary as track-primary's do";
-    };
-    follow-primary-sockets = lib.mkOption {
-      type = lib.types.listOf lib.types.str;
-      default = [ ];
-      example = [ "authelia-api" ];
-      description = "Sockets listening on the serving member alone, for services reached beside the primary";
-    };
-    track-primary = lib.mkOption {
-      type = lib.types.listOf lib.types.str;
-      default = [ ];
-      example = [ "authelia-main" ];
-      description = "Services given primary-env, so libpq's PGHOST and PGPORT reach the primary, and restarted when it moves";
-    };
-    local-commits = lib.mkOption {
-      type = lib.types.listOf (lib.types.enum cfg.databases);
-      default = [ ];
-      description = ''
-        Databases whose commits return without waiting for a standby, for
-        writes cheap to lose in a failover but costly to wait on: the nearest
-        standby may be a continent away.
-      '';
-    };
-  };
-
-  config = lib.mkIf (primary != null && lib.elem this-host members) (lib.mkMerge [ {
+  config = lib.mkIf (config.site.databases.replicated && lib.elem this-host members) (lib.mkMerge [ {
     site.status.units = [ {
       id = "postgresql-ha";
       name = "Replicated Postgres";
       unit = "patroni.service";
-      command = [ "${package}/bin/pg_isready" "--quiet" "--host=${cfg.socket-dir}" "--port=${toString ports.ha-postgres.port}" "--dbname=postgres" ];
+      command = [ "${package}/bin/pg_isready" "--quiet" "--host=${socket-dir}" "--port=${toString ports.postgres.port}" "--dbname=postgres" ];
     } ];
 
     environment.systemPackages = [ (lib.hiPrio (pkgs.writeShellScriptBin "patronictl" ''
@@ -140,7 +82,7 @@ in {
       nodeIp = address this-host;
       postgresqlPackage = package;
       postgresqlDataDir = data-dir;
-      postgresqlPort = ports.ha-postgres.port;
+      postgresqlPort = ports.postgres.port;
       restApiPort = ports.patroni.port;
       softwareWatchdog = true;
       settings = {
@@ -167,7 +109,7 @@ in {
           };
         };
         postgresql = {
-          listen = lib.mkForce "*:${toString ports.ha-postgres.port}";
+          listen = lib.mkForce "*:${toString ports.postgres.port}";
           use_unix_socket = true;
           remove_data_directory_on_diverged_timelines = true;
           remove_data_directory_on_rewind_failure = true;
@@ -181,7 +123,7 @@ in {
           pg_hba = [
             "local all postgres peer"
             "local sameuser all peer"
-          ] ++ map (role: "local postgres \"${role}\" peer") cfg.probe-roles ++ [
+          ] ++ map (role: "local postgres \"${role}\" peer") probe-roles ++ [
             "host replication replicator ::1/128 scram-sha-256"
             "host replication replicator 127.0.0.1/32 scram-sha-256"
             "host replication replicator ${config.site.mesh.subnet}/64 scram-sha-256"
@@ -190,7 +132,7 @@ in {
             "host all postgres all reject"
           ] ++ map (host: "host sameuser all ${config.site.mesh.addresses.${host}}/128 ident") preference;
           parameters = {
-            unix_socket_directories = cfg.socket-dir;
+            unix_socket_directories = socket-dir;
             shared_buffers = "32MB";
           };
         };
@@ -241,7 +183,7 @@ in {
             if ($leader | IN($preference[])) then $leader
             else first($preference[] as $p | .members[] | select(.name == $p and (.state == "streaming" or .state == "running")) | .name) // "" end' <<<"$cluster")
           if [ -n "$primary" ]; then
-            env=$(printf 'HA_PRIMARY=%s\nHA_SERVING=%s\nPGHOST=%s.internal\nPGPORT=%s' "$primary" "$serving" "$primary" ${toString ports.ha-postgres.port})
+            env=$(printf 'DB_PRIMARY=%s\nDB_SERVING=%s\nPGHOST=%s.internal\nPGPORT=%s' "$primary" "$serving" "$primary" ${toString ports.postgres.port})
             if [ "$env" != "$(cat ${primary-env} 2>/dev/null)" ]; then
               echo "$env" > ${primary-env}
               ${lib.optionalString (trackers != [ ]) "systemctl try-restart --no-block ${toString trackers}"}
@@ -282,11 +224,6 @@ in {
       };
     };
 
-    services.oidentd.enable = true;
-    systemd.services.oidentd = {
-      script = lib.mkForce "${pkgs.oidentd}/sbin/oidentd -u oidentd -g nogroup -a ${config.site.mesh.addresses.${this-host}}";
-    };
-
     systemd.services.postgresql-ha-setup = lib.mkIf (lib.elem this-host preference) {
       description = "Roles and databases of the replicated PostgreSQL";
       wantedBy = [ "multi-user.target" ];
@@ -303,17 +240,7 @@ in {
         RestartSec = "10s";
       };
     };
-  } (let
-    beside-primary = lib.filter (app: app.followsPrimary && app.hosts != [ ]) (lib.attrValues config.site.apps);
-    here = lib.filter (app: lib.elem this-host app.hosts) beside-primary;
-  in {
-    # site.apps' followsPrimary, every Caddy proxying to wherever it runs
-    services.ha.postgres.follow-primary = map (app: app.service) here;
-    assertions = map (app: {
-      assertion = lib.all (host: lib.elem host app.hosts) preference;
-      message = "${app.name} runs beside the primary, so must be on every host in site.ha.preference (${toString preference}), not only ${toString app.hosts}";
-    }) beside-primary;
-  }) {
+  } {
     systemd.sockets = lib.genAttrs cfg.follow-primary-sockets (_: {
       wantedBy = lib.mkForce [ "postgresql-ha-serving.target" ];
       partOf = [ "postgresql-ha-serving.target" ];
@@ -332,7 +259,6 @@ in {
     systemd.services = lib.genAttrs trackers (_: {
       wants = [ "postgresql-ha-role.service" "oidentd.service" "postgresql-ha-setup.service" ];
       after = [ "postgresql-ha-role.service" "oidentd.service" "postgresql-ha-setup.service" ];
-      serviceConfig.EnvironmentFile = "-${primary-env}";
     });
   } ]);
 }

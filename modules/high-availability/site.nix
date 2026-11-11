@@ -5,7 +5,6 @@ let
   ha = config.site.ha;
   inherit (ha) preference members voters;
   inherit (site-lib) mesh local;
-  valkey-units = { valkey-ha = members; valkey-ha-sentinel = voters; valkey-ha-follow = preference; };
 in {
   options.site.ha = {
     voters = lib.mkOption {
@@ -33,21 +32,9 @@ in {
         The members that serve, most preferred first: each carries every app
         that runs beside the primary, and leads in this order. A member not
         listed is promoted only when none of these can be, to keep what its
-        acknowledgements made durable, and hands back by failback. Empty runs
-        no replicated instance anywhere.
+        acknowledgements made durable, and hands back by failback. Empty
+        keeps the shared databases unreplicated, on site.databases.host.
       '';
-    };
-    primary = lib.mkOption {
-      type = lib.types.nullOr lib.types.str;
-      readOnly = true;
-      default = if ha.preference == [ ] then null else lib.head ha.preference;
-      description = "The most preferred member, where the cluster is first led from";
-    };
-    may-serve = lib.mkOption {
-      type = lib.types.bool;
-      readOnly = true;
-      default = lib.elem config.site.server.host ha.preference;
-      description = "Whether this host may serve, and so must carry every app that runs beside the primary";
     };
     failback-minutes = lib.mkOption {
       type = lib.types.ints.positive;
@@ -57,37 +44,36 @@ in {
         before the leader hands over to it.
       '';
     };
-    primary-proxy = lib.mkOption {
-      type = lib.types.functionTo lib.types.lines;
-      readOnly = true;
-      default = ports: config.site.proxy-to
-        (lib.concatMap (host: map (port: "${host}.internal:${toString port}") (lib.toList ports)) ha.preference);
-      description = ''
-        A Caddy directive proxying to ports, tried in turn, on whichever
-        preferred member serves: for an app that runs beside the primary
-        alone, reachable through every host. The others refuse it.
-      '';
-    };
   };
 
-  config.site.ports = {
-    ha-postgres = mesh 5433 "patroni" {
-      patroni = members;
-      postgresql-ha-setup = preference;
+  config = lib.mkIf config.site.databases.replicated {
+    assertions = [ {
+      assertion = lib.length preference > 1;
+      message = "site.ha.preference names only ${toString preference}; replication needs two hosts to serve, so set site.databases.host = \"${lib.head preference}\" instead";
+    } ];
+    site.databases = {
+      servers = {
+        hosts = members;
+        postgres = { unit = "patroni"; port = 5433; socket-dir = "/run/postgresql-ha"; };
+        valkey = { unit = "valkey-ha"; port = 6380; };
+        primary-env = "/run/postgresql-ha-role/primary.env";
+      };
+      valkey.default.units = { valkey-ha-sentinel = voters; valkey-ha-follow = preference; };
     };
-    # Postgres asks each client's host on 113, which it can't be told otherwise
-    ident = mesh 113 "oidentd" { patroni = members; };
-    etcd = mesh 2379 "etcd" { patroni = members; };
-    etcd-peer = mesh 2380 "etcd" { etcd = voters; };
-    etcd-metrics = local 2381 "etcd" [ "gatus-aggregator-report" ];
-    patroni = mesh 8008 "patroni" { patroni = members; postgresql-ha-role = members; };
-    ha-valkey = mesh 6380 "valkey-ha" valkey-units;
-    ha-sentinel = mesh 26379 "valkey-ha-sentinel" config.site.ports.ha-valkey.clients;
-  };
-  config.site.secrets = {
-    # root's patronictl reads it too
-    patroni-restapi = { kind = "key"; generate = "rand"; units = { patroni = members; postgresql-ha-role = members; }; };
-    postgresql-ha-replication = { kind = "key"; generate = "rand"; units = { patroni = members; postgresql-ha-setup = preference; }; };
-    valkey-ha = { kind = "key"; generate = "rand"; units = valkey-units; };
+    site.ports = {
+      postgres.clients = { patroni = members; postgresql-ha-setup = preference; };
+      etcd = mesh 2379 "etcd" { patroni = members; };
+      etcd-peer = mesh 2380 "etcd" { etcd = voters; };
+      etcd-metrics = local 2381 "etcd" [ "gatus-aggregator-report" ];
+      patroni = mesh 8008 "patroni" { patroni = members; postgresql-ha-role = members; };
+      ha-sentinel = mesh 26379 "valkey-ha-sentinel" config.site.ports.valkey.clients;
+    };
+    site.secrets = {
+      # Sentinel takes the shared password, as the default user, from every client
+      valkey-default.units = config.site.ports.valkey.clients;
+      # root's patronictl reads it too
+      patroni-restapi = { kind = "key"; generate = "rand"; units = { patroni = members; postgresql-ha-role = members; }; };
+      postgresql-ha-replication = { kind = "key"; generate = "rand"; units = { patroni = members; postgresql-ha-setup = preference; }; };
+    };
   };
 }

@@ -37,7 +37,7 @@ let
     }
   '';
 in {
-  config = lib.mkIf config.site.ha.may-serve {
+  config = lib.mkIf config.site.databases.may-serve {
     services.bulwark = {
       enable = true;
       hostname = "localhost";

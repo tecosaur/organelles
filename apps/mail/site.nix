@@ -58,7 +58,7 @@ in {
     homepage = "https://stalw.art";
     description = "mail server and web client";
     service = "stalwart";
-    # its state lives in the replicated Postgres instance and the blob store
+    # its state lives in the shared Postgres and the blob store
     usesStateDir = false;
     subdomain = "mail";
     port = 8460;
@@ -159,14 +159,12 @@ in {
     # files named for what holds them, not the app
     # Stalwart and the gateway run where the primary may
     secrets = let
-      stalwart.stalwart = config.site.ha.preference;
-      gateway.s3-overflow = config.site.ha.preference;
+      stalwart.stalwart = config.site.databases.hosts;
+      gateway.s3-overflow = config.site.databases.hosts;
     in lib.mapAttrs (name: secret: secret // { file-name = name; }) ({
       bulwark-session = { kind = "key"; generate = "rand"; units = [ "bulwark" ]; };
       s3-overflow-client = { kind = "key"; generate = "s3-key"; units = stalwart // gateway; };
       meilisearch-stalwart = { kind = "key"; generate = "meilisearch"; units = stalwart; };
-      valkey-stalwart = { kind = "key"; generate = "rand"; units = { valkey-ha = config.site.ha.members; } // stalwart; };
-      valkey-s3-overflow = { kind = "key"; generate = "rand"; units = { valkey-ha = config.site.ha.members; } // gateway; };
     } // lib.optionalAttrs (config.site.mail.relay != null) {
       stalwart-relay = { kind = "credential"; description = "Stalwart's password at its relay, ${config.site.mail.relay.host}"; units = stalwart; };
     } // (let
@@ -322,7 +320,7 @@ in {
         type = types.attrsOf types.str;
         readOnly = true;
         default = lib.mapAttrs (_: capacity-bytes:
-          lib.findFirst (host: capacity-bytes ? ${host}) (lib.head (lib.attrNames capacity-bytes)) config.site.ha.preference)
+          lib.findFirst (host: capacity-bytes ? ${host}) (lib.head (lib.attrNames capacity-bytes)) config.site.databases.hosts)
           { inherit (config.site.mail.storage) primary overflow; };
         description = "Each cluster's head, which serves its S3 to the mesh and applies layouts: the member likeliest to run a gateway";
       };
@@ -333,15 +331,25 @@ in {
       };
     };
   };
-  config.site = let hosts = config.site.ha.preference; in {
-    ports = {
-      ha-postgres.clients = { stalwart = hosts; s3-overflow = hosts; };
-      ha-valkey.clients = { stalwart = hosts; s3-overflow = hosts; };
-      meilisearch.clients.stalwart = hosts;
-    };
-    secrets = {
-      valkey-ha.units = { stalwart = hosts; s3-overflow = hosts; };
-      bunny-dns-key.units.stalwart = hosts;
-    };
+  config.site = let hosts = config.site.databases.hosts; in {
+    databases = lib.mkMerge [
+      { postgres.stalwart.units.stalwart = hosts; }
+      # Stalwarts on several hosts share their in-memory state, and their gateways locks and heat
+      (lib.mkIf config.site.databases.replicated {
+        postgres.s3-overflow.units.s3-overflow = hosts;
+        valkey = {
+          stalwart = {
+            units.stalwart = hosts;
+            acl = "~* &stwt.agora +@all -@dangerous +eval +evalsha +scan +info +role";
+          };
+          s3-overflow = {
+            units.s3-overflow = hosts;
+            acl = "~s3o:* resetchannels +@read +@write +@scripting +@connection -@dangerous +time +wait +role";
+          };
+        };
+      })
+    ];
+    ports.meilisearch.clients.stalwart = hosts;
+    secrets.bunny-dns-key.units.stalwart = hosts;
   };
 }

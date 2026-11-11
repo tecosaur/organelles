@@ -10,8 +10,10 @@ addressing:
   hostname,
   # Listener name (smtp, submissions, submission, imaps, sieve) -> public port
   public-ports,
-  # Stalwart store objects (InMemoryStore, BlobStore, SearchStore variants)
+  # Stalwart store objects (InMemoryStore, BlobStore, SearchStore variants), and the
+  # Coordinator, Disabled for a lone node
   in-memory-store,
+  coordinator,
   blob-store,
   search-store,
   # site.mail.oidc, to sign in through Authelia
@@ -198,7 +200,7 @@ let
   operations = [
     # The in-memory store first: the coordinator reuses its connection
     (update "InMemoryStore" in-memory-store)
-    (update "Coordinator" { "@type" = "Default"; })
+    (update "Coordinator" coordinator)
     (update "BlobStore" blob-store)
     (update "SearchStore" search-store)
     # Stalwart validates DNSSEC itself, and the system's stub resolver withholds the signatures it

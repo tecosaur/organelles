@@ -1,6 +1,6 @@
 { config, lib, pkgs, ... }:
 
-# Gatus runs beside the HA Postgres primary alone, wherever that is,
+# Gatus runs beside the Postgres primary alone, wherever that is,
 # keeping its history there: two instances sharing one database would
 # record every result twice. Every preferred member's Caddy proxies to it.
 # Nothing in its configuration is written by hand; every row comes from
@@ -17,10 +17,8 @@ let
     exec ${lib.getExe config.services.gatus.package}
   '';
 in {
-  config = lib.mkIf config.site.ha.may-serve {
+  config = lib.mkIf config.site.databases.may-serve {
     site.apps.gatus.enabled = true;
-
-    services.ha.postgres.databases = [ "gatus" ];
 
     services.gatus = {
       enable = true;
@@ -103,7 +101,7 @@ in {
       # without Gatus reloading, else from Gatus itself, without one
       @config path /api/v1/config
       handle @config {
-          ${config.site.ha.primary-proxy [ status.announcement-port app.port ]}
+          ${config.site.databases.primary-proxy [ status.announcement-port app.port ]}
       }
       handle_path /brand/* {
           root * ${config.site.assets}/site-root

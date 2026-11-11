@@ -27,6 +27,7 @@
         beszel-agent
         caddy
         crowdsec
+        databases
         dns-pooler
         high-availability
         mail

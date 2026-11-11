@@ -1,6 +1,6 @@
 { config, lib, pkgs, ... }:
 
-# The status page at status.<domain>: Gatus on the HA primary, fed
+# The status page at status.<domain>: Gatus on the primary, fed
 # entirely by gatus-aggregator from every host. Rows come from site.apps
 # and from each host's site.status.units, which the modules running that
 # infrastructure declare; what is declared here has no module of ours.

@@ -13,7 +13,7 @@
 
   boot.loader.systemd-boot.configurationLimit = 5; # Limit bootloader entries
 
-  # Every server an app asks of services.redis, as the shared data's own are
+  # Every server an app asks of services.redis, as the shared databases' own are
   services.redis.package = pkgs.valkey;
 
   nix = {

@@ -67,15 +67,15 @@ in {
     };
   };
 
-  # LLDAP runs only where the replicated Postgres is served
-  services.ha.postgres.track-primary = [ "syncthing-init" ];
+  # LLDAP runs only where the shared Postgres is served
+  services.databases.track-primary = [ "syncthing-init" ];
   systemd.services.syncthing-init.postStart = ''
     # left active, so the role watcher's restart once a host serves sets it
-    if [ -z "''${HA_SERVING:-}" ]; then
+    if [ -z "''${DB_SERVING:-}" ]; then
       echo "No host serves LLDAP yet; its address is set once one does"
       exit 0
     fi
-    address="$HA_SERVING.internal:${toString ldap-port}"
+    address="$DB_SERVING.internal:${toString ldap-port}"
     ${lib.getExe pkgs.jq} -n --arg address "$address" '{ $address }' |
       ${lib.getExe pkgs.curl} -sSf -H "@$RUNTIME_DIRECTORY/headers" -X PATCH -d @- \
         http://${config.services.syncthing.guiAddress}/rest/config/ldap

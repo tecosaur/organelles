@@ -3,7 +3,7 @@
 # etcd on each voter, over the mesh, so without TLS
 
 let
-  inherit (config.site.ha) voters primary;
+  inherit (config.site.ha) voters;
   inherit (config.site) ports;
   this-host = config.site.server.host;
   address = host: "[${config.site.mesh.addresses.${host}}]";
@@ -12,7 +12,7 @@ let
   local-url = "http://127.0.0.1:${toString ports.etcd.port}";
   metrics-url = "http://127.0.0.1:${toString ports.etcd-metrics.port}";
 in {
-  config = lib.mkIf (primary != null && lib.elem this-host voters) {
+  config = lib.mkIf (config.site.databases.replicated && lib.elem this-host voters) {
     services.etcd = {
       enable = true;
       name = this-host;

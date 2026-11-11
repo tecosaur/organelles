@@ -1,10 +1,10 @@
 { config, lib, pkgs, ... }:
 
-# The S3 gateway beside each Stalwart; gateways share locks (Postgres) and heat (Valkey).
+# The S3 gateway beside each Stalwart; gateways on several hosts share locks (Postgres) and
+# heat (Valkey).
 
 let
-  inherit (config.site.ha) members voters;
-  inherit (config.site) ports;
+  inherit (config.site) databases ports;
   this-host = config.site.server.host;
   package = pkgs.callPackage ./packages/s3-overflow.nix { };
   garage = config.site.mail.garage;
@@ -39,9 +39,10 @@ let
     client = config.site.apps.mail.secrets.s3-overflow-client;
     primary = garage.primary.secret;
     overflow = garage.overflow.secret;
-    valkey = config.site.apps.mail.secrets.valkey-s3-overflow;
+  } // lib.optionalAttrs databases.replicated {
+    valkey = config.site.secrets.valkey-s3-overflow;
     # Sentinel takes the shared password, as the default user
-    sentinel = config.site.secrets.valkey-ha;
+    sentinel = config.site.secrets.valkey-default;
   };
   store = name: {
     endpoint = garage.${name}.endpoint this-host;
@@ -61,22 +62,6 @@ let
     primary = store "primary";
     # Without this the bound is budget − reserve, beyond the bucket's quota
     overflow = store "overflow" // { max_bytes = garage.overflow.quota-bytes; };
-    coordination = {
-      postgres = lib.concatStringsSep " " [
-        "host=${lib.concatMapStringsSep "," (host: "${host}.internal") members}"
-        "port=${toString ports.ha-postgres.port}"
-        "dbname=${user}"
-        "user=${user}"
-        "target_session_attrs=read-write"
-      ];
-      valkey = {
-        sentinels = map (host: "${host}.internal:${toString ports.ha-sentinel.port}") voters;
-        master = "ha";
-        username = user;
-        password_file = secrets.valkey.credential-name;
-        sentinel_password_file = secrets.sentinel.credential-name;
-      };
-    };
     cache = if cache == null then { target_bytes = 0; } else {
       inherit (cache) dir;
       target_bytes = cache.target-bytes;
@@ -86,6 +71,23 @@ let
       budget_bytes = cache.budget-bytes;
       reserve_bytes = cache.reserve-bytes;
       inherit (cache) volume;
+    };
+  } // lib.optionalAttrs databases.replicated {
+    coordination = {
+      postgres = lib.concatStringsSep " " [
+        "host=${lib.concatMapStringsSep "," (host: "${host}.internal") databases.servers.hosts}"
+        "port=${toString ports.postgres.port}"
+        "dbname=${user}"
+        "user=${user}"
+        "target_session_attrs=read-write"
+      ];
+      valkey = {
+        sentinels = map (host: "${host}.internal:${toString ports.ha-sentinel.port}") config.site.ha.voters;
+        master = "ha";
+        username = user;
+        password_file = secrets.valkey.credential-name;
+        sentinel_password_file = secrets.sentinel.credential-name;
+      };
     };
   };
   # check reads every secret, so placeholders stand in for the credentials
@@ -110,13 +112,12 @@ in {
       the largest blob spill over the slowest link.
     '';
   };
-  config = lib.mkIf config.site.ha.may-serve {
+  config = lib.mkIf databases.may-serve {
     users.users.${user} = {
       isSystemUser = true;
       group = user;
     };
     users.groups.${user} = { };
-    services.ha.postgres.databases = [ user ];
     systemd.services.s3-overflow = {
       description = "S3 gateway spilling mail blobs to the overflow while the primary is down";
       wantedBy = [ "multi-user.target" ];

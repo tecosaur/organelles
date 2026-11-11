@@ -28,7 +28,7 @@ let
   # primary is watched on the preferred one
   apps = lib.sort (a: b: a.name < b.name) (map
     (app: if app.followsPrimary
-      then app // { hosts = lib.filter (host: host == config.site.ha.primary) app.hosts; }
+      then app // { hosts = lib.filter (host: host == config.site.databases.primary) app.hosts; }
       else app)
     (lib.filter
       (app: app.enabled && app.hosts != [ ] && (app.service != null || app.health != null))
@@ -39,7 +39,7 @@ let
   units = lib.concatMap (host: map (unit: unit // { inherit host; }) (config.site.status.fleet-units.${host} or [ ])) hosts;
   local-group = host: "Services on ${host}";
   # where the page's own machinery is shown: the host running Gatus
-  gatus-group = local-group config.site.ha.primary;
+  gatus-group = local-group config.site.databases.primary;
   rows =
     [ { group = gatus-group; name = "Alert aggregator"; role = "alerting"; } ]
     ++ map (host: { group = "Hosts"; name = host; role = "host"; inherit host; }) hosts
@@ -91,7 +91,7 @@ in {
       endpoints = lib.genAttrs hosts (host: "http://${host}.internal:${toString gatus.port}");
       local = "http://127.0.0.1:${toString gatus.port}";
       token_file = gatus.secrets.push.credential-name;
-    } // lib.optionalAttrs (lib.elem config.site.server.host config.site.ha.preference) {
+    } // lib.optionalAttrs config.site.databases.may-serve {
       announcements_file = "/var/lib/gatus-aggregator/announcement.json";
       config_listen = "[::]:${toString announcement-port}";
     };

@@ -5,15 +5,13 @@
 
 let
   app = config.site.apps.mail;
-  inherit (config.site) domain ports;
-  inherit (config.site.ha) voters;
+  inherit (config.site) databases domain ports;
   inherit (config.site.mail) gateway oidc relay;
   this-host = config.site.server.host;
   package = pkgs.callPackage ./packages/stalwart.nix { };
   cli = pkgs.stalwart-cli;
   user = "stalwart";
   hostname = app.domain;
-  inherit (config.services.ha.postgres) primary-env;
   log-dir = "/var/log/stalwart";
   public-ports = lib.mapAttrs (_: listener: listener.port) (lib.filterAttrs (_: listener: listener.exposure == "public") app.ports);
   # Stalwart's default
@@ -50,15 +48,17 @@ let
     inherit domain hostname public-ports dkim-selector max-message-bytes filing-script log-dir;
     mesh-address = config.site.mesh.addresses.${this-host};
     acme = { contact = "postmaster@${domain}"; bunny-key = credential config.site.secrets.bunny-dns-key; };
-    in-memory-store = {
+    # A lone Stalwart keeps it in memory, with nothing to coordinate
+    in-memory-store = if !databases.replicated then { "@type" = "Default"; } else {
       "@type" = "RedisSentinel";
-      urls = lib.genAttrs (map (host: "redis://${host}.internal:${toString ports.ha-sentinel.port}") voters) (_: true);
+      urls = lib.genAttrs (map (host: "redis://${host}.internal:${toString ports.ha-sentinel.port}") config.site.ha.voters) (_: true);
       serviceName = "ha";
       authUsername = user;
-      authSecret = file app.secrets.valkey-stalwart;
+      authSecret = file config.site.secrets.valkey-stalwart;
       # Sentinel takes the shared password, as the default user
-      sentinelSecret = file config.site.secrets.valkey-ha;
+      sentinelSecret = file config.site.secrets.valkey-default;
     };
+    coordinator."@type" = if databases.replicated then "Default" else "Disabled";
     blob-store = {
       "@type" = "S3";
       inherit (gateway) bucket;
@@ -104,13 +104,13 @@ let
       }
       # A directory Stalwart cannot load at start stays unavailable until it restarts
       await "Authelia at ${oidc.issuer}" curl -sf -o /dev/null --max-time 5 ${oidc.issuer}/.well-known/openid-configuration
-      await "postgresql-ha-role to name the HA primary" grep -qs '^HA_PRIMARY=.' ${primary-env}
-      primary=$(sed -n 's/^HA_PRIMARY=//p' ${primary-env})
+      # the unit is restarted once site.databases.servers.primary-env names it
+      await "the primary to be named" test -n "''${PGHOST:-}"
       # The leader creates the roles its own generation lists, so a host deployed before it waits
-      has_database() { PGCONNECT_TIMEOUT=5 psql -w -h "$primary.internal" -p ${toString ports.ha-postgres.port} -d ${user} -Atqc 'SELECT 1' >/dev/null 2>&1; }
-      await "$primary to create the ${user} database, as it does once it runs this generation" has_database
-      jq -n --arg host "$primary.internal" '{
-        "@type": "PostgreSql", host: $host, port: ${toString ports.ha-postgres.port},
+      has_database() { PGCONNECT_TIMEOUT=5 psql -w -d ${user} -Atqc 'SELECT 1' >/dev/null 2>&1; }
+      await "$PGHOST to create the ${user} database, as it does once it runs this generation" has_database
+      jq -n --arg host "$PGHOST" --argjson port "$PGPORT" '{
+        "@type": "PostgreSql", $host, $port,
         database: "${user}", authUsername: "${user}", authSecret: {"@type": "None"}
       }' >"$RUNTIME_DIRECTORY/config.json"
       # The previous generation's settings, which the provisioner retracts against until it has its own record
@@ -142,7 +142,7 @@ in {
       ++ stalwart-dkim
       ++ client-srv
       ++ lib.optionals (relay != null) relay.records;
-  } (lib.mkIf config.site.ha.may-serve {
+  } (lib.mkIf databases.may-serve {
     assertions = [
       {
         assertion = max-message-bytes <= gateway.max-object-bytes;
@@ -187,10 +187,7 @@ in {
       group = user;
     };
     users.groups.${user} = { };
-    services.ha.postgres = {
-      databases = [ user ];
-      track-primary = [ "stalwart" ];
-    };
+    services.databases.track-primary = [ "stalwart" ];
     environment.systemPackages = [ cli ];
     # Stalwart rotates its log daily but never deletes one
     systemd.tmpfiles.rules = [ "e ${log-dir} - - - 30d" ];
@@ -198,10 +195,11 @@ in {
       description = "Stalwart mail server";
       wantedBy = [ "multi-user.target" ];
       wants = [ "network-online.target" ];
-      after = [ "network-online.target" "authelia-main.service" "valkey-ha.service" "s3-overflow.service" ];
+      after = [ "network-online.target" "authelia-main.service" "s3-overflow.service" ]
+        ++ lib.optional databases.replicated "valkey-ha.service";
       environment = {
         STALWART_PUBLIC_URL = "https://${hostname}";
-        STALWART_ROLE = if this-host == config.site.ha.primary then "scheduler" else "worker";
+        STALWART_ROLE = if this-host == databases.primary then "scheduler" else "worker";
         # Default roles are made once, at the first start, so each start gives them the permissions
         # releases since have added
         STALWART_UPDATE_ROLE_PERMISSIONS = "true";

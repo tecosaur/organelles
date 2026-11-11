@@ -13,9 +13,9 @@
     usesStateDir = false;
     subdomain = "auth";
     port = 9091;
-    # The API, beside the primary: a relay to the local instance, run where the data is served
-    ports.api = { port = 9093; unit = "authelia-api"; exposure = "mesh"; hosts = config.site.ha.preference; clients.caddy = config.site.hosts; };
-    clients.authelia-api = config.site.ha.preference;
+    # The API, beside the primary: a relay to the local instance, run where the databases are served
+    ports.api = { port = 9093; unit = "authelia-api"; exposure = "mesh"; hosts = config.site.databases.hosts; clients.caddy = config.site.hosts; };
+    clients.authelia-api = config.site.databases.hosts;
     secrets = {
       jwt = { kind = "key"; generate = "rand"; };
       oidc-hmac = { kind = "key"; generate = "rand"; };
@@ -26,11 +26,11 @@
     mail = { sender = "noreply"; units = [ "authelia-main" ]; };
   };
   config.site = let hosts = config.site.apps.authelia.hosts; in {
-    ports = {
-      ha-postgres.clients.authelia-main = hosts;
-      ha-valkey.clients.authelia-main = hosts;
+    databases = {
+      postgres.authelia = { units.authelia-main = hosts; local-commits = true; };
+      # its sessions, as the default user
+      valkey.default.units.authelia-main = hosts;
     };
-    secrets.valkey-ha.units.authelia-main = hosts;
     apps.lldap = {
       ports.ldap.clients.authelia-main = hosts;
       secrets.admin-password.units.authelia-main = hosts;

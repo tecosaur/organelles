@@ -4,7 +4,7 @@
 # goes first since Caddy keeps the source order of handles it cannot rank by a single path.
 
 let
-  inherit (config.site) ha;
+  inherit (config.site) databases;
   this-host = config.site.server.host;
   # hosts is filled only in the flake's final evaluation; before it, enabled says what runs here
   runs-here = app: if app.hosts == [ ] then app.enabled else lib.elem this-host app.hosts;
@@ -25,7 +25,7 @@ let
   # An app's instances: this host's first, unless it prefers the primary, then in preference order
   instances = app: let
     hosts = lib.unique (lib.optional (!app.prefersPrimary && lib.elem this-host app.hosts) this-host
-      ++ lib.filter (host: lib.elem host app.hosts) ha.preference ++ app.hosts);
+      ++ lib.filter (host: lib.elem host app.hosts) databases.hosts ++ app.hosts);
   in if lib.length hosts < 2 then [ ":${toString app.port}" ]
     else map (host: "${host}.internal:${toString app.port}") hosts;
   balancing = upstreams: lib.optionalString (lib.length upstreams > 1) failover;
@@ -35,7 +35,7 @@ let
     }
   '';
   upstream = app: let to = instances app; in { to = toString to; balancing = balancing to; };
-  reverse-proxy = app: if app.followsPrimary then ha.primary-proxy app.port else proxy-to (instances app);
+  reverse-proxy = app: if app.followsPrimary then databases.primary-proxy app.port else proxy-to (instances app);
   branding-handle = path: file: let
     directory = lib.hasSuffix "/" file;
     prefix = lib.removeSuffix "/" (lib.head (builtins.match "([^*]*/).*" path));
@@ -62,7 +62,7 @@ in {
       default = upstream;
       description = ''
         An app's instances for a Caddy proxy: `to`, this host's first, unless
-        the app prefers the primary, then those in site.ha.preference order, and
+        the app prefers the primary, then those in site.databases.hosts order, and
         their `balancing`, the settings trying them in order where there are several.
       '';
     };

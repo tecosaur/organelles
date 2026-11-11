@@ -4,8 +4,8 @@
 # brings a stale master back.
 
 let
-  cfg = config.services.ha.valkey;
-  inherit (config.site.ha) primary members preference voters;
+  inherit (config.site.ha) members preference voters;
+  inherit (config.site.databases) primary;
   inherit (config.site) ports;
   this-host = config.site.server.host;
   package = pkgs.valkey;
@@ -24,13 +24,13 @@ let
       [ -n "$master" ] && { echo "$master"; exit; }
     done
     for host in ${toString (map address (lib.unique (preference ++ members)))}; do
-      [ "$(ask "$host" ${toString ports.ha-valkey.port} ROLE | head -1)" = master ] && { echo "$host ${toString ports.ha-valkey.port}"; exit; }
+      [ "$(ask "$host" ${toString ports.valkey.port} ROLE | head -1)" = master ] && { echo "$host ${toString ports.valkey.port}"; exit; }
     done
-    echo "${address primary} ${toString ports.ha-valkey.port}"
+    echo "${address primary} ${toString ports.valkey.port}"
   '';
   valkey-conf = pkgs.writeText "valkey-ha.conf" ''
     bind ${address this-host} 127.0.0.1
-    port ${toString ports.ha-valkey.port}
+    port ${toString ports.valkey.port}
     dir /var/lib/valkey-ha
     appendonly yes
     replica-announce-ip ${address this-host}
@@ -40,8 +40,8 @@ let
   '';
   # Passwords are read from credentials at start, so none reaches the store
   user-lines = lib.concatStringsSep "\n  " (lib.mapAttrsToList (name: user:
-    "printf 'user %s on >%s %s\\n' ${name} \"$(< \"$CREDENTIALS_DIRECTORY/valkey-${name}\")\" "
-    + lib.escapeShellArg "${user.keys} ${user.channels} ${user.commands}") cfg.users);
+    "printf 'user %s on >%s %s\\n' ${name} \"$(< \"$CREDENTIALS_DIRECTORY/valkey-${name}\")\" ${lib.escapeShellArg user.acl}")
+    config.site.databases.valkey);
   service = {
     wantedBy = [ "multi-user.target" ];
     wants = [ "network-online.target" ];
@@ -54,47 +54,7 @@ let
     };
   };
 in {
-  options.services.ha.valkey.users = lib.mkOption {
-    type = lib.types.attrsOf (lib.types.submodule {
-      options = {
-        keys = lib.mkOption {
-          type = lib.types.str;
-          example = "~app:*";
-          description = "ACL key patterns";
-        };
-        channels = lib.mkOption {
-          type = lib.types.str;
-          default = "resetchannels";
-          example = "&app.events";
-          description = "ACL Pub/Sub channel patterns";
-        };
-        commands = lib.mkOption {
-          type = lib.types.str;
-          example = "+@read +@write";
-          description = "ACL command rules";
-        };
-      };
-    });
-    default = { };
-    description = ''
-      Valkey users beside the default one, each with a password from
-      `keys/valkey-<name>.age`.
-    '';
-  };
-  config = lib.mkIf (primary != null) (lib.mkMerge [
-    {
-      services.ha.valkey.users = {
-        stalwart = {
-          keys = "~*";
-          channels = "&stwt.agora";
-          commands = "+@all -@dangerous +eval +evalsha +scan +info +role";
-        };
-        s3-overflow = {
-          keys = "~s3o:*";
-          commands = "+@read +@write +@scripting +@connection -@dangerous +time +wait +role";
-        };
-      };
-    }
+  config = lib.mkIf config.site.databases.replicated (lib.mkMerge [
     (lib.mkIf (lib.elem this-host (members ++ voters)) {
       environment.systemPackages = [ package ];
       users.users.valkey-ha = {
@@ -107,11 +67,10 @@ in {
       systemd.services.valkey-ha = lib.recursiveUpdate service {
         description = "Replicated Valkey";
         script = ''
-          export VALKEYCLI_AUTH="$(< "$CREDENTIALS_DIRECTORY/${config.site.secrets.valkey-ha.credential-name}")"
+          export VALKEYCLI_AUTH="$(< "$CREDENTIALS_DIRECTORY/${config.site.secrets.valkey-default.credential-name}")"
           read -r master port < <(${current-master})
           {
             echo 'include "${valkey-conf}"'
-            echo "requirepass $VALKEYCLI_AUTH"
             echo "masterauth $VALKEYCLI_AUTH"
             ${user-lines}
             [ "$master" = ${address this-host} ] || echo "replicaof $master $port"
@@ -133,7 +92,7 @@ in {
         after = [ "valkey-ha.service" "postgresql-ha-role.service" ];
         path = [ package ];
         script = ''
-          export VALKEYCLI_AUTH="$(< "$CREDENTIALS_DIRECTORY/${config.site.secrets.valkey-ha.credential-name}")"
+          export VALKEYCLI_AUTH="$(< "$CREDENTIALS_DIRECTORY/${config.site.secrets.valkey-default.credential-name}")"
           cli() { valkey-cli -t 2 --raw "$@" 2>/dev/null; }
           sentinel() {
             for host in ${toString (map address voters)}; do
@@ -143,10 +102,10 @@ in {
           stray=0
           while :; do
             # absent until Patroni has a leader
-            serving=$(sed -n 's/^HA_SERVING=//p' ${config.services.ha.postgres.primary-env} 2>/dev/null) || serving=
+            serving=$(sed -n 's/^DB_SERVING=//p' ${config.site.databases.servers.primary-env} 2>/dev/null) || serving=
             if [ "$serving" = ${this-host} ]; then want=1; else want=${toString (priority this-host)}; fi
-            [ "$(cli -p ${toString ports.ha-valkey.port} CONFIG GET replica-priority | tail -1)" = "$want" ] ||
-              cli -p ${toString ports.ha-valkey.port} CONFIG SET replica-priority "$want" >/dev/null || true
+            [ "$(cli -p ${toString ports.valkey.port} CONFIG GET replica-priority | tail -1)" = "$want" ] ||
+              cli -p ${toString ports.valkey.port} CONFIG SET replica-priority "$want" >/dev/null || true
             master=$(sentinel get-master-addr-by-name ha | head -1)
             if [ "$serving" = ${this-host} ] && [ -n "$master" ] && [ "$master" != ${address this-host} ]; then
               if [ $((++stray)) -ge 6 ]; then
@@ -169,7 +128,7 @@ in {
       systemd.services.valkey-ha-sentinel = lib.recursiveUpdate service {
         description = "Sentinel for the replicated Valkey";
         script = ''
-          export VALKEYCLI_AUTH="$(< "$CREDENTIALS_DIRECTORY/${config.site.secrets.valkey-ha.credential-name}")"
+          export VALKEYCLI_AUTH="$(< "$CREDENTIALS_DIRECTORY/${config.site.secrets.valkey-default.credential-name}")"
           read -r master port < <(${current-master})
           cat > "$STATE_DIRECTORY/sentinel.conf" <<EOF
           bind ${address this-host} 127.0.0.1

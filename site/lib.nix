@@ -311,7 +311,7 @@ rec {
       };
       exposure = lib.mkOption {
         type = lib.types.enum [ "local" "mesh" "public" ];
-        defaultText = lib.literalMD "the mesh when the app follows the primary or runs on several hosts, else local";
+        defaultText = lib.literalMD "the mesh when the app runs on several hosts, else local";
         description = "Who may reach the main listener; see `ports`";
       };
       clients = lib.mkOption {
@@ -341,7 +341,7 @@ rec {
         type = lib.types.bool;
         default = followsPrimary;
         description = ''
-          Whether the ${name} app runs beside the replicated Postgres primary
+          Whether the ${name} app runs beside the shared Postgres primary
           alone, every host's Caddy proxying to it there.
         '';
       };

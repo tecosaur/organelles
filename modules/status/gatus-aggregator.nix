@@ -1,7 +1,7 @@
 { config, lib, pkgs, ... }:
 
 # gatus-aggregator: every host reports on its own apps and units and on
-# others' from outside; beside Gatus, wherever the HA primary is, the
+# others' from outside; beside Gatus, wherever the primary is, the
 # aggregator derives the fleet view and sends alerts.
 
 let
@@ -29,12 +29,12 @@ let
   };
 in {
   systemd.services.gatus-aggregator-report = service "report" "Status reports to Gatus";
-  services.ha.postgres.probe-roles = [ "gatus-aggregator-report" ];
+  services.databases.postgres.probe-roles = [ "gatus-aggregator-report" ];
   services.postgresql.ensureUsers = lib.mkIf config.services.postgresql.enable [ { name = "gatus-aggregator-report"; } ];
 
-  services.ha.postgres.follow-primary = lib.mkIf config.site.ha.may-serve [ "gatus-aggregator-aggregate" ];
+  services.databases.follow-primary = lib.mkIf config.site.databases.may-serve [ "gatus-aggregator-aggregate" ];
 
-  systemd.services.gatus-aggregator-aggregate = lib.mkIf config.site.ha.may-serve (lib.recursiveUpdate
+  systemd.services.gatus-aggregator-aggregate = lib.mkIf config.site.databases.may-serve (lib.recursiveUpdate
     (service "aggregate" "Status aggregation and alerts beside Gatus") {
       after = [ "network-online.target" "dns-pooler.service" "gatus.service" ];
       # where the page's announcement outlasts a restart

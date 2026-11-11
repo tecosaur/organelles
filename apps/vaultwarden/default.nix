@@ -1,16 +1,14 @@
 { config, lib, pkgs, ... }:
 
-# Beside the HA primary alone, so a Login With Device approval
+# Beside the primary alone, so a Login With Device approval
 # and the WebSocket awaiting it meet in one process. Attachments and Sends
 # stay on whichever host received them.
 
 let
   app = config.site.apps.vaultwarden;
 in {
-  config = lib.mkIf config.site.ha.may-serve {
+  config = lib.mkIf config.site.databases.may-serve {
     site.apps.vaultwarden.enabled = true;
-
-    services.ha.postgres.databases = [ "vaultwarden" ];
 
     services.vaultwarden = {
       enable = true;

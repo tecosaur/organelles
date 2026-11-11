@@ -4,11 +4,15 @@ let
   authelia = config.site.apps.authelia;
   authelia-port = authelia.port;
   authelia-user = "authelia";
-  inherit (config.site.ha) members voters;
-  inherit (config.site) ports;
+  inherit (config.site) databases ports;
+  inherit (config.site.ha) voters;
   this-host = config.site.server.host;
   sentinels = map (host: { host = "${host}.internal"; port = ports.ha-sentinel.port; })
     (lib.optional (lib.elem this-host voters) this-host ++ lib.remove this-host voters);
+  # this host's own instance by socket, where it runs one, then the rest
+  postgres = let hosts = databases.servers.hosts; in
+    lib.optional (lib.elem this-host hosts) "unix://${databases.servers.postgres.socket-dir}/.s.PGSQL.${toString ports.postgres.port}"
+    ++ map (host: "tcp://${host}.internal:${toString ports.postgres.port}") (lib.remove this-host hosts);
   # for the status page's anonymous probes; a path of / is the app itself
   health-rules = lib.concatMap (app: lib.optional (app.health != null && !lib.elem app.health.path [ null "/" ]) {
     inherit (app) domain;
@@ -50,13 +54,16 @@ in {
             default_redirection_url = "https://${config.site.domain}/reload";
           })
         ];
-        redis = {
+        redis = if databases.replicated then {
           inherit (lib.head sentinels) host port;
           high_availability = {
             sentinel_name = "ha";
             nodes = lib.tail sentinels;
             route_by_latency = true;
           };
+        } else {
+          host = "${databases.primary}.internal";
+          inherit (ports.valkey) port;
         };
       };
       access_control = {
@@ -96,7 +103,7 @@ in {
         };
       };
       authentication_backend.ldap = {
-        address = "ldap://{{ env \"HA_SERVING\" }}.internal:${toString config.services.lldap.settings.ldap_port}";
+        address = "ldap://{{ env \"DB_SERVING\" }}.internal:${toString config.services.lldap.settings.ldap_port}";
         base_dn = config.services.lldap.settings.ldap_base_dn;
         users_filter = "(&({username_attribute}={input})(objectClass=person))";
         groups_filter = "(member={dn})";
@@ -105,9 +112,8 @@ in {
         user = "uid=${config.services.lldap.settings.ldap_user_dn},ou=people,${config.services.lldap.settings.ldap_base_dn}";
       };
       storage.postgres = {
-        address = "unix://${config.services.ha.postgres.socket-dir}/.s.PGSQL.${toString ports.ha-postgres.port}";
-        servers = map (host: { address = "tcp://${host}.internal:${toString ports.ha-postgres.port}"; })
-          (lib.remove this-host members);
+        address = lib.head postgres;
+        servers = map (address: { inherit address; }) (lib.tail postgres);
         database = authelia-user;
         username = authelia-user;
       };
@@ -142,26 +148,23 @@ in {
     };
     environmentVariables = {
       AUTHELIA_AUTHENTICATION_BACKEND_LDAP_PASSWORD_FILE = config.site.apps.lldap.secrets.admin-password.credentials.authelia-main;
-      AUTHELIA_SESSION_REDIS_PASSWORD_FILE = config.site.secrets.valkey-ha.credentials.authelia-main;
-      AUTHELIA_SESSION_REDIS_HIGH_AVAILABILITY_SENTINEL_PASSWORD_FILE = config.site.secrets.valkey-ha.credentials.authelia-main;
+      AUTHELIA_SESSION_REDIS_PASSWORD_FILE = config.site.secrets.valkey-default.credentials.authelia-main;
       # passes over hosts that can't take writes
       PGTARGETSESSIONATTRS = "read-write";
       X_AUTHELIA_CONFIG_FILTERS = "template";
+    } // lib.optionalAttrs databases.replicated {
+      AUTHELIA_SESSION_REDIS_HIGH_AVAILABILITY_SENTINEL_PASSWORD_FILE = config.site.secrets.valkey-default.credentials.authelia-main;
     };
   };
 
-  services.ha.postgres = {
-    databases = [ authelia-user ];
-    local-commits = [ authelia-user ];
-    track-primary = [ "authelia-main" ];
-  };
+  services.databases.track-primary = [ "authelia-main" ];
 
   systemd.services.authelia-main = {
     after = [ "lldap.service" ];
     # its LDAP check at startup is fatal, and LLDAP may still be starting
     serviceConfig.ExecStartPre = lib.mkBefore [
       (pkgs.writeShellScript "authelia-await-ldap" ''
-        until (: </dev/tcp/"$HA_SERVING".internal/${toString config.services.lldap.settings.ldap_port}) 2>/dev/null; do sleep 1; done
+        until (: </dev/tcp/"$DB_SERVING".internal/${toString config.services.lldap.settings.ldap_port}) 2>/dev/null; do sleep 1; done
       '')
     ];
   };
@@ -174,12 +177,12 @@ in {
 
   # Only the API needs the primary, the page being the same from any instance: its port listens on
   # the serving host alone, so the others refuse it and Caddy passes them over
-  services.ha.postgres.follow-primary-sockets = lib.mkIf config.site.ha.may-serve [ "authelia-api" ];
-  systemd.sockets.authelia-api = lib.mkIf config.site.ha.may-serve {
+  services.databases.follow-primary-sockets = lib.mkIf databases.may-serve [ "authelia-api" ];
+  systemd.sockets.authelia-api = lib.mkIf databases.may-serve {
     description = "Authelia's API, beside the primary";
     listenStreams = [ (toString authelia.ports.api.port) ];
   };
-  systemd.services.authelia-api = lib.mkIf config.site.ha.may-serve {
+  systemd.services.authelia-api = lib.mkIf databases.may-serve {
     description = "Authelia's API, relayed beside the primary";
     requires = [ "authelia-api.socket" ];
     after = [ "authelia-api.socket" "authelia-main.service" ];
@@ -193,7 +196,7 @@ in {
   };
   services.caddy.virtualHosts.${authelia.domain}.extraConfig = ''
     handle /api/* {
-      ${config.site.ha.primary-proxy authelia.ports.api.port}
+      ${databases.primary-proxy authelia.ports.api.port}
     }
   '';
 }
