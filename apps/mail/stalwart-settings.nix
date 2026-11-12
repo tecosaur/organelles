@@ -41,6 +41,8 @@ addressing:
   app-senders,
   # Where mail to an app's noreply@<subdomain> is pointed
   contact,
+  # The inbound MTA-STS policy: { mode; max-age-seconds; mx; }
+  mta-sts,
 }:
 let
   inherit (lib) concatStringsSep filter optional optionals;
@@ -245,6 +247,11 @@ let
     (update "SystemSettings" {
       defaultHostname = hostname;
       defaultDomainId = domain-ref domain;
+    })
+    (update "MtaSts" {
+      inherit (mta-sts) mode;
+      maxAge = mta-sts.max-age-seconds * 1000;
+      mxHosts = set mta-sts.mx;
     })
     (set-objects "reconcile" "NetworkListener" [ "name" ] (lib.mapAttrs (name: port: listener-kinds.${name} // {
       inherit name;

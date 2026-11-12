@@ -28,6 +28,10 @@ let
   file = secret: { "@type" = "File"; filePath = credential secret; };
   auth-domain = lib.removePrefix "https://" oidc.issuer;
   mail-host = "${hostname}.";
+  # Inbound MTA-STS (RFC 8461), which Stalwart serves. The TXT id need only change with the
+  # policy, and Stalwart's own is an unstable Rust hash, so it is derived from this instead.
+  mta-sts = { mode = "enforce"; max-age-seconds = 86400; mx = [ hostname ]; };
+  mta-sts-id = builtins.substring 0 16 (builtins.hashString "sha256" (builtins.toJSON mta-sts));
   record = name: type: value: { inherit name type value; };
   mx-names = [ "@" "*" "www" ];
   # TXT data stays unquoted: each adapter splits it into strings itself
@@ -45,7 +49,7 @@ let
   app-senders = lib.mapAttrsToList (name: _: config.site.mail.connections.${name}.from)
     (lib.filterAttrs (_: app: app.mail != null && app.mail.sender != null) config.site.apps);
   settings = pkgs.writeText "stalwart-settings.ndjson" (import ./stalwart-settings.nix { inherit lib; } addressing {
-    inherit domain hostname public-ports dkim-selector max-message-bytes filing-script log-dir;
+    inherit domain hostname public-ports dkim-selector max-message-bytes filing-script log-dir mta-sts;
     mesh-address = config.site.mesh.addresses.${this-host};
     acme = { contact = "postmaster@${domain}"; bunny-key = credential config.site.secrets.bunny-dns-key; };
     # A lone Stalwart keeps it in memory, with nothing to coordinate
@@ -138,6 +142,8 @@ in {
       ++ [
         (record "@" "TXT" "v=spf1 ${if relay == null then "mx" else relay.spf} ?all")
         (record "_dmarc" "TXT" "v=DMARC1; p=none")
+        (record "_mta-sts" "TXT" "v=STSv1; id=${mta-sts-id}")
+        (record "_smtp._tls" "TXT" "v=TLSRPTv1; rua=mailto:postmaster@${domain}")
       ]
       ++ stalwart-dkim
       ++ client-srv

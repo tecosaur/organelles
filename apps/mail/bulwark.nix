@@ -75,6 +75,12 @@ in {
             reverse_proxy ${bulwark}
         }
       '';
+      "mta-sts.${domain}".extraConfig = ''
+        ${to-stalwart [ "/.well-known/mta-sts.txt" ]}
+        handle {
+            respond 404
+        }
+      '';
     } // lib.genAttrs [ "autoconfig.${domain}" "autodiscover.${domain}" ] (_: {
       extraConfig = ''
         ${to-stalwart autoconfig-paths}
