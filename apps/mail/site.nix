@@ -58,6 +58,7 @@ let
 in {
   options.site.apps.mail = site-lib.mkAppOption {
     name = "Mail";
+    guide = ./guide.html;
     homepage = "https://stalw.art";
     description = "mail server and web client";
     service = "stalwart";
