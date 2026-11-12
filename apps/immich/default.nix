@@ -32,6 +32,8 @@ in {
       passwordLogin = {
         enabled = false;
       };
+      # bcachefs verifies every read against its own checksums, and its scrub reads the rest
+      integrityChecks.checksumFiles.enabled = false;
       server = {
         externalDomain = app.url;
       };
