@@ -8,13 +8,13 @@
 buildHomeAssistantComponent rec {
   owner = "siku2";
   domain = "vzug";
-  version = "0.4.6";
+  version = "0.5.0";
 
   src = fetchFromGitHub {
     inherit owner;
     repo = "hass-vzug";
     tag = "v${version}";
-    hash = "sha256-CxXl3d0b6YSV/24z4jpsA8MAU4U69wnb9UTuQMWkU/s=";
+    hash = "sha256-ESegI0Yw1P53Pweymm4ZvcBDrhMbeXRu2OOt4KG55kM=";
   };
 
   dependencies = with home-assistant.python3Packages; [ json-repair ];
