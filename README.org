@@ -1,17 +1,22 @@
-#+title: Golgi
+#+title: Organelles
 
 #+begin_quote
-The Golgi apparatus is responsible for transporting, modifying, and packaging
-proteins and lipids into vesicles for delivery to targeted destinations. It is
-located in the cytoplasm next to the endoplasmic reticulum and near the cell
-nucleus. --- Encyclopedia Britanica
+An organelle is a subcellular structure that has one or more specific jobs to
+perform in the cell, much like an organ does in the body. — National Human Genome Research Institute
 #+end_quote
 
-This server will be an apparatus for better managing my personal projects. It
-sits near the idea-generation and idea-translation components of my workflow. It
-will be responsible for storing my work as a remote repository, transporting the
-work between local development machines, and as a web server to improve the ease
-of access of my work, both for myself and anybody curious.
+*Overengineered Repository Governing a NixOS Ecosystem; Largely Ludicrous Experiments in Self-hosting.*
+
+Much like a cell, my computing infrastructure consists of a collection of
+specialised components, each with its own responsibilities. Some store and
+organise information, others transport it, and still others provide the
+machinery that keeps everything running.
+
+Together, these machines support my personal projects and provide a growing
+collection of services for myself, friends, and family. This repository
+describes their configuration and coordinates their operation, using NixOS to
+make the resulting ecosystem of services reproducible, maintainable, and perhaps
+a bit more elaborate than strictly necessary.
 
 Alternatively put, this is an experiment in [[https://bytes.zone/posts/clown-computing/][Clown Computing]] 🤡
 
@@ -19,38 +24,22 @@ Let's hope it works well!
 
 * Setup
 
-I'm using Hetnezer as a host. Their value for money with VPS offerings is pretty
-alluring.
+There are two ways to bring up a new machine. Where you can boot your own
+media, build an installer image with [[file:create-installer.sh][create-installer.sh]], boot it, ssh in as root,
+and run =./conf/install.sh=. Where you can't, start from the provider's own image
+and convert it in place, as described in that platform's hardware module (for
+instance [[file:modules/hardware-oracle.nix][hardware-oracle.nix]]).
 
-Additionally I've found a handy [[https://ayats.org/blog/deploy-rs-example/][blog post]] about =deploy-rs= on Hetzner, which is
-remarkably convenient. They were even kind enough to link to a [[https://github.com/viperML/deploy-rs-example][repo]] which I've
-shamelessly used as a starting point.
-
-Unfortunately, Hetnezer doesn't offer a NixOS image, but they do allow you to
-mount an ISO to a server, and so using =create-installer.sh= we can create a NixOS
-installation image with a few extras. With this, set up is as simple as ssh-ing
-to the server and running:
-
-#+begin_src shell
-./conf/install.sh
-#+end_src
-
-The boot drive of nucleus is disposable. Service state lives under
-=/data/services=, and the handful of host files a reinstall would otherwise
-lose (the uid/gid maps that keep file ownership stable, and the SSH host
-key) are copied to =/data/host= each time the deployed configuration
-activates. Should the boot drive die, replace it and run the installer
-again: it mounts the existing =Data= filesystem, offers to restore whatever it
-finds under =/data/host=, and the rebuilt system comes up as the same host.
-Deselect the SSH key there to rotate it, in which case the secrets need
+On a machine whose state lives on a =Data= volume, the boot drive is
+disposable. Service state lives under =/data/services=, and the handful of host
+files a reinstall would otherwise lose (the uid/gid maps that keep file
+ownership stable, and the SSH host key) are copied to =/data/host= each time the
+deployed configuration activates. Should the boot drive die, replace it and run
+the installer again: it mounts the existing =Data= filesystem, offers to restore
+whatever it finds under =/data/host=, and the rebuilt system comes up as the same
+host. Deselect the SSH key there to rotate it, in which case the secrets need
 re-encrypting to the new key.
 
 * Deploying
 
-Deploying is simply a matter of entering the deploy nix shell =nix develop= and
-=deploy .#golgi.system=.
-
-In order for this image to be built, the sandbox will need to be set to =false= or
-=relaxed= (for the custom zsh build). This can be done by adding the line ~sandbox = relaxed~
-to =/etc/nix/nix.conf=. Just note that the nix-daemon will need to be restarted
-for this new setting to take full effect.
+From =nix develop=, run =deploy .#<machine>= for one machine, or =deploy .= for all.
