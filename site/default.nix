@@ -102,6 +102,15 @@ in {
         '';
       };
     };
+    well-known = lib.mkOption {
+      type = lib.types.attrsOf lib.types.str;
+      default = { };
+      example = { jmap = "https://mail.example.com/.well-known/jmap"; };
+      description = ''
+        Where the site domain's /.well-known/<name> redirects, by name: discovery
+        that clients start from an address's own domain.
+      '';
+    };
     status = {
       units = lib.mkOption {
         type = lib.types.listOf (lib.types.submodule {

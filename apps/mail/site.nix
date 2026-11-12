@@ -360,6 +360,7 @@ in {
         };
       })
     ];
+    well-known = lib.mkIf config.site.apps.mail.enabled { jmap = "${config.site.apps.mail.url}/.well-known/jmap"; }; # RFC 8620 §2.2
     ports.meilisearch.clients.stalwart = hosts;
     secrets.bunny-dns-key.units.stalwart = hosts;
   };

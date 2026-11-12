@@ -64,7 +64,8 @@ let
     '';
 in {
   services.caddy = {
-      virtualHosts.${config.site.domain}.extraConfig = ''
+      virtualHosts.${config.site.domain}.extraConfig = lib.concatLines (lib.mapAttrsToList
+        (name: url: "redir /.well-known/${name} ${url}") config.site.well-known) + ''
         @browser-auth {
             header User-Agent *Mozilla*
             header Cookie *authelia_session*
