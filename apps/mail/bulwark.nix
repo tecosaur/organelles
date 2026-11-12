@@ -13,7 +13,9 @@ let
   # /api/account/* and /api/auth/*, so of those only Stalwart's exact paths.
   stalwart-paths = [
     "/jmap" "/jmap/*"
-    "/.well-known/jmap" "/.well-known/oauth-authorization-server" "/.well-known/oauth-protected-resource*"
+    # Not its oauth-authorization-server: its own OAuth can't sign these users in, and
+    # oauth-protected-resource sends clients to Authelia instead
+    "/.well-known/jmap" "/.well-known/oauth-protected-resource*"
     "/admin*" "/account*"
     "/api/account" "/api/auth" "/api/auth/client"
     "/api/calendar/*" "/api/discover/*" "/api/live/*" "/api/schema" "/api/schema/*" "/api/token/*"
