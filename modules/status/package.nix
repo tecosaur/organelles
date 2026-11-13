@@ -5,14 +5,14 @@
 
 buildGoModule {
   pname = "gatus-aggregator";
-  version = "0.1.0-unstable-2026-10-31";
+  version = "0.1.0-unstable-2026-11-13";
 
   src = fetchFromGitea {
     domain = "code.tecosaur.net";
     owner = "tec";
     repo = "gatus-aggregator";
-    rev = "d168bf37a0784f4b1f156e0f685f5c8d15f96d0c";
-    hash = "sha256-vRKpCP1ap7lvnTkqB/mBSzNKxWe/+Td1DqdeQoHIz+E=";
+    rev = "42e59c6b622fe60240e83088957fb9dc73a0b73c";
+    hash = "sha256-IP6jBnQBDGgTyU4BwNUg/Hb0uX6zxGklsf/QbnR1xPs=";
   };
 
   # the standard library alone

@@ -59,7 +59,7 @@ let
     provider = {
       name = "bunny";
       credential_file = credential-path;
-      monitoring.type = "ping";
+      monitoring.type = "http";
     };
     peers = {
       listen = mesh-endpoint this-host;
